@@ -18,7 +18,7 @@ export function createPaperChat(slug: MaybeRefOrGetter<string>, opts: { open: ()
     transport: new DefaultChatTransport({ api: `/api/papers/${toValue(slug)}/chat` }),
     onError: (error) => {
       // The route maps provider errors to one calm sentence; anything else is a network/HTTP failure.
-      toast.add({ title: 'Chat error', description: error.message || 'The chat is unavailable right now.', color: 'error', icon: 'i-lucide-circle-alert' })
+      toast.add({ title: 'Chat error', description: chatErrorMessage(error), color: 'error', icon: 'i-lucide-circle-alert' })
     }
   }))
 

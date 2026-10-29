@@ -31,3 +31,25 @@ export function splitCitations(text: string): { text?: string, id?: string }[] {
   }
   return out
 }
+
+/**
+ * One calm sentence for a failed chat turn. The AI SDK puts the raw HTTP body in `error.message`
+ * (in dev that is Nitro's JSON with a stack trace), which must never reach the UI.
+ */
+export function chatErrorMessage(error: Error | undefined): string {
+  const fallback = 'The chat is unavailable right now.'
+  if (!error?.message) {
+    return fallback
+  }
+  let body: { statusCode?: number } | undefined
+  try {
+    body = JSON.parse(error.message)
+  } catch {
+    // Plain text: the route's own mapped sentence, or a network error.
+    return error.message.length <= 160 && !error.message.includes('\n') ? error.message : fallback
+  }
+  if (body?.statusCode === 404) {
+    return 'This paper has no digest to chat with yet.'
+  }
+  return fallback
+}

@@ -15,6 +15,9 @@ const SUGGESTIONS = [
   'Which results here are novel, and which are standard tools?'
 ]
 
+// UChatPrompt renders error.message verbatim; give it the calm sentence, never the raw response body.
+const promptError = computed(() => error.value ? new Error(chatErrorMessage(error.value)) : undefined)
+
 const busy = computed(() => status.value === 'submitted' || status.value === 'streaming')
 
 const { copy } = useClipboard({ legacy: true })
@@ -87,7 +90,7 @@ function send(text: string) {
 
     <UChatPrompt
       v-model="input"
-      :error="error"
+      :error="promptError"
       placeholder="Ask about this paper…"
       variant="subtle"
       :rows="1"
