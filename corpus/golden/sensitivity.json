@@ -1,0 +1,15 @@
+{
+  "slug": "sensitivity",
+  "source": "arXiv 1907.00847 (sensitivity_final.tex, 330 lines), checked by hand Oct 29",
+  "notes": "Eight statement environments, five labeled. Only two proofs carry \\ref: the proof of thm_main (\\ref{lem_eig} twice, \\ref{lem_key} twice; it attaches by its [Proof of Theorem \\ref{thm_main}] title). The proof of lem_key and of lem_eig cite nothing. 'By Cauchy's Interlace Theorem' in the main proof is prose (inferred lem-cauchy, not diffed). The three unlabeled environments get synthetic ids in section 1: the Sensitivity Conjecture (conjecture env, mapped to kind proposition), the Gotsman-Linial theorem, and the s(f) >= sqrt(deg f) theorem. The statement after the main proof is a bold 'Remark.' paragraph, not an environment.",
+  "nodes": [
+    { "id": "thm-main", "kind": "theorem", "deps_paper": ["lem-eig", "lem-key"] },
+    { "id": "unlabeled-1-1", "kind": "proposition", "deps_paper": [] },
+    { "id": "unlabeled-1-2", "kind": "theorem", "deps_paper": [] },
+    { "id": "unlabeled-1-3", "kind": "theorem", "deps_paper": [] },
+    { "id": "thm-sensitivity", "kind": "theorem", "deps_paper": [] },
+    { "id": "lem-cauchy", "kind": "lemma", "deps_paper": [] },
+    { "id": "lem-eig", "kind": "lemma", "deps_paper": [] },
+    { "id": "lem-key", "kind": "lemma", "deps_paper": [] }
+  ]
+}

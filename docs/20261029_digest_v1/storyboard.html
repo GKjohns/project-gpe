@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPE storyboard</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg-el: #fafafa; --bg-acc: #f4f4f5; --border: #e4e4e7; --border-acc: #d4d4d8;
+    --text: #09090b; --muted: #52525b; --dim: #a1a1aa;
+    --primary: #4f46e5; --primary-soft: #eef2ff; --primary-text: #3730a3;
+    --red: #dc2626; --red-soft: #fef2f2; --amber: #d97706; --amber-soft: #fffbeb; --blue: #2563eb; --blue-soft: #eff6ff; --green: #16a34a; --green-soft: #f0fdf4;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+  }
+  html[data-theme="dark"] {
+    --bg: #09090b; --bg-el: #18181b; --bg-acc: #27272a; --border: #27272a; --border-acc: #3f3f46;
+    --text: #fafafa; --muted: #a1a1aa; --dim: #71717a;
+    --primary: #818cf8; --primary-soft: #1e1b4b; --primary-text: #c7d2fe;
+    --red: #f87171; --red-soft: #3b0a0a; --amber: #fbbf24; --amber-soft: #3a2a05; --blue: #60a5fa; --blue-soft: #0f2048; --green: #4ade80; --green-soft: #0a2e17;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  a { color: var(--primary); text-decoration: none; }
+  code, .mono { font-family: var(--mono); font-size: 12.5px; }
+  .math { font-family: "Latin Modern Math", "STIX Two Math", "Cambria Math", Georgia, serif; font-style: italic; }
+
+  /* ---------- page chrome ---------- */
+  .doc { max-width: 1240px; margin: 0 auto; padding: 32px 24px 96px; }
+  .doc-head { display:flex; justify-content: space-between; align-items: flex-start; gap: 24px; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 28px; }
+  .doc-head h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: -0.01em; }
+  .doc-head p { margin: 0; color: var(--muted); max-width: 760px; }
+  .legend { display:flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-size: 12.5px; }
+  .frame { margin: 0 0 56px; }
+  .frame-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .frame-num { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .frame-head h2 { margin: 0; font-size: 17px; }
+  .frame-cap { color: var(--muted); margin: 0 0 14px; max-width: 900px; }
+  .frame-cap b { color: var(--text); font-weight: 600; }
+  .sprint { display:inline-block; font-size: 11px; font-family: var(--mono); background: var(--bg-acc); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; color: var(--muted); margin-left: 6px; vertical-align: 1px; }
+  .onrails { font-size: 12px; color: var(--dim); margin: 8px 0 0; }
+  .onrails code { font-size: 11.5px; }
+
+  /* browser frame */
+  .browser { border: 1px solid var(--border-acc); border-radius: 10px; overflow: hidden; background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05); }
+  .browser-bar { display:flex; align-items:center; gap: 10px; padding: 8px 12px; background: var(--bg-el); border-bottom: 1px solid var(--border); }
+  .dots span { display:inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--border-acc); margin-right: 5px; }
+  .url { flex: 1; font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; }
+
+  /* ---------- Nuxt UI-ish primitives ---------- */
+  .btn { display:inline-flex; align-items:center; gap: 6px; border-radius: 6px; padding: 5px 10px; font-size: 13px; font-weight: 500; border: 1px solid transparent; cursor: pointer; background: transparent; color: var(--text); font-family: inherit; }
+  .btn.sm { padding: 3px 8px; font-size: 12px; }
+  .btn.xs { padding: 2px 7px; font-size: 11.5px; }
+  .btn.solid { background: var(--primary); color: #fff; }
+  .btn.soft { background: var(--primary-soft); color: var(--primary-text); }
+  .btn.outline { border-color: var(--border-acc); }
+  .btn.ghost:hover { background: var(--bg-acc); }
+  .btn.ghost.active { background: var(--bg-acc); }
+  .btn.neutral-soft { background: var(--bg-acc); color: var(--text); }
+  .badge { display:inline-flex; align-items:center; gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: .01em; border-radius: 5px; padding: 1px 7px; line-height: 18px; white-space: nowrap; }
+  .badge.kind { background: var(--bg-acc); color: var(--muted); font-weight: 500; }
+  .badge.novel { background: var(--primary-soft); color: var(--primary-text); }
+  .badge.routine { background: var(--bg-acc); color: var(--muted); }
+  .badge.standard { background: transparent; color: var(--muted); border: 1px solid var(--border-acc); }
+  .badge.unknown { background: transparent; color: var(--dim); border: 1px dashed var(--border-acc); }
+  .badge.high { background: var(--red-soft); color: var(--red); }
+  .badge.warn { background: var(--amber-soft); color: var(--amber); }
+  .badge.info { background: var(--blue-soft); color: var(--blue); }
+  .badge.ok { background: var(--green-soft); color: var(--green); }
+  .chip { display:inline-flex; align-items:center; gap: 5px; font-size: 12px; border: 1px solid var(--border); background: var(--bg-el); border-radius: 6px; padding: 2px 8px; cursor: pointer; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip .n { overflow: hidden; text-overflow: ellipsis; }
+  .chip:hover { border-color: var(--primary); color: var(--primary-text); }
+  .chip .k { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; display:inline-block; }
+  .dot.high { background: var(--red);} .dot.warn{ background: var(--amber);} .dot.info{ background: var(--blue);}
+  .card { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .card .card-h { padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13px; display:flex; align-items:center; justify-content: space-between; }
+  .card .card-b { padding: 12px 14px; }
+  .kbd { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--border-acc); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--muted); }
+  .sep { height: 1px; background: var(--border); }
+  .ico { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .ico.s { width: 13px; height: 13px; }
+  .muted { color: var(--muted); } .dim { color: var(--dim); }
+
+  /* ---------- dashboard layout ---------- */
+  .dash { display: grid; grid-template-columns: 300px 1fr 340px; height: 680px; }
+  .dash.no-chat { grid-template-columns: 300px 1fr; }
+  .sidebar { border-right: 1px solid var(--border); display:flex; flex-direction: column; min-width: 0; background: var(--bg-el); }
+  .sidebar-h { padding: 10px 12px; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap: 8px; height: 48px; }
+  .paper-switch { flex:1; display:flex; align-items:center; gap: 8px; border: 1px solid var(--border); background: var(--bg); border-radius: 6px; padding: 4px 8px; font-size: 13px; min-width: 0; }
+  .paper-switch b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-tools { padding: 8px 12px; display:flex; gap: 6px; align-items:center; border-bottom: 1px solid var(--border); }
+  .search { flex:1; display:flex; align-items:center; gap: 6px; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12.5px; color: var(--dim); background: var(--bg); }
+  .tree { flex: 1; overflow: auto; padding: 6px 8px; }
+  .tnode { display:flex; align-items:center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; font-size: 13px; min-width: 0; }
+  .tnode:hover { background: var(--bg-acc); }
+  .tnode.sel { background: var(--primary-soft); color: var(--primary-text); }
+  .tnode .lbl { flex:1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tnode .chev { transition: transform .12s; color: var(--dim); }
+  .tnode.open .chev { transform: rotate(90deg); }
+  .tnode .ph { width: 15px; flex:none; }
+  .tnode .mini { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 4px; line-height: 16px; }
+  .tnode .mini.novel { background: var(--primary-soft); color: var(--primary-text); }
+  .tnode .mini.lean { font-family: var(--mono); font-weight: 500; color: var(--dim); background: var(--bg-acc); }
+  .tsec { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: none; }
+  .tsec .lbl { letter-spacing: .005em; }
+  .tkids { display:none; margin-left: 10px; border-left: 1px solid var(--border); padding-left: 4px; }
+  .tkids.open { display:block; }
+  .tnode .k-ico { color: var(--dim); }
+  .tnode.lean-node { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .sidebar-f { border-top: 1px solid var(--border); padding: 8px 12px; font-size: 11.5px; color: var(--dim); display:flex; gap: 10px; }
+  .main { display:flex; flex-direction: column; min-width: 0; }
+  .navbar { height: 48px; border-bottom: 1px solid var(--border); display:flex; align-items:center; padding: 0 16px; gap: 10px; }
+  .crumbs { display:flex; align-items:center; gap: 6px; color: var(--muted); font-size: 13px; min-width: 0; flex: 1; overflow: hidden; }
+  .crumbs span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 180px; }
+  .crumbs .cur { color: var(--text); font-weight: 500; flex: 1; max-width: none; }
+  @media (max-width: 1100px) { .dash { grid-template-columns: 250px 1fr 290px; } .dash.no-chat { grid-template-columns: 250px 1fr; } }
+  .body { flex:1; overflow: auto; padding: 22px 28px 32px; }
+  .chat { border-left: 1px solid var(--border); display:flex; flex-direction: column; min-width: 0; background: var(--bg); }
+  .chat-h { height: 48px; border-bottom: 1px solid var(--border); display:flex; align-items:center; padding: 0 14px; gap: 8px; font-weight: 600; font-size: 13px; }
+  .chat-msgs { flex:1; overflow:auto; padding: 14px; display:flex; flex-direction: column; gap: 12px; }
+  .msg { font-size: 13px; line-height: 1.5; }
+  .msg.user { align-self: flex-end; background: var(--bg-acc); border-radius: 10px; padding: 8px 12px; max-width: 88%; }
+  .msg.ai { max-width: 100%; }
+  .msg.ai p { margin: 0 0 8px; }
+  .msg .nl { display:inline; background: var(--primary-soft); color: var(--primary-text); border-radius: 5px; padding: 1px 6px; font-size: 12px; font-weight: 500; cursor: pointer; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .msg .nl .ico { vertical-align: -2px; margin-right: 2px; }
+  .chat-empty { margin: auto 0; text-align:center; color: var(--muted); padding: 0 8px; }
+  .chat-empty .sugg { display:flex; flex-direction:column; gap: 6px; margin-top: 12px; }
+  .chat-empty .sugg button { text-align:left; }
+  .chat-prompt { border-top: 1px solid var(--border); padding: 10px 12px; }
+  .prompt { border: 1px solid var(--border-acc); border-radius: 8px; background: var(--bg); padding: 8px 10px; display:flex; flex-direction: column; gap: 6px; }
+  .prompt textarea { border: 0; outline: 0; resize: none; font-family: inherit; font-size: 13px; background: transparent; color: var(--text); height: 38px; }
+  .prompt-f { display:flex; justify-content: space-between; align-items:center; }
+  .prompt-f .model { font-size: 11px; color: var(--dim); font-family: var(--mono); }
+  .send { width: 26px; height: 26px; border-radius: 6px; background: var(--primary); color: #fff; display:inline-flex; align-items:center; justify-content:center; border: 0; cursor:pointer; }
+  .shimmer { color: var(--dim); font-size: 12.5px; }
+
+  /* node page */
+  .np-top { display:flex; gap: 8px; flex-wrap: wrap; align-items:center; margin-bottom: 8px; }
+  .np-title { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .np-sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; display:flex; gap: 12px; flex-wrap: wrap; }
+  .np-sub code { color: var(--muted); }
+  .np-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .np-sec { margin-bottom: 18px; }
+  .np-sec h4 { margin: 0 0 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); font-weight: 600; }
+  .stmt { background: var(--bg-el); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.6; }
+  .stmt .thm { font-weight: 600; font-style: normal; margin-right: 6px; }
+  .deps { display:flex; flex-wrap: wrap; gap: 6px; }
+  .src { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .src .card-b { font-size: 13px; }
+  .src .row { display:flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .src .row span:first-child { color: var(--muted); }
+  .fr { display:flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; align-items:flex-start; }
+  .fr .fr-b { flex:1; font-size: 13px; }
+  .fr .fr-b b { font-family: var(--mono); font-weight: 500; font-size: 12px; color: var(--muted); display:block; margin-bottom: 2px; }
+  .toast { position:absolute; right: 16px; bottom: 16px; background: var(--bg); border: 1px solid var(--border-acc); border-radius: 8px; padding: 10px 14px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.12); display:none; align-items:center; gap: 8px; }
+  .toast.show { display:flex; }
+  .rel { position: relative; }
+
+  /* library */
+  .lib { padding: 36px 40px; height: 560px; }
+  .lib h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.015em; }
+  .lib .lead { color: var(--muted); margin: 0 0 24px; }
+  .lib-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .pcard { border: 1px solid var(--border); border-radius: 10px; padding: 18px; background: var(--bg); display:flex; flex-direction:column; gap: 10px; min-height: 210px; cursor:pointer; }
+  .pcard:hover { border-color: var(--border-acc); background: var(--bg-el); }
+  .pcard h3 { margin: 0; font-size: 15px; line-height: 1.35; }
+  .pcard .meta { color: var(--muted); font-size: 12.5px; }
+  .pcard .stats { display:flex; gap: 14px; margin-top:auto; font-size: 12.5px; color: var(--muted); }
+  .pcard .stats b { color: var(--text); font-weight: 600; }
+  .pcard.dashed { border-style: dashed; justify-content:center; align-items:center; text-align:center; color: var(--muted); cursor: default; }
+  .pcard.dashed code { display:block; margin-top: 8px; background: var(--bg-acc); border-radius: 6px; padding: 6px 10px; font-size: 11.5px; color: var(--text); }
+
+  /* terminal */
+  .term { background: #0b0f14; color: #d7dde5; font-family: var(--mono); font-size: 12.5px; padding: 16px 18px; line-height: 1.55; border-radius: 0 0 10px 10px; }
+  .term .p { color: #7dd3fc; } .term .ok { color: #86efac; } .term .d { color: #64748b; } .term .w { color: #fcd34d; }
+
+  /* friction page */
+  .fp-head { display:flex; justify-content: space-between; align-items: flex-end; margin-bottom: 14px; gap: 16px; }
+  .fp-head h2 { margin: 0 0 4px; font-size: 20px; }
+  .fp-head p { margin: 0; color: var(--muted); }
+  .tabs { display:inline-flex; background: var(--bg-acc); border-radius: 7px; padding: 3px; gap: 2px; }
+  .tabs button { border: 0; background: transparent; border-radius: 5px; padding: 4px 10px; font-size: 12.5px; cursor:pointer; color: var(--muted); font-family: inherit; white-space: nowrap; }
+  .tabs button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align:left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr.hid { display:none; }
+  td .kind { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .stat-row { display:grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 18px; }
+  .stat { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .stat .v { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+
+  /* form + run page */
+  .form { display:flex; flex-direction:column; gap: 14px; }
+  .frow { display:flex; gap: 16px; align-items:flex-start; }
+  .frow label { width: 110px; flex:none; font-size: 13px; font-weight: 500; padding-top: 6px; }
+  .inp { flex:1; border: 1px solid var(--border-acc); border-radius: 6px; padding: 6px 10px; font-size: 13px; background: var(--bg); }
+  .dropzone { border: 1px dashed var(--border-acc); border-radius: 8px; padding: 22px; text-align:center; color: var(--muted); font-size: 13px; background: var(--bg-el); }
+  .stepper { display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .step { display:flex; gap: 10px; align-items:flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-el); }
+  .step .sdot { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border-acc); display:flex; align-items:center; justify-content:center; font-size: 11px; color: var(--muted); flex:none; }
+  .step.done .sdot { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .step.run { border-color: var(--primary); }
+  .step .sname { font-weight: 600; font-size: 13px; }
+  .step .smeta { font-size: 11.5px; color: var(--muted); }
+  .spin { width: 12px; height: 12px; border: 2px solid var(--border-acc); border-top-color: var(--primary); border-radius: 50%; display:inline-block; animation: sp .8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .log { font-size: 12.5px; display:flex; flex-direction:column; gap: 5px; max-height: 250px; overflow:auto; }
+  .row2 { display:flex; justify-content:space-between; font-size: 13px; margin-bottom: 4px; }
+  .notes { border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; background: var(--bg-el); }
+  .notes h3 { margin: 0 0 8px; font-size: 15px; }
+  .notes ul { margin: 0; padding-left: 18px; color: var(--muted); }
+  .notes li { margin-bottom: 4px; }
+  .notes li b { color: var(--text); font-weight: 600; }
+  .theme-toggle { font-size: 12px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+  <symbol id="i-lean" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="m8 8 4 4-4 4M13 16h3"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
+  <symbol id="i-sq" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></symbol>
+  <symbol id="i-def" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
+  <symbol id="i-thm" viewBox="0 0 24 24"><path d="m12 3 1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6l-5 3.6 1.9-5.8L4 8.8h6.1z"/></symbol>
+  <symbol id="i-lem" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="i-claim" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-gh" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
+</svg>
+
+<div class="doc">
+  <div class="doc-head">
+    <div>
+      <h1>Project GPE (Graphical Proof Explorer) · storyboard for v1 (paper-only, web app)</h1>
+      <p>Each frame is a moment in the core loop: run the pipeline on a paper → open the map → read a node → ask the chat → read the friction report. Mocked on Nuxt UI 4's dashboard template and primitives so each frame maps 1:1 onto what the sprints write. Data is the real ETH paper's section and label structure from <code>openai/math</code>; semantic names, explanations and Lean helper names are illustrative of pipeline output.</p>
+      <div class="legend">
+        <span><span class="badge novel">novel</span> where the idea lives</span>
+        <span><span class="badge routine">routine</span> new but mechanical</span>
+        <span><span class="badge standard">standard</span> known result</span>
+        <span><span class="badge high">high</span><span class="badge warn">warn</span><span class="badge info">info</span> friction severity</span>
+        <span>· Click things. Tree, node pane, chat and filters work.</span>
+      </div>
+    </div>
+    <button class="btn outline theme-toggle" onclick="toggleTheme()"><svg class="ico s"><use href="#i-sun"/></svg> Toggle dark</button>
+  </div>
+
+  <!-- ================= FRAME 0a ================= -->
+  <section class="frame" id="f0">
+    <div class="frame-head"><span class="frame-num">00</span><h2>New paper: point it at a source</h2><span class="sprint">Sprint 2</span></div>
+    <p class="frame-cap">Ingestion is UI-driven. The form takes a title and slug, a source, and a model. Source is a tab: <b>GitHub directory URL</b> (the <code>openai/math</code> case; the server pulls the <code>.tex</code> files through the GitHub API, nothing hits an upload limit), <b>arXiv id</b> (server fetches the e-print tarball), or <b>upload</b> of <code>.tex</code> files or a zip. Lean repo is a visible-but-disabled field so the Phase 2 shape is already on the form. Submit creates a <code>papers</code> row and a <code>runs</code> row, sends one Inngest event, and navigates to the run page.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">localhost:3120/papers/new</div></div>
+      <div class="navbar" style="height:52px"><b style="letter-spacing:-.01em">GPE</b><span class="dim" style="margin:0 6px">/</span><span class="muted">New paper</span><span style="flex:1"></span><button class="btn ghost sm"><svg class="ico s"><use href="#i-sun"/></svg></button></div>
+      <div style="padding: 28px 40px 36px; max-width: 760px">
+        <h1 style="font-size:22px; margin:0 0 4px; letter-spacing:-.01em">New paper</h1>
+        <p class="muted" style="margin:0 0 22px">Give GPE a LaTeX source. It produces the map in a few minutes; you can watch it go.</p>
+        <div class="form">
+          <div class="frow"><label>Title</label><div class="inp">The Exponential Time Hypothesis is False</div></div>
+          <div class="frow"><label>Slug <span class="dim">(URL)</span></label><div class="inp mono" style="max-width:220px">eth</div></div>
+          <div class="frow"><label>Source</label>
+            <div style="flex:1">
+              <div class="tabs" id="srcTabs"><button class="on" onclick="srcTab(0,this)">GitHub directory</button><button onclick="srcTab(1,this)">arXiv</button><button onclick="srcTab(2,this)">Upload .tex / .zip</button></div>
+              <div class="srcpane" data-src="0" style="margin-top:10px">
+                <div class="inp mono" style="font-size:12px">https://github.com/openai/math/tree/main/preprints/The-Exponential-Time-Hypothesis-is-False-October-25-2026/build</div>
+                <div class="dim" style="font-size:12px; margin-top:6px">Found 4 <code>.tex</code> files · main: <code>main_full_version.tex</code> (214 KB) · 3 includes</div>
+              </div>
+              <div class="srcpane" data-src="1" style="margin-top:10px; display:none">
+                <div class="inp mono" style="max-width:260px">1907.00847</div>
+                <div class="dim" style="font-size:12px; margin-top:6px">Fetches <code>arxiv.org/e-print/1907.00847</code> and unpacks the tarball server-side.</div>
+              </div>
+              <div class="srcpane" data-src="2" style="margin-top:10px; display:none">
+                <div class="dropzone">Drop <code>.tex</code> files or a <code>.zip</code> here, or click to choose<div class="dim" style="font-size:11.5px; margin-top:4px">Up to 4 MB per request (serverless body limit); use a URL for bigger sources.</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="frow"><label>Model profile</label><div style="flex:1"><div class="inp" style="max-width:420px; display:flex; justify-content:space-between"><span><b>Careful</b> <span class="muted">· strong reasoning for structure, standard for prose</span></span><svg class="ico s dim" style="transform:rotate(90deg)"><use href="#i-chev"/></svg></div><div class="dim" style="font-size:12px; margin-top:6px">Profiles map each pipeline step to a model (see plan § Model strategy). <i>Careful</i> is the default for long papers; <i>Quick</i> for tier-1 re-runs.</div></div></div>
+          <div class="frow"><label>Structure method</label><div style="flex:1"><div class="tabs"><button class="on">Pipeline</button><button>Agent (sandbox)</button></div><div class="dim" style="font-size:12px; margin-top:6px"><b>Pipeline</b>: fixed rules, one whole-paper outline call, known cost. <b>Agent</b>: a Claude Agent SDK run in a Vercel Sandbox reads the paper its own way and writes the same outline; minutes to an hour, trace shown on the run page. Both are run on every corpus paper and compared.</div></div></div>
+          <div class="frow"><label>Lean repo <span class="badge unknown" style="margin-left:4px">Phase 2</span></label><div class="inp dim" style="border-style:dashed">https://github.com/openai/math/tree/main/lean · target decl …</div></div>
+          <div class="frow"><label></label><div style="display:flex; gap:10px; align-items:center"><button class="btn solid" onclick="document.getElementById('f0b').scrollIntoView({behavior:'smooth'})">Start digest</button><span class="dim" style="font-size:12px">Estimated: ~6 min, ~$4 at this model for a 67-page paper.</span></div></div>
+        </div>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UForm</code> + <code>UFormField</code>, <code>UInput</code>, <code>UTabs</code> for the source kind, <code>UFileUpload</code> for the upload tab, <code>USelectMenu</code> for model, <code>UButton</code>. Route <code>/papers/new</code>. Server: <code>POST /api/papers/preview</code> lists the files and estimates size for the profile default; <code>POST /api/papers</code> validates with zod, fetches the source (GitHub API / arXiv / multipart), stores the files in the DB, inserts <code>papers</code> + <code>runs</code>, and starts the runner (in-process in dev; <code>inngest.send</code> in prod).</p>
+  </section>
+
+  <!-- ================= FRAME 0b ================= -->
+  <section class="frame" id="f0b">
+    <div class="frame-head"><span class="frame-num">00b</span><h2>Run page: watch the pipeline work</h2><span class="sprint">Sprints 2–4, 4b</span></div>
+    <p class="frame-cap">The pipeline is one function with a step per stage (fetch, chunk, outline, extract, resolve, critique, annotate, classify, finalize; the stepper groups them to seven), and the LLM-heavy stages fan out into one step per claim (extract) and one step per dependency level (annotate), so no single serverless invocation runs longer than one model call. Critique can pause the run on a review queue (accept/reject per proposed fix) before any prose is written. The structure step has two methods, picked on the form: <b>pipeline</b> (one whole-paper outline call, then a critique) or <b>agent</b> (a Claude Agent SDK run inside a Vercel Sandbox that reads the paper its own way; the Inngest step waits on its finish event and the log shows its tool-call trace). Same outline contract out of both; everything downstream is identical. Each step writes a row to <code>run_events</code>; the page polls <code>GET /api/runs/:id</code> every two seconds. Failed steps retry by themselves; the <b>Retry stage</b> button re-sends from a stage with the earlier stages' outputs reused, which is how a prompt tweak gets re-run cheaply. Click <i>Jump to finished</i> to see the end state.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">localhost:3120/papers/eth/run</div></div>
+      <div class="navbar" style="height:52px"><b style="letter-spacing:-.01em">GPE</b><span class="dim" style="margin:0 6px">/</span><span class="muted">ETH is False</span><span class="dim" style="margin:0 6px">/</span><span class="muted">Run</span><span style="flex:1"></span><button class="btn outline sm" onclick="finishRun()" id="jumpBtn">Jump to finished</button></div>
+      <div style="padding: 24px 40px 32px">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 16px; margin-bottom: 18px">
+          <div><h1 style="font-size:20px; margin:0 0 2px; letter-spacing:-.01em">Digesting <i>The Exponential Time Hypothesis is False</i></h1><div class="muted" id="runSub">Started 2 min ago · openai/gpt-6-sol · run <code>run_8f3k</code></div></div>
+          <div style="display:flex; gap:8px" id="runBtns"><button class="btn outline sm">Cancel</button></div>
+        </div>
+        <div class="stepper" id="stepper">
+          <div class="step done"><div class="sdot">✓</div><div><div class="sname">Fetch</div><div class="smeta">4 files · 0.8s</div></div></div>
+          <div class="step done"><div class="sdot">✓</div><div><div class="sname">Chunk</div><div class="smeta">10 sections · 44 statements · 0.3s</div></div></div>
+          <div class="step run"><div class="sdot"><span class="spin"></span></div><div><div class="sname">Outline + extract</div><div class="smeta" id="exMeta">pipeline · outline done (9 claims) · extracting 7 / 9</div></div></div>
+          <div class="step"><div class="sdot">4</div><div><div class="sname">Resolve</div><div class="smeta" id="rsMeta">—</div></div></div>
+          <div class="step"><div class="sdot">5</div><div><div class="sname">Critique</div><div class="smeta" id="crMeta">— <span class="dim">may pause for review</span></div></div></div>
+          <div class="step"><div class="sdot">6</div><div><div class="sname">Annotate + classify</div><div class="smeta" id="anMeta">—</div></div></div>
+          <div class="step"><div class="sdot">7</div><div><div class="sname">Finalize</div><div class="smeta" id="fnMeta">—</div></div></div>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 300px; gap: 16px; margin-top: 18px">
+          <div class="card"><div class="card-h">Log <span class="dim" style="font-weight:400">live</span></div>
+            <div class="card-b log" id="runLog">
+              <div><span class="dim">12:04:11</span> fetch · GitHub <code>openai/math</code> · 4 files, 268 KB</div>
+              <div><span class="dim">12:04:12</span> chunk · <code>main_full_version.tex</code> + 3 <code>\input</code>s → 10 sections, 44 labeled statements, 112 equations, 161 <code>\ref</code>s</div>
+              <div><span class="dim">12:04:12</span> outline · method <b>pipeline</b> · opus-5.5 reads whole paper (84k tok, cached) → 9 in-proof claims across 3 long proofs, 2 skeleton flags</div>
+              <div class="dim" style="padding-left:62px">↳ with method <b>agent</b> this line is a live trace instead: <code>sandbox sbx_2k9 · turn 14 · Read §6.4 lines 3543–3636 · validate_outline ok</code></div>
+              <div><span class="dim">12:04:41</span> extract · 44 labeled statements → nodes directly from the skeleton (no model call)</div>
+              <div><span class="dim">12:04:41</span> extract · fan-out 9 claims (whole paper as cached prefix)</div>
+              <div><span class="dim">12:05:02</span> extract · claim 1/9 under <code>lem:sparsify</code> · "branching yields a tree of bounded depth" (+1 retry: invalid JSON, re-asked)</div>
+              <div><span class="dim">12:05:19</span> extract · claim 2/9 under <code>lem:sparsify</code> · "every leaf has clause density O(polylog n)"</div>
+              <div><span class="dim">12:05:40</span> extract · claim 3/9 under <code>prop:count</code></div>
+              <div><span class="dim">12:05:58</span> extract · claim 4/9 under <code>prop:count</code></div>
+              <div><span class="dim">12:06:03</span> extract · claim 5/9 under <code>thm:tensor-contraction</code></div>
+              <div><span class="dim">12:06:11</span> extract · claim 6/9 under <code>thm:tensor-contraction</code></div>
+              <div><span class="dim">12:06:30</span> extract · claim 7/9 under <code>lem:greedy-hashes</code></div>
+              <div class="shimmer">extract · claims 8–9 running…</div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap: 12px">
+            <div class="card"><div class="card-h">Spend</div><div class="card-b"><div class="row2"><span class="muted">Tokens in / out</span><span id="tokIn">412k / 61k</span></div><div class="row2"><span class="muted">Cost so far</span><span id="cost">$1.84</span></div><div class="row2"><span class="muted">Elapsed</span><span id="elapsed">2m 09s</span></div></div></div>
+            <div class="card"><div class="card-h">Health</div><div class="card-b"><div class="row2"><span class="muted">Schema retries</span><span>1</span></div><div class="row2"><span class="muted">Statement recall</span><span id="recall">— <span class="dim">(after extract)</span></span></div><div class="row2"><span class="muted">Inferred deps</span><span id="inferred">—</span></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UStepper</code> (stages), two <code>UCard</code>s, the log as a plain list (a <code>UTimeline</code> is overkill). Route <code>/papers/[slug]/run</code>. Server: <code>server/pipeline/ingest.ts</code> is written against a small <code>StepRunner</code> interface (<code>step.run</code>, <code>step.waitForEvent</code>); every step upserts <code>runs.progress</code> and appends <code>run_events</code>. In dev the <code>LocalRunner</code> executes the steps in the Nuxt server process right after the form POST returns, so <code>npm run dev</code> is plain <code>nuxt dev</code>. In prod the same function runs under Inngest (<code>InngestRunner</code> wraps Inngest's <code>step</code>, served at <code>/api/inngest</code> in the standard way); wiring it is a one-sprint task, and the pipeline code does not change.</p>
+  </section>
+
+  <!-- ================= FRAME 1 ================= -->
+  <section class="frame">
+    <div class="frame-head"><span class="frame-num">01</span><h2>Library: pick a paper</h2><span class="sprint">Sprints 4–5</span></div>
+    <p class="frame-cap">Home is the list of papers, one card per <code>papers</code> row, with the run state on the card: digested, running (with stage), or failed. The <b>New paper</b> button goes to the form in frame 00. With a single paper this is a thin page, but it's the right shape for the corpus, and the second card shows what a paper looks like mid-run.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">localhost:3120/</div></div>
+      <div class="navbar" style="height:52px"><b style="letter-spacing:-.01em">GPE</b><span style="flex:1"></span><button class="btn ghost sm"><svg class="ico s"><use href="#i-sun"/></svg></button><button class="btn ghost sm"><svg class="ico s"><use href="#i-gh"/></svg></button></div>
+      <div class="lib">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px">
+          <div><h1>Papers</h1><p class="lead">A browsable map of each proof: paper structure, dependency edges, plain-English explanations, and a chat that cites nodes.</p></div>
+          <div style="display:flex; gap:8px"><button class="btn outline sm" onclick="document.getElementById('f6').scrollIntoView({behavior:'smooth'})">Corpus</button><button class="btn solid" onclick="document.getElementById('f0').scrollIntoView({behavior:'smooth'})">+ New paper</button></div>
+        </div>
+        <div class="lib-grid">
+          <div class="pcard" onclick="document.getElementById('f2').scrollIntoView({behavior:'smooth'})">
+            <div style="display:flex; gap:6px; flex-wrap:wrap"><span class="badge kind">whopper</span><span class="badge ok">digested</span><span class="badge unknown">Lean: not aligned</span></div>
+            <h3>The Exponential Time Hypothesis is False</h3>
+            <div class="meta">OpenAI · openai/math #378 · Oct 25, 2026 · 67 pp</div>
+            <div class="meta" style="margin-top:-4px">Deterministic exact #k-SAT in time <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> 2<sup>n/(log n)<sup>1/2+o(1)</sup></sup></span>.</div>
+            <div class="stats"><span><b>53</b> nodes</span><span><b>10</b> sections</span><span><b>3</b> novel</span><span><b>4</b> friction</span></div>
+          </div>
+          <div class="pcard" onclick="document.getElementById('f0b').scrollIntoView({behavior:'smooth'})">
+            <div style="display:flex; gap:6px; flex-wrap:wrap"><span class="badge kind">simple</span><span class="badge info"><span class="spin" style="width:9px;height:9px;border-width:1.5px;margin-right:4px"></span>running · annotate 4/9</span><span class="badge ok">Lean: available</span></div>
+            <h3>Induced subgraphs of hypercubes and a proof of the Sensitivity Conjecture</h3>
+            <div class="meta">Huang · arXiv 1907.00847 · 6 pp</div>
+            <div class="stats"><span><b>9</b> nodes</span><span><b>3</b> sections</span><span class="dim">1m 12s · $0.21</span></div>
+          </div>
+          <div class="pcard dashed" onclick="document.getElementById('f0').scrollIntoView({behavior:'smooth'})" style="cursor:pointer">
+            <div><div style="font-weight:600; color:var(--text)">+ New paper</div><div style="font-size:12.5px; margin-top:4px">Paste a GitHub directory or arXiv id, or upload <code>.tex</code> files.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UHeader</code> (exists), <code>UPageHeader</code>, <code>UPageGrid</code> + <code>UPageCard</code>, <code>UBadge</code>. Data from <code>GET /api/papers</code> joining the latest run per paper; the page re-polls while any card is running.</p>
+  </section>
+
+  <!-- ================= FRAME 2 ================= -->
+  <section class="frame" id="f2">
+    <div class="frame-head"><span class="frame-num">02</span><h2>Map + node: the main screen</h2><span class="sprint">Sprint 5</span></div>
+    <p class="frame-cap">Three panels, dashboard template shape. <b>Left</b>: the paper's structure as a collapsible tree (sections → statements). Opens with the root theorem selected. <b>Center</b>: the node page for whatever's selected, with a <b>Node / Graph</b> toggle in the navbar (graph is frame 02b). <b>Right</b>: chat, toggleable. Progressive disclosure is three levels deep: expand a section to see its statements; expand a statement to see the major claims inside its proof; one more level (dimmed, mono) is where Lean helper declarations will group under their paper parent in Phase 2. Try: expand <i>§6</i>, then <i>Sparsification</i>, then click a claim. Every selection changes the URL.</p>
+    <div class="browser rel">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url" id="url2">localhost:3120/eth/thm-main</div></div>
+      <div class="dash" id="dash2">
+        <aside class="sidebar">
+          <div class="sidebar-h">
+            <div class="paper-switch"><svg class="ico s muted"><use href="#i-book"/></svg><b>ETH is False</b><span style="flex:1"></span><svg class="ico s dim" style="transform:rotate(90deg)"><use href="#i-chev"/></svg></div>
+          </div>
+          <div class="sidebar-tools">
+            <div class="search"><svg class="ico s"><use href="#i-search"/></svg>Find a node… <span style="flex:1"></span><span class="kbd">⌘K</span></div>
+            <button class="btn ghost xs" title="Expand all" onclick="expandAll(true)">+</button><button class="btn ghost xs" title="Collapse all" onclick="expandAll(false)">−</button>
+          </div>
+          <div class="tree" id="tree2"></div>
+          <div class="sidebar-f"><span>53 nodes</span><span>·</span><span>3 novel</span><span>·</span><a href="#f4" style="color:var(--amber)">4 friction</a></div>
+        </aside>
+        <div class="main">
+          <div class="navbar">
+            <div class="crumbs" id="crumbs2"><span>ETH is False</span><svg class="ico s dim"><use href="#i-chev"/></svg><span>§1 Introduction</span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur">Main theorem</span></div>
+            <div class="tabs" style="margin-right:4px"><button class="on">Node</button><button onclick="document.getElementById('f2b').scrollIntoView({behavior:'smooth'})">Graph</button></div>
+            <button class="btn ghost sm" onclick="copyLink()"><svg class="ico s"><use href="#i-link"/></svg> Share</button>
+            <button class="btn ghost sm active" id="chatToggle" onclick="toggleChat()"><svg class="ico s"><use href="#i-panel"/></svg> Chat</button>
+          </div>
+          <div class="body" id="node2"></div>
+        </div>
+        <aside class="chat" id="chat2">
+          <div class="chat-h"><svg class="ico s"><use href="#i-chat"/></svg> Ask the paper <span style="flex:1"></span><span class="dim" style="font-weight:400; font-size:11.5px">context: 53 nodes</span></div>
+          <div class="chat-msgs" id="msgs2">
+            <div class="chat-empty">
+              <div style="font-weight:600; color:var(--text)">Ask about the proof</div>
+              <div style="font-size:12.5px; margin-top:2px">Answers cite nodes. It won't assert anything that isn't in the map.</div>
+              <div class="sugg">
+                <button class="btn outline sm" onclick="ask(0)">Where does the √log n come from?</button>
+                <button class="btn outline sm" onclick="ask(1)">Which nodes contain the new idea?</button>
+                <button class="btn outline sm" onclick="ask(2)">What does the Lean actually prove?</button>
+              </div>
+            </div>
+          </div>
+          <div class="chat-prompt">
+            <div class="prompt">
+              <textarea placeholder="Ask about the proof…" id="ta2"></textarea>
+              <div class="prompt-f"><span class="model">anthropic/claude-sonnet-5.5</span><button class="send" onclick="askFree()"><svg class="ico s"><use href="#i-send"/></svg></button></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+      <div class="toast" id="toast2"><svg class="ico s" style="color:var(--green)"><use href="#i-link"/></svg> Link copied · <span class="mono" id="toastUrl"></span></div>
+    </div>
+    <p class="onrails">On rails: <code>UDashboardGroup</code> → <code>UDashboardSidebar</code> (resizable; holds <code>USelectMenu</code> paper switcher, <code>UDashboardSearchButton</code>, <code>UTree</code>) + <code>UDashboardPanel</code> (<code>UDashboardNavbar</code> with <code>UBreadcrumb</code>, body) + second <code>UDashboardPanel</code> for chat (resizable, toggled). The tree is <code>UTree</code> with <code>nested</code> items; classification/friction as <code>UBadge</code>/<code>UChip</code> in the item slot. Route: <code>/[paper]/[node]</code>. No custom components beyond the node page body.</p>
+  </section>
+
+  <!-- ================= FRAME 2b ================= -->
+  <section class="frame" id="f2b">
+    <div class="frame-head"><span class="frame-num">02b</span><h2>Graph view: the proof as a DAG</h2><span class="sprint">Sprint 6</span></div>
+    <p class="frame-cap">Toggle <b>Graph</b> in the navbar and the center panel becomes the dependency DAG: every paper statement is a node, every "uses" edge is drawn, layered so the main theorem sits at the top and the things it rests on fan out below it. The tree sidebar collapses to give the graph room; the right panel shows the selected node's page in compact form. <b>Click any node</b>: it gets focus, everything it depends on (down) and everything that depends on it (up) stays lit, the rest dims. That lit subgraph is the hierarchical perspective on a lemma. Controls: <i>Whole paper / Focus</i> (focus hides the dimmed nodes and re-lays out), <i>Show claims</i> (in-proof claims appear under their parent), color by classification or by section. Pan by scrolling; fit-to-width button. This is layered (Sugiyama-style) layout, not force-directed; proofs are DAGs with a clear direction and should read top-down.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url" id="urlG">localhost:3120/eth/thm-main?view=graph</div></div>
+      <div class="dash" style="grid-template-columns: 44px 1fr 320px; height: 700px">
+        <aside class="sidebar" style="align-items:center; padding-top:10px; gap:10px">
+          <button class="btn ghost sm" title="Expand sidebar">☰</button>
+          <button class="btn ghost sm" title="Search"><svg class="ico s"><use href="#i-search"/></svg></button>
+        </aside>
+        <div class="main">
+          <div class="navbar">
+            <div class="crumbs"><span>ETH is False</span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur">Graph</span></div>
+            <div class="tabs" style="margin-right:4px"><button onclick="document.getElementById('f2').scrollIntoView({behavior:'smooth'})">Node</button><button class="on">Graph</button></div>
+            <div class="tabs" id="gmode"><button class="on" onclick="gMode('all',this)">Whole paper</button><button onclick="gMode('focus',this)">Focus</button></div>
+            <label class="muted" style="font-size:12px; display:flex; align-items:center; gap:4px"><input type="checkbox" id="gClaims" onchange="renderGraph()"> claims</label>
+            <div class="tabs" id="gcolor"><button class="on" onclick="gColor('cls',this)">by class</button><button onclick="gColor('sec',this)">by section</button></div>
+            <button class="btn ghost sm" onclick="gFit()">Fit</button>
+            <button class="btn ghost sm"><svg class="ico s"><use href="#i-panel"/></svg> Chat</button>
+          </div>
+          <div class="body" id="gwrap" style="padding:0; overflow:auto; background: var(--bg-el)">
+            <svg id="gsvg" xmlns="http://www.w3.org/2000/svg" style="display:block"></svg>
+          </div>
+          <div style="border-top:1px solid var(--border); padding:6px 14px; display:flex; gap:14px; font-size:11.5px; color:var(--muted); align-items:center">
+            <span><span class="dot" style="background:var(--primary)"></span> novel</span><span><span class="dot" style="background:var(--border-acc)"></span> routine</span><span><span class="dot" style="background:transparent; border:1px dashed var(--muted)"></span> standard</span><span style="margin-left:auto" id="gstat"></span>
+          </div>
+        </div>
+        <aside class="chat" style="background:var(--bg)">
+          <div class="chat-h"><span id="gside-h">Selected node</span><span style="flex:1"></span><button class="btn ghost xs" onclick="selectNode(curG, true)">Open full page →</button></div>
+          <div class="body" id="gside" style="padding:14px 16px; font-size:13px"></div>
+        </aside>
+      </div>
+    </div>
+    <p class="onrails"><b>Off rails, on purpose:</b> Nuxt UI has no graph primitive, so <code>ProofGraph.vue</code> is a custom component: <code>@dagrejs/dagre</code> for the layered layout (≤ a few hundred nodes; no WebGL, no force sim) rendered to inline SVG with Vue, pan/zoom via a transform, nodes as <code>foreignObject</code> cards so the badges match the rest of the app. The navbar toggles, mode and color controls stay <code>UTabs</code>/<code>UCheckbox</code>/<code>UButton</code>. Route state in the query (<code>?view=graph&amp;mode=focus</code>) so a graph view is shareable like a node. This is the one custom component in v1.</p>
+  </section>
+
+  <!-- ================= FRAME 3 ================= -->
+  <section class="frame" id="f3">
+    <div class="frame-head"><span class="frame-num">03</span><h2>Chat: an answer that links into the map</h2><span class="sprint">Sprint 7</span></div>
+    <p class="frame-cap">The chat has the whole node JSON in context (53 nodes fits comfortably; retrieval only if a paper outgrows it). The system prompt forces node-id citations and forbids claims not in the JSON. Every citation renders as a chip that selects that node in the center panel, so a question becomes a guided walk through the map. This frame shows the three suggested questions answered; the live version in Frame 02 is wired to the same canned replies, so click them there to feel the node-chip handoff.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">localhost:3120/eth/lem-incidence-parameters</div></div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; height: 520px">
+        <div style="border-right:1px solid var(--border); display:flex; flex-direction:column">
+          <div class="chat-h"><svg class="ico s"><use href="#i-chat"/></svg> Ask the paper</div>
+          <div class="chat-msgs" id="msgs3"></div>
+        </div>
+        <div style="display:flex; flex-direction:column">
+          <div class="chat-h" style="font-weight:500; color:var(--muted)">Center panel follows the last clicked chip</div>
+          <div class="body" id="node3" style="padding:18px 22px"></div>
+        </div>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UChatMessages</code> + <code>UChatPrompt</code> + <code>UChatPromptSubmit</code> with <code>useChat</code> and <code>streamText</code> through the gateway (<code>nuxt_ui_chat.md</code>). Assistant text renders through Comark with a custom inline component for <code>[[node-id]]</code> → chip. Server route <code>POST /api/papers/[slug]/chat</code>; no persistence, no auth, one paper's JSON stuffed in the system prompt.</p>
+  </section>
+
+  <!-- ================= FRAME 4 ================= -->
+  <section class="frame" id="f4">
+    <div class="frame-head"><span class="frame-num">04</span><h2>Friction report (low priority)</h2><span class="sprint">Sprint 7, small · Phase 2–3 (data)</span></div>
+    <p class="frame-cap"><b>Demoted per Kyle, Oct 29:</b> kept as a plain table because the data contract costs nothing, but it is the last thing built in v1 and gets no polish. One page per paper listing every place the sources disagree, ranked by severity, each row linking to its node. In v1 (paper only) the pipeline can still emit friction of kind <code>unresolved_ref</code> / <code>inferred_dep</code> for places where the prose dependency was guessed rather than read from a <code>\ref</code>; the real Lean-vs-paper rows land in Phase 2–3. The rows below are what the ETH alignment is expected to produce, based on the scope note in <code>lean/docs/378.md</code>: the Lean proves a weaker bound in terms of encoding length, and the appendix-D sharper bound has no formal counterpart. The brief calls this the feature that gets a mathematician to care; that is a Phase 2–3 claim, and v1 only keeps the contract warm.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">localhost:3120/eth/friction</div></div>
+      <div class="dash no-chat" style="height:560px">
+        <aside class="sidebar" style="padding:12px; color:var(--dim); font-size:12px">(tree, as in 02)</aside>
+        <div class="main">
+          <div class="navbar"><div class="crumbs"><span>ETH is False</span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur">Friction report</span></div><button class="btn ghost sm"><svg class="ico s"><use href="#i-panel"/></svg> Chat</button></div>
+          <div class="body">
+            <div class="fp-head">
+              <div><h2>Friction report</h2><p>Where the paper and the Lean disagree, ranked. 4 items · 2 high · 1 warn · 1 info.</p></div>
+              <div class="tabs" id="ftabs"><button class="on" onclick="filt('all',this)">All</button><button onclick="filt('high',this)">High</button><button onclick="filt('warn',this)">Warn</button><button onclick="filt('info',this)">Info</button></div>
+            </div>
+            <div class="stat-row">
+              <div class="stat"><div class="v">44</div><div class="l">paper statements</div></div>
+              <div class="stat"><div class="v">—</div><div class="l">Lean declarations <span class="dim">(Phase 2)</span></div></div>
+              <div class="stat"><div class="v">—</div><div class="l">aligned pairs</div></div>
+              <div class="stat"><div class="v">4</div><div class="l">friction items</div></div>
+            </div>
+            <table id="ftable">
+              <thead><tr><th style="width:70px">Severity</th><th style="width:170px">Kind</th><th style="width:220px">Node</th><th>Note</th><th style="width:90px"></th></tr></thead>
+              <tbody>
+                <tr data-s="high"><td><span class="badge high">high</span></td><td><span class="kind">weaker_in_lean</span></td><td><span class="chip" onclick="selectNode('thm-main', true)"><span class="k">thm</span> Main theorem</span></td><td>Lean's bound is <span class="math">(L+1)<sup>O<sub>k</sub>(1)</sup> 2<sup>O<sub>k</sub>(n (log log n)<sup>2</sup>/√log n)</sup></span> in the encoding length <span class="math">L</span>; the paper states <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> 2<sup>O<sub>k</sub>(n log log n/√log n)</sup></span>. One extra <span class="math">log log n</span> factor and a different size parameter.</td><td><a href="#">paper §1</a> · <a href="#">Lean</a></td></tr>
+                <tr data-s="high"><td><span class="badge high">high</span></td><td><span class="kind">missing_in_lean</span></td><td><span class="chip" onclick="selectNode('thm-tensor-contraction', true)"><span class="k">thm</span> Boolean tensor contraction</span></td><td>The appendix-D sharper bound (<span class="math">2<sup>O(n/√log n)</sup></span> at fixed clause density) has no Lean counterpart. The formal result covers the main-text argument only.</td><td><a href="#">paper §D</a></td></tr>
+                <tr data-s="warn"><td><span class="badge warn">warn</span></td><td><span class="kind">dep_in_lean_not_paper</span></td><td><span class="chip" onclick="selectNode('thm-main', true)"><span class="k">thm</span> Main theorem</span></td><td>Lean's statement is over <i>canonically encoded</i> formulas (<code>Encoding.encodeCNF</code>) and charges the machine for tape cells visited. The paper never fixes an encoding; its model of computation is informal.</td><td><a href="#">Lean</a></td></tr>
+                <tr data-s="info"><td><span class="badge info">info</span></td><td><span class="kind">inferred_dep</span></td><td><span class="chip" onclick="selectNode('lem-sparsify', true)"><span class="k">lem</span> Sparsification</span></td><td>Dependency on <i>Branching rule</i> (App. A) was inferred from "by the partition of Appendix A", not from an explicit <code>\ref</code>. Paper-only friction; emitted by Sprint 3.</td><td><a href="#">paper §6.4</a></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UTable</code> with a <code>UTabs</code> severity filter and <code>UBadge</code> cells. Route <code>/[paper]/friction</code>. The stat row is four <code>UCard</code>s, not a chart.</p>
+  </section>
+
+  <!-- ================= FRAME 5 ================= -->
+  <section class="frame" id="f5">
+    <div class="frame-head"><span class="frame-num">05</span><h2>Share a step: deep link + mobile</h2><span class="sprint">Sprint 5</span></div>
+    <p class="frame-cap">Every node has a URL. Opening <code>/eth/lem-sparsify</code> cold renders the node page with the tree expanded to it and the sidebar collapsed on narrow screens (dashboard template's default behavior: sidebar becomes a slideover under <code>lg</code>). No new UI, just the consequence of the route shape; shown so the "look at this step" use case from the brief is visibly covered.</p>
+    <div style="display:grid; grid-template-columns: 1fr 380px; gap: 16px; align-items:start">
+      <div class="browser">
+        <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">localhost:3120/eth/lem-sparsify</div></div>
+        <div class="dash no-chat" style="height:420px; grid-template-columns: 260px 1fr">
+          <aside class="sidebar"><div class="tree" id="tree5" style="padding-top:10px"></div></aside>
+          <div class="main"><div class="navbar"><div class="crumbs"><span>ETH is False</span><svg class="ico s dim"><use href="#i-chev"/></svg><span>§6</span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur">Sparsification</span></div><button class="btn ghost sm"><svg class="ico s"><use href="#i-link"/></svg> Share</button></div><div class="body" id="node5" style="padding:16px 22px"></div></div>
+        </div>
+      </div>
+      <div class="browser" style="max-width:380px">
+        <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">gpe.example.com/eth/lem-sparsify</div></div>
+        <div style="height:420px; display:flex; flex-direction:column">
+          <div class="navbar" style="padding:0 12px"><button class="btn ghost sm">☰</button><div class="crumbs"><span class="cur">Sparsification</span></div><button class="btn ghost sm"><svg class="ico s"><use href="#i-chat"/></svg></button></div>
+          <div class="body" id="node5m" style="padding:14px 16px; font-size:13px"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FRAME 6 ================= -->
+  <section class="frame" id="f6">
+    <div class="frame-head"><span class="frame-num">06</span><h2>Corpus: the test set, with and without Lean</h2><span class="sprint">Sprint 8</span></div>
+    <p class="frame-cap">The test corpus is a page, not a script. <code>corpus/manifest.json</code> (checked in) lists the papers by tier with source URL, license, page count and Lean location; the page shows each one with an <b>Ingest</b> button that submits the same form as frame 00 pre-filled, and, once run, the metrics the run computed. Papers with Lean get two rows when Phase 2 lands (paper-only, with Lean) so the comparison is a glance. Simple-tier papers have a checked-in golden node list and the page shows the diff count.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">localhost:3120/corpus</div></div>
+      <div class="navbar" style="height:52px"><b style="letter-spacing:-.01em">GPE</b><span class="dim" style="margin:0 6px">/</span><span class="muted">Corpus</span><span style="flex:1"></span><button class="btn outline sm">Run all pending</button></div>
+      <div style="padding: 22px 32px 28px">
+        <table>
+          <thead><tr><th>Tier</th><th>Paper</th><th>Pages</th><th>Lean</th><th>Status</th><th>Recall</th><th>Refs mech. / inferred</th><th>Retries</th><th>Cost · time</th><th>Golden</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge kind">simple</span></td><td>Huang · Sensitivity Conjecture <span class="dim">arXiv 1907.00847</span></td><td>6</td><td><span class="badge ok">Mathlib Archive</span></td><td><span class="badge ok">digested</span></td><td>9/9</td><td>11 / 0</td><td>0</td><td>$0.21 · 1m 12s</td><td><span class="badge ok">0 diffs</span></td><td><a href="#">open</a> · <a href="#">re-run</a></td></tr>
+            <tr><td><span class="badge kind">simple</span></td><td>openai/math short preprint <span class="dim">(pick)</span></td><td>7</td><td><span class="badge ok">openai/math</span></td><td><span class="badge unknown">not run</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><button class="btn soft xs">Ingest</button></td></tr>
+            <tr><td><span class="badge kind">simple</span></td><td>Short arXiv note <span class="dim">(pick)</span></td><td>5</td><td><span class="dim">none</span></td><td><span class="badge unknown">not run</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><button class="btn soft xs">Ingest</button></td></tr>
+            <tr><td><span class="badge kind">intermediate</span></td><td>Gowers–Green–Manners–Tao · Marton's conjecture <span class="dim">arXiv 2311.05330</span></td><td>30</td><td><span class="badge ok">teorth/pfr blueprint</span></td><td><span class="badge warn">failed · extract §5</span></td><td>—</td><td>—</td><td>3</td><td>$0.90 · 4m</td><td>—</td><td><a href="#">run</a> · <a href="#">retry stage</a></td></tr>
+            <tr><td><span class="badge kind">intermediate</span></td><td>Alon–Bloom–Gowers–Litt–Sawin · unit distances <span class="dim">openai/math</span></td><td>22</td><td><span class="dim">check</span></td><td><span class="badge unknown">not run</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><button class="btn soft xs">Ingest</button></td></tr>
+            <tr><td><span class="badge kind">whopper</span></td><td>OpenAI · ETH is False <span class="dim">openai/math #378</span></td><td>67</td><td><span class="badge ok">openai/math</span></td><td><span class="badge ok">digested</span></td><td>44/44</td><td>161 / 23</td><td>2</td><td>$4.10 · 6m 40s</td><td><span class="dim">n/a</span></td><td><a href="#">open</a> · <a href="#">re-run</a></td></tr>
+            <tr><td><span class="badge kind">whopper</span></td><td>OpenAI · second large family with Lean <span class="dim">(pick)</span></td><td>50+</td><td><span class="badge ok">openai/math</span></td><td><span class="badge unknown">not run</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><button class="btn soft xs">Ingest</button></td></tr>
+            <tr><td><span class="badge kind">whopper</span></td><td>Anthropic · long proof <span class="dim">(source needed)</span></td><td>?</td><td><span class="dim">?</span></td><td><span class="badge unknown">no source</span></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="dim">—</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UTable</code>, <code>UBadge</code>, <code>UButton</code>. Route <code>/corpus</code>; <code>GET /api/corpus</code> joins the manifest with the latest run per slug. Metrics are computed inside the run's finalize step and stored on <code>runs.metrics</code>, so this page is a read.</p>
+  </section>
+
+  <div class="notes">
+    <h3>Decisions this storyboard commits to (push back here)</h3>
+    <ul>
+      <li><b>Tree for structure, DAG for dependencies, both first-class.</b> The sidebar tree is the paper's own hierarchy (section → statement → in-proof claim → Lean helper) via <code>UTree</code>. The center panel toggles between the node page and the dependency graph (frame 02b), a layered DAG with focus mode. The graph is the one custom component in v1 and is built before the friction report, which is demoted to a small late sprint.</li>
+      <li><b>Chat is a panel, not a page.</b> Third resizable dashboard panel so answers can drive the center pane. No chat history or persistence in v1.</li>
+      <li><b>Nothing command-line.</b> Ingestion is a form; the run has a page; the corpus is a page. The only terminal command is <code>npm run dev</code>.</li>
+      <li><b>Two structure methods, compared.</b> The proof-breakdown step runs either as fixed pipeline calls or as a Claude Agent SDK agent in a Vercel Sandbox; both write the same outline and the corpus page compares them per paper. Default is decided by the data, possibly by paper size.</li>
+      <li><b>Serverless-shaped pipeline, Inngest in prod, mocked in dev.</b> The pipeline is written against a <code>StepRunner</code> interface: one <code>step.run</code> per stage, fan-out per claim and per dependency level, <code>waitForEvent</code> for the review queue and the agent. Dev runs it in-process; prod runs it under Inngest. No step outlives a single model call, so it deploys to Vercel unchanged once the Inngest runner is wired.</li>
+      <li><b>Postgres from day one, Supabase later.</b> Drizzle schema (<code>papers</code>, <code>sources</code>, <code>runs</code>, <code>run_events</code>, <code>stage_outputs</code>, <code>review_items</code>) over PGlite locally (file-backed Postgres in <code>.data/pg/</code>, zero install) and over <code>DATABASE_URL</code> when set. Going live is a connection string plus RLS, not a rewrite. The digest is one <code>jsonb</code> per paper; at a few hundred nodes a paper, no separate nodes table.</li>
+      <li><b>Friction is a data contract, not a feature, in v1.</b> Friction items are stored on nodes and shown on the node page; the report page is a plain table built last.</li>
+      <li><b>Math rendering:</b> KaTeX for <code>statement_paper</code> (LaTeX from the source). Everything else is plain text/markdown.</li>
+      <li><b>Kinds extended:</b> the brief's <code>kind</code> union gains <code>corollary</code>; the ETH paper has five.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+/* ---------------- data ---------------- */
+const SECTIONS = [
+  { id:'s1', label:'1 · Introduction', nodes:['thm-main','cor-max-sat','cor-graph-counting','cor-quantitative-circuits'] },
+  { id:'s2', label:'2 · Technique overview', nodes:['def-design','thm-overview-sparse'] },
+  { id:'s3', label:'3 · Fast counting via shared linear summaries', nodes:['def-layout','lem-measurement-separation','lem-boolean-differences','prop-general-count'] },
+  { id:'s4', label:'4 · Constructing low-degree replacement forms', nodes:['lem-swaps-matrix','lem-swaps-forms','lem-incidence-labels','lem-row-coefficients','lem-layout','lem-incidence-parameters'] },
+  { id:'s5', label:'5 · Counting common zeros of sparse systems', nodes:['lem-rational-idempotent','lem-total-order','prop-count'] },
+  { id:'s6', label:'6 · Reducing #k-SAT to common zeros', nodes:['lem-sparse-checks','lem-greedy-hashes','lem-sparsify','prop-interpolation-bound'] },
+  { id:'sA', label:'A · Partitioning the satisfying assignments', nodes:['lem-spar-branch','lem-spar-insertion-bound'] },
+  { id:'sB', label:'B · Exact arithmetic and space', nodes:['lem-rational-lift-height'] },
+  { id:'sD', label:'D · A sharper bound via tensor contraction', nodes:['thm-tensor-contraction','lem-tensor-sparse-query','lem-tapered-hermite'] }
+];
+const KIND_ICO = { theorem:'i-thm', corollary:'i-thm', lemma:'i-lem', proposition:'i-lem', definition:'i-def', claim:'i-claim' };
+const N = {};
+function n(id, o){ N[id] = Object.assign({ id, kind:'lemma', cls:'routine', uses:[], friction:[], claims:[], lean:null, leanHelpers:[] }, o); }
+
+n('thm-main', { name:'Main theorem: subexponential exact #k-SAT', kind:'theorem', cls:'novel', label:'thm:main', ref:'Theorem 1.1', sec:'§1 Introduction', page:2, section:'s1',
+  stmt:'<span class="thm">Theorem 1.1.</span> For every fixed <span class="math">k ≥ 2</span> there is a deterministic algorithm that, given a <span class="math">k</span>-CNF formula with <span class="math">n</span> variables and <span class="math">m</span> clauses, outputs the number of satisfying assignments in time <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> · 2<sup>n/(log n)<sup>1/2+o(1)</sup></sup></span> and space polynomial in <span class="math">n + m</span>.',
+  plain:'You can count exactly how many assignments satisfy a k-CNF in time that grows slower than any 2^{cn}. That contradicts the Exponential Time Hypothesis, which says 3-SAT needs 2^{Ω(n)} time.',
+  why:'This is the root. Everything in the paper exists to make the exponent n/(log n)^{1/2+o(1)} land: a reduction to counting common zeros of sparse polynomial systems (§6), a counting routine for those systems with three separately-controlled exponential costs (§3, §5), and an explicit construction that balances the three (§4).',
+  uses:['prop-interpolation-bound','lem-sparsify','prop-count'],
+  lean:{ file:'lean/ComparatorChallenges/SubexponentialSAT.lean', decl:'OAI.Algorithms.SubexponentialSAT.exact_count_subexponential', line:212 },
+  friction:[ {kind:'weaker_in_lean', sev:'high', note:'Lean proves (L+1)^{O_k(1)} 2^{O_k(n (log log n)^2/√log n)} in the encoding length L; the paper states (n+m)^{O_k(1)} 2^{O_k(n log log n/√log n)}. One extra log log n factor and a different size parameter.'}, {kind:'dep_in_lean_not_paper', sev:'warn', note:'Lean statement is over canonically encoded formulas (Encoding.encodeCNF); the paper never fixes an encoding.'} ] });
+n('cor-max-sat', { name:'MAX-SAT approximation in subexponential time', kind:'corollary', cls:'routine', label:'cor:max-sat-approximation', ref:'Corollary 1.2', sec:'§1', page:3, section:'s1', uses:['thm-main'], plain:'The counting algorithm gives a subexponential approximation scheme for MAX-k-SAT.', why:'A direct consequence; included because it is a headline implication, not because it carries new ideas.' });
+n('cor-graph-counting', { name:'Counting graph homomorphisms and colorings', kind:'corollary', cls:'routine', label:'cor:graph-counting', ref:'Corollary 1.3', sec:'§1', page:4, section:'s1', uses:['thm-main'], plain:'Standard encodings turn graph counting problems into #k-SAT, so they inherit the bound.', why:'Consequence listing; mechanical.' });
+n('cor-quantitative-circuits', { name:'Superlinear circuit lower bounds for E^NP', kind:'corollary', cls:'standard', label:'cor:quantitative-circuits', ref:'Corollary 1.4', sec:'§1', page:5, section:'s1', uses:['thm-main'], plain:'Via Williams’ algorithms-to-lower-bounds connection, a fast #SAT algorithm yields circuit lower bounds on infinitely many input lengths.', why:'Applies a known framework (Williams 2013) to the main theorem; the novelty is upstream.', cite:'Williams, "Improving exhaustive search implies superpolynomial lower bounds", 2013' });
+n('def-design', { name:'(r, τ, D)-design', kind:'definition', cls:'novel', label:'def:overview-measurement-structure', ref:'Definition 2.1', sec:'§2.4', page:12, section:'s2', plain:'A family of linear "measurements" on the variables such that fixing their values splits the big sum into independent small sums.', why:'The overview-level version of the Layout definition in §3; introduced early so the technique overview can be read standalone.' });
+n('thm-overview-sparse', { name:'Counting common zeros of sparse polynomials (overview statement)', kind:'theorem', cls:'novel', label:'thm:overview-sparse-polynomials', ref:'Theorem 2.2', sec:'§2.9', page:22, section:'s2', uses:['prop-count'], plain:'Informal statement of the §5 result: common zeros of a sparse low-degree system over F_2 can be counted in subexponential time.', why:'Bridges the overview to the full argument.' });
+n('def-layout', { name:'Layout: rows, partitions, and measurements', kind:'definition', cls:'novel', label:'def:layout', ref:'Definition 3.1', sec:'§3.2', page:24, section:'s3', plain:'The exact bookkeeping object the counting routine consumes: a list of linear rows, a partition of the variables into groups, and a set of measurements per group.', why:'Everything in §3 is stated relative to a Layout; §4 constructs one with good parameters.' });
+n('lem-measurement-separation', { name:'Fixing measurements splits the sum', cls:'novel', label:'lem:measurement-separation', ref:'Lemma 3.2', sec:'§3.3', page:26, section:'s3', uses:['def-layout'],
+  stmt:'<span class="thm">Lemma 3.2.</span> Let <span class="math">𝓛</span> be a layout. For every assignment of values to the measurements, the sum over Boolean assignments factors as a product over variable groups of sums over the group’s assignments consistent with the fixed measurement values.',
+  plain:'Once you decide what each linear measurement evaluates to, the giant sum over all 2^n assignments becomes a product of much smaller sums, one per variable group.', why:'This is the separation step that makes the whole thing tractable: it converts one exponential sum into many independent ones that can be computed and multiplied.' });
+n('lem-boolean-differences', { name:'Taylor coefficients from Boolean differences', cls:'standard', label:'lem:boolean-differences', ref:'Lemma 3.3', sec:'§3.4', page:28, section:'s3', plain:'Hasse derivatives of a polynomial at a Boolean point can be read off from finite differences over Boolean substitutions.', why:'Lets the routine recover Taylor coefficients by evaluating at Boolean points only, which is what the group sums give.', cite:'standard finite-difference / Hasse-derivative identity' });
+n('prop-general-count', { name:'Common counting routine (three exponential costs)', kind:'proposition', cls:'novel', label:'prop:general-count', ref:'Proposition 3.4', sec:'§3.5', page:31, section:'s3', uses:['lem-measurement-separation','lem-boolean-differences','def-layout'],
+  stmt:'<span class="thm">Proposition 3.4.</span> Given a layout with parameters <span class="math">(r, τ, D)</span>, the count can be computed in time <span class="math">poly(n+m) · (2<sup>τ</sup> · 2<sup>n/r</sup> · 2<sup>D</sup>)</span> and polynomial space.',
+  plain:'The running time is a product of three exponential terms: one for enumerating measurement values, one for the largest group, one for the Taylor degree. Each is controlled by a different layout parameter.', why:'Everything downstream is about choosing a layout so that all three terms are 2^{o(n)} simultaneously. The √log n appears when these are balanced in Lemma 4.7.' });
+n('lem-swaps-matrix', { name:'The swap matrix has the required support', label:'lem:swaps-matrix', ref:'Lemma 4.1', sec:'§4.2', page:35, section:'s4', plain:'The matrix built from partial swaps has nonzero entries only where the construction needs them.', why:'Structural fact used to control coefficient growth in the replacement forms.' });
+n('lem-swaps-forms', { name:'Replacement forms from swap rows', label:'lem:swaps-forms', ref:'Lemma 4.3', sec:'§4.3', page:37, section:'s4', uses:['lem-swaps-matrix'], plain:'Each row of the swap matrix defines a low-degree linear form that can replace a high-degree incidence term.', why:'These forms are what get plugged into the layout.' });
+n('lem-incidence-labels', { name:'Balanced labelling of variables and factors', label:'lem:incidence-labels', ref:'Lemma 4.4', sec:'§4.4', page:39, section:'s4', plain:'Variables and clauses can be assigned to groups so every group sees roughly equal incidence.', why:'Without balance one group dominates the 2^{n/r} cost.' });
+n('lem-row-coefficients', { name:'Coefficient bounds for the rows', label:'lem:row-coefficients', ref:'Lemma 4.5', sec:'§4.6', page:41, section:'s4', uses:['lem-swaps-forms'], plain:'The integer coefficients in the replacement rows stay polynomially bounded.', why:'Needed for exact arithmetic in Appendix B.' });
+n('lem-layout', { name:'The completed construction is a layout', label:'lem:layout', ref:'Lemma 4.6', sec:'§4.6', page:42, section:'s4', uses:['lem-swaps-forms','lem-incidence-labels','lem-row-coefficients','def-layout'], plain:'Putting the pieces together satisfies Definition 3.1.', why:'Hands §4’s object to §3’s routine.' });
+n('lem-incidence-parameters', { name:'Parameter choice balancing the three costs', cls:'novel', label:'lem:incidence-parameters', ref:'Lemma 4.7', sec:'§4.7', page:43, section:'s4', uses:['lem-layout','prop-general-count'],
+  stmt:'<span class="thm">Lemma 4.7.</span> For a bounded-occurrence formula on <span class="math">n</span> variables there is a layout with <span class="math">τ, n/r, D = O(n log log n / √log n)</span>, constructible in polynomial time.',
+  plain:'You can pick the group size, the number of measurements, and the Taylor degree so that all three exponential costs are 2^{O(n log log n/√log n)} at once.', why:'This is where the exponent comes from. Each cost shrinks as a different parameter grows, and they trade off against each other; setting them equal gives the square-root-log saving. The log log n loss is removed at fixed clause density in Appendix D.' });
+n('lem-rational-idempotent', { name:'Integer lift of a clause indicator', cls:'standard', label:'lem:rational-idempotent', ref:'Lemma 5.1', sec:'§5.1', page:46, section:'s5', plain:'The 0/1 indicator of "this clause is satisfied" is a low-degree integer polynomial in the variables.', why:'Turns a Boolean condition into something the algebraic routine can multiply.', cite:'standard; cf. Lemma 2.1 in Williams 2013' });
+n('lem-total-order', { name:'Keeping the product degree linear', label:'lem:total-order', ref:'Lemma 5.2', sec:'§5.2', page:48, section:'s5', uses:['lem-rational-idempotent'], plain:'Multiplying all the clause indicators gives a polynomial whose degree is linear in n, not quadratic.', why:'Degree feeds the 2^D cost directly.' });
+n('prop-count', { name:'Counting common zeros with supplied forms', kind:'proposition', cls:'novel', label:'prop:count', ref:'Proposition 5.3', sec:'§5.4', page:50, section:'s5', uses:['prop-general-count','lem-total-order','lem-incidence-parameters'],
+  stmt:'<span class="thm">Proposition 5.3.</span> Common zeros of a system of <span class="math">m</span> sparse polynomials of degree at most <span class="math">d</span> over <span class="math">𝔽<sub>2</sub></span> in <span class="math">n</span> variables can be counted in time <span class="math">(n+m)<sup>O<sub>d</sub>(1)</sup> 2<sup>O<sub>d</sub>(n log log n/√log n)</sup></span>.',
+  plain:'The general-purpose result: count solutions to a sparse low-degree polynomial system in subexponential time.', why:'#k-SAT is reduced to this in §6; this is the theorem a reader should take away if they only read one.' });
+n('lem-sparse-checks', { name:'Cheap tests ruling out small violation sets', label:'lem:sparse-checks', ref:'Lemma 6.1', sec:'§6.1', page:53, section:'s6', plain:'Before hashing, a polynomial-time test handles assignments that violate only a few clauses.', why:'Removes a corner case that would otherwise break the hash argument.' });
+n('lem-greedy-hashes', { name:'Greedy choice of parity hashes', cls:'novel', label:'lem:greedy-hashes', ref:'Lemma 6.2', sec:'§6.2', page:56, section:'s6', uses:['prop-count','lem-sparse-checks'], plain:'Parity constraints can be chosen one at a time, each time using the counting routine to confirm the constraint cuts the solution set the way a random one would.', why:'Derandomizes the hashing step; this is why the algorithm is deterministic.' });
+n('lem-sparsify', { name:'Sparsification: reduce to bounded clause density', cls:'routine', label:'lem:sparsify', ref:'Lemma 6.3', sec:'§6.4', page:58, section:'s6', uses:['lem-spar-branch','lem-spar-insertion-bound'],
+  stmt:'<span class="thm">Lemma 6.3.</span> Every <span class="math">k</span>-CNF on <span class="math">n</span> variables can be written, in time <span class="math">2<sup>O(n/√log n)</sup></span>, as a disjoint union of at most <span class="math">2<sup>O(n log log n/√log n)</sup></span> <span class="math">k</span>-CNFs each with at most <span class="math">O<sub>k</sub>(n · polylog n)</span> clauses, whose solution sets partition the original’s.',
+  plain:'Any formula can be split into subexponentially many formulas that each have few clauses relative to variables, and the solution counts add up.', why:'The counting routine’s cost depends on clause density; this step pays a subexponential factor to make density bounded. It is where the extra log log n enters the main bound.',
+  claims:[ {id:'claim-branch-tree', name:'Branching on a high-occurrence variable yields a tree of bounded depth'}, {id:'claim-leaf-density', name:'Every leaf has clause density O(polylog n)'} ],
+  leanHelpers:['Sparsify.branch_count_le','Sparsify.leaf_density_bound','Sparsify.partition_disjoint'],
+  friction:[ {kind:'inferred_dep', sev:'info', note:'Dependency on the branching rule (App. A) was inferred from "by the partition of Appendix A", not an explicit \\ref.'} ] });
+n('prop-interpolation-bound', { name:'Assembling the #k-SAT bound', kind:'proposition', cls:'routine', label:'prop:interpolation-bound', ref:'Proposition 6.4', sec:'§6.5', page:60, section:'s6', uses:['lem-sparsify','lem-greedy-hashes','prop-count'], plain:'Combine sparsification, hashing and the counting routine; the costs multiply to the main theorem’s bound.', why:'Final assembly for Theorem 1.1.' });
+n('lem-spar-branch', { name:'Branching rule', label:'lem:spar-branch', ref:'Lemma A.1', sec:'App. A', page:63, section:'sA', plain:'Branching on a variable that appears in many clauses strictly reduces a potential function.', why:'Drives the sparsification tree.' });
+n('lem-spar-insertion-bound', { name:'Bound on the number of insertions', label:'lem:spar-insertion-bound', ref:'Lemma A.3', sec:'App. A', page:64, section:'sA', uses:['lem-spar-branch'], plain:'The tree created by branching has at most 2^{O(n log log n/√log n)} leaves.', why:'This is the count that becomes the sparsification overhead.' });
+n('lem-rational-lift-height', { name:'Coefficient height of the lifted indicator', cls:'standard', label:'lem:rational-lift-height', ref:'Lemma B.1', sec:'App. B', page:66, section:'sB', uses:['lem-rational-idempotent'], plain:'The integer coefficients stay small enough that exact arithmetic is polynomial.', why:'Justifies the polynomial-space claim.' });
+n('thm-tensor-contraction', { name:'Boolean tensor contraction', kind:'theorem', cls:'novel', label:'thm:tensor-contraction', ref:'Theorem D.1', sec:'App. D', page:70, section:'sD', uses:['lem-tapered-hermite'],
+  stmt:'<span class="thm">Theorem D.1.</span> A Boolean tensor network with <span class="math">n</span> wires and bounded arity can be contracted exactly in time <span class="math">2<sup>O(n/√log n)</sup></span>.',
+  plain:'A sharper counting primitive that removes the log log n loss when the formula has bounded clause density.', why:'Gives the fixed-density bound 2^{O(n/√log n)}; not needed for the main theorem as stated in §1.',
+  friction:[ {kind:'missing_in_lean', sev:'high', note:'No Lean counterpart; the formalization covers the main-text argument only (lean/docs/378.md).'} ] });
+n('lem-tensor-sparse-query', { name:'Counting sparse systems by contraction', label:'lem:tensor-sparse-query', ref:'Lemma D.2', sec:'App. D', page:72, section:'sD', uses:['thm-tensor-contraction'], plain:'Rewrites the sparse-polynomial counting as a tensor contraction.', why:'Connects Appendix D back to §5.' });
+n('lem-tapered-hermite', { name:'Tapered Hermite recovery', cls:'routine', label:'lem:tapered-hermite', ref:'Lemma D.4', sec:'App. D', page:74, section:'sD', plain:'Recover exact integer coefficients from approximate evaluations with a tapered weight.', why:'Numerical core of the contraction theorem.' });
+// claims
+n('claim-branch-tree', { name:'Branching on a high-occurrence variable yields a tree of bounded depth', kind:'claim', cls:'routine', label:'lem:sparsify · claim 1', ref:'inside proof of Lemma 6.3', sec:'§6.4', page:58, section:'s6', parent:'lem-sparsify', uses:['lem-spar-branch'], plain:'Repeatedly picking the most frequent variable and branching on both values terminates after O(n/√log n) levels.', why:'First half of the sparsification proof.' });
+n('claim-leaf-density', { name:'Every leaf has clause density O(polylog n)', kind:'claim', cls:'routine', label:'lem:sparsify · claim 2', ref:'inside proof of Lemma 6.3', sec:'§6.4', page:59, section:'s6', parent:'lem-sparsify', uses:['claim-branch-tree','lem-spar-insertion-bound'], plain:'At a leaf no variable appears in many clauses, so the clause count is near-linear.', why:'Second half; gives the density bound the counting routine needs.' });
+
+// used-by
+Object.values(N).forEach(x => x.usedBy = []);
+Object.values(N).forEach(x => x.uses.forEach(u => N[u] && N[u].usedBy.push(x.id)));
+const SEC_OF = {}; SECTIONS.forEach(s => s.nodes.forEach(id => SEC_OF[id] = s));
+
+/* ---------------- tree ---------------- */
+function ico(id, cls){ return `<svg class="ico s ${cls||''}"><use href="#${id}"/></svg>`; }
+function treeNodeHtml(id, depth){
+  const x = N[id];
+  const hasKids = x.claims.length || x.leanHelpers.length;
+  return `<div class="tnode" data-id="${id}" onclick="selectNode('${id}')">
+      ${hasKids ? `<span class="chev" onclick="event.stopPropagation(); toggleKids('${id}')">${ico('i-chev')}</span>` : '<span class="ph"></span>'}
+      ${ico(KIND_ICO[x.kind]||'i-lem','k-ico')}
+      <span class="lbl" title="${x.name}">${x.name}</span>
+      ${x.friction.length ? `<span class="dot ${x.friction[0].sev}" title="friction"></span>` : ''}
+      ${x.cls==='novel' ? '<span class="mini novel">novel</span>' : ''}
+    </div>
+    ${hasKids ? `<div class="tkids" data-kids="${id}">
+      ${x.claims.map(c => `<div class="tnode" data-id="${c.id}" onclick="selectNode('${c.id}')"><span class="ph"></span>${ico('i-claim','k-ico')}<span class="lbl" title="${c.name}">${c.name}</span></div>`).join('')}
+      ${x.leanHelpers.length ? `<div class="tnode lean-node" onclick="event.stopPropagation(); toggleKids('${id}-lean')"><span class="chev">${ico('i-chev')}</span>${ico('i-lean','k-ico')}<span class="lbl">${x.leanHelpers.length} Lean helpers <span class="dim">(Phase 2)</span></span></div>
+        <div class="tkids" data-kids="${id}-lean">${x.leanHelpers.map(h => `<div class="tnode lean-node"><span class="ph"></span><span class="lbl">${h}</span></div>`).join('')}</div>` : ''}
+    </div>` : ''}`;
+}
+function renderTree(el, openSecs){
+  el.innerHTML = SECTIONS.map(s => `
+    <div class="tnode tsec ${openSecs.includes(s.id)?'open':''}" onclick="toggleKids('${s.id}')"><span class="chev">${ico('i-chev')}</span><span class="lbl">${s.label}</span><span class="dim" style="font-weight:400">${s.nodes.length}</span></div>
+    <div class="tkids ${openSecs.includes(s.id)?'open':''}" data-kids="${s.id}">${s.nodes.map(id => treeNodeHtml(id)).join('')}</div>`).join('');
+}
+function toggleKids(id){
+  document.querySelectorAll(`[data-kids="${id}"]`).forEach(k => { k.classList.toggle('open'); const h = k.previousElementSibling; h && h.classList.toggle('open'); });
+}
+function expandAll(open){
+  document.querySelectorAll('#tree2 .tkids').forEach(k => { k.classList.toggle('open', open); k.previousElementSibling.classList.toggle('open', open); });
+}
+
+/* ---------------- node page ---------------- */
+function chip(id){ const x = N[id]; if(!x) return `<span class="chip"><span class="k">?</span>${id}</span>`; return `<span class="chip" title="${x.name}" onclick="selectNode('${id}', true)"><span class="k">${x.kind.slice(0,3)}</span><span class="n">${x.name}</span></span>`; }
+function nodeHtml(id, compact){
+  const x = N[id]; const sec = SEC_OF[id] || SEC_OF[x.parent];
+  const fr = x.friction.map(f => `<div class="fr"><span class="badge ${f.sev}">${f.sev}</span><div class="fr-b"><b>${f.kind}</b>${f.note}</div></div>`).join('');
+  return `
+    <div class="np-top"><span class="badge kind">${x.kind}</span><span class="badge ${x.cls}">${x.cls}</span>${x.friction.map(f=>`<span class="badge ${f.sev}">${ico('i-alert')} ${f.kind}</span>`).join('')}</div>
+    <h1 class="np-title">${x.name}</h1>
+    <div class="np-sub"><span>${x.ref}</span><span>·</span><code>${x.label}</code><span>·</span><span>${x.sec}${x.page?`, p. ${x.page}`:''}</span>${x.parent?`<span>·</span><span>inside ${chip(x.parent)}</span>`:''}</div>
+    ${x.stmt ? `<div class="np-sec"><h4>Statement (paper)</h4><div class="stmt">${x.stmt}</div></div>` : ''}
+    <div class="np-sec"><h4>In plain English</h4><div>${x.plain||'<span class="dim">—</span>'}</div></div>
+    <div class="np-sec"><h4>Why it’s here</h4><div>${x.why||'<span class="dim">—</span>'}</div>${x.cite?`<div class="dim" style="font-size:12px; margin-top:4px">Classification cites: ${x.cite}</div>`:''}</div>
+    ${compact ? '' : `<div class="np-grid">
+      <div class="np-sec"><h4>Uses</h4><div class="deps">${x.uses.length ? x.uses.map(chip).join('') : '<span class="dim">nothing in the paper</span>'}</div></div>
+      <div class="np-sec"><h4>Used by</h4><div class="deps">${x.usedBy.length ? x.usedBy.map(chip).join('') : '<span class="dim">—</span>'}</div></div>
+    </div>`}
+    ${x.claims.length ? `<div class="np-sec"><h4>Inside the proof</h4><div class="deps">${x.claims.map(c=>chip(c.id)).join('')}</div></div>` : ''}
+    <div class="np-sec"><h4>Sources</h4><div class="src">
+      <div class="card"><div class="card-h">${ico('i-file')} Paper <button class="btn soft xs">Open ${ico('i-ext')}</button></div><div class="card-b"><div class="row"><span>Section</span><span>${x.sec}</span></div><div class="row"><span>Page</span><span>${x.page||'—'}</span></div><div class="row"><span>Label</span><code>${x.label}</code></div></div></div>
+      <div class="card"><div class="card-h">${ico('i-lean')} Lean ${x.lean?`<button class="btn soft xs">GitHub ${ico('i-ext')}</button>`:'<span class="badge unknown">not aligned</span>'}</div><div class="card-b">${x.lean?`<div class="row"><span>File</span><code>${x.lean.file.split('/').pop()}</code></div><div class="row"><span>Decl</span><code style="font-size:11px">${x.lean.decl.split('.').pop()}</code></div><div class="row"><span>Line</span><span>${x.lean.line}</span></div>`:`<div class="dim" style="font-size:12.5px">Phase 2 aligns this node to a declaration in <code>openai/math/lean</code>. ${x.leanHelpers.length?`${x.leanHelpers.length} candidate helpers.`:''}</div>`}</div></div>
+    </div></div>
+    ${fr ? `<div class="np-sec"><h4>Friction</h4>${fr}</div>` : ''}`;
+}
+let cur2 = 'thm-main';
+function selectNode(id, scroll){
+  cur2 = id;
+  document.getElementById('node2').innerHTML = nodeHtml(id);
+  document.getElementById('node3').innerHTML = nodeHtml(id, true);
+  document.querySelectorAll('#tree2 .tnode').forEach(t => t.classList.toggle('sel', t.dataset.id === id));
+  const x = N[id]; const sec = SEC_OF[id] || SEC_OF[x.parent];
+  document.getElementById('url2').textContent = `localhost:3120/eth/${id}`;
+  document.getElementById('crumbs2').innerHTML = `<span>ETH is False</span>${ico('i-chev','dim')}<span>${sec.label.replace(' · ',' ')}</span>${ico('i-chev','dim')}<span class="cur">${x.name}</span>`;
+  // make sure tree shows it
+  const k = document.querySelector(`#tree2 [data-kids="${sec.id}"]`); if(k && !k.classList.contains('open')) toggleKids(sec.id);
+  if(x.parent){ const pk = document.querySelector(`#tree2 [data-kids="${x.parent}"]`); if(pk && !pk.classList.contains('open')) toggleKids(x.parent); }
+  if(scroll) document.getElementById('f2').scrollIntoView({behavior:'smooth', block:'start'});
+  document.getElementById('node2').scrollTop = 0;
+}
+function copyLink(){ const t = document.getElementById('toast2'); document.getElementById('toastUrl').textContent = `/eth/${cur2}`; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'), 1800); }
+function toggleChat(){ const d = document.getElementById('dash2'); d.classList.toggle('no-chat'); document.getElementById('chat2').style.display = d.classList.contains('no-chat') ? 'none' : 'flex'; document.getElementById('chatToggle').classList.toggle('active'); }
+
+/* ---------------- chat ---------------- */
+const QA = [
+  { q:'Where does the √log n come from?', a:`<p>It comes from balancing three exponential costs, not from any single lemma.</p>
+<p>The counting routine [[prop-general-count]] runs in time <span class="math">2<sup>τ</sup>·2<sup>n/r</sup>·2<sup>D</sup></span>: enumerating measurement values, the largest variable group, and the Taylor degree. Each term shrinks as a different layout parameter grows, and they trade off.</p>
+<p>[[lem-incidence-parameters]] makes the choice: setting the three equal gives <span class="math">τ, n/r, D = O(n log log n/√log n)</span>. That is the exponent in [[prop-count]] and hence in [[thm-main]].</p>
+<p>The <span class="math">log log n</span> factor is paid by [[lem-sparsify]]; Appendix D removes it at fixed clause density via [[thm-tensor-contraction]].</p>` },
+  { q:'Which nodes contain the new idea?', a:`<p>Three places, in dependency order:</p>
+<p>1. [[lem-measurement-separation]] — fixing linear measurements factors one <span class="math">2<sup>n</sup></span>-term sum into a product of small sums.</p>
+<p>2. [[lem-incidence-parameters]] — the explicit layout whose three costs balance at <span class="math">n/√log n</span>.</p>
+<p>3. [[lem-greedy-hashes]] — choosing parity hashes greedily, using the counter itself to certify each one, which is what makes the algorithm deterministic.</p>
+<p>Everything else is classified routine or standard; [[cor-quantitative-circuits]] for instance applies Williams 2013 unchanged.</p>` },
+  { q:'What does the Lean actually prove?', a:`<p>A weaker statement than [[thm-main]] as written.</p>
+<p>The Lean declaration <code>exact_count_subexponential</code> bounds time by <span class="math">(L+1)<sup>O<sub>k</sub>(1)</sup> 2<sup>O<sub>k</sub>(n (log log n)<sup>2</sup>/√log n)</sup></span> where <span class="math">L</span> is the length of a canonical encoding of the formula. The paper states <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> 2<sup>O<sub>k</sub>(n log log n/√log n)</sup></span>. Two differences: an extra <span class="math">log log n</span>, and size measured by encoding length rather than <span class="math">(n, m)</span>.</p>
+<p>The sharper Appendix D bound [[thm-tensor-contraction]] has no Lean counterpart at all. Both items are on the friction report.</p>
+<p class="dim" style="font-size:12px">Source: lean/docs/378.md scope note and the comparator statement. Node-level alignment is Phase 2.</p>` }
+];
+function linkify(html){ return html.replace(/\[\[([a-z0-9-]+)\]\]/g, (m, id) => `<span class="nl" onclick="selectNode('${id}', true)">${ico('i-link')} ${N[id] ? N[id].name : id}</span>`); }
+function ask(i){
+  const m = document.getElementById('msgs2'); const e = m.querySelector('.chat-empty'); if(e) e.remove();
+  m.insertAdjacentHTML('beforeend', `<div class="msg user">${QA[i].q}</div><div class="msg ai shimmer" id="pend">Thinking…</div>`); m.scrollTop = m.scrollHeight;
+  setTimeout(() => { const p = document.getElementById('pend'); p.classList.remove('shimmer'); p.id=''; p.innerHTML = linkify(QA[i].a); m.scrollTop = m.scrollHeight; }, 700);
+}
+function askFree(){ const ta = document.getElementById('ta2'); if(!ta.value.trim()) return; const m = document.getElementById('msgs2'); const e = m.querySelector('.chat-empty'); if(e) e.remove(); m.insertAdjacentHTML('beforeend', `<div class="msg user">${ta.value}</div><div class="msg ai"><p class="dim">(storyboard: free-form questions aren't wired; the three suggested ones are)</p></div>`); ta.value=''; m.scrollTop = m.scrollHeight; }
+document.getElementById('ta2').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); askFree(); } });
+
+/* ---------------- friction filter ---------------- */
+function filt(s, btn){ document.querySelectorAll('#ftabs button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); document.querySelectorAll('#ftable tbody tr').forEach(r => r.classList.toggle('hid', s!=='all' && r.dataset.s!==s)); }
+
+/* ---------------- graph ---------------- */
+let curG = 'thm-main', gModeV = 'all', gColorV = 'cls';
+const SEC_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#14b8a6','#f97316','#ec4899'];
+function gMode(m, b){ gModeV = m; document.querySelectorAll('#gmode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); renderGraph(); }
+function gColor(c, b){ gColorV = c; document.querySelectorAll('#gcolor button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); renderGraph(); }
+function closure(id, dir, within){ const out = new Set(); const st=[id]; while(st.length){ const x = st.pop(); (N[x][dir]||[]).forEach(y => { if(within.has(y) && !out.has(y)){ out.add(y); st.push(y); } }); } return out; }
+function renderGraph(){
+  const showClaims = document.getElementById('gClaims').checked;
+  let ids = SECTIONS.flatMap(s => s.nodes).filter(id => id !== 'thm-overview-sparse' && id !== 'def-design'); // overview restatements clutter the DAG; keep them in the tree
+  if (showClaims) ids = ids.concat(Object.keys(N).filter(id => N[id].kind === 'claim'));
+  const within = new Set(ids);
+  const down = closure(curG, 'uses', within), up = closure(curG, 'usedBy', within);
+  const lit = new Set([curG, ...down, ...up]);
+  if (gModeV === 'focus') { ids = ids.filter(id => lit.has(id)); }
+  const W = 150, H = 40, GX = 18, GY = 62;
+  // layering by longest path over 'uses'
+  const depth = {}; const d = id => { if (depth[id] != null) return depth[id]; const us = N[id].uses.filter(u => ids.includes(u)); depth[id] = us.length ? 1 + Math.max(...us.map(d)) : 0; return depth[id]; };
+  ids.forEach(d); const maxD = Math.max(0, ...ids.map(id => depth[id]));
+  const layers = []; for (let k = 0; k <= maxD; k++) layers.push(ids.filter(id => depth[id] === k));
+  const pos = {}; layers[0].forEach((id, i) => pos[id] = i);
+  const bary = (id, key) => { const a = N[id][key].filter(u => ids.includes(u) && pos[u] != null); return a.length ? a.reduce((s, u) => s + pos[u], 0) / a.length : (pos[id] ?? 0); };
+  for (let k = 1; k <= maxD; k++) { layers[k].sort((a, b) => bary(a, 'uses') - bary(b, 'uses')); layers[k].forEach((id, i) => pos[id] = i); }
+  for (let k = maxD - 1; k >= 0; k--) { layers[k].sort((a, b) => bary(a, 'usedBy') - bary(b, 'usedBy')); layers[k].forEach((id, i) => pos[id] = i); }
+  const widest = Math.max(...layers.map(l => l.length));
+  const totalW = widest * (W + GX) + 40, totalH = (maxD + 1) * (H + GY) + 20;
+  const xy = {};
+  layers.forEach((l, k) => { const rowW = l.length * (W + GX) - GX; l.forEach((id, i) => { xy[id] = { x: (totalW - rowW) / 2 + i * (W + GX), y: 20 + (maxD - k) * (H + GY) }; }); });
+  const secIdx = id => SECTIONS.findIndex(s => s === (SEC_OF[id] || SEC_OF[N[id].parent]));
+  let edges = '', nodes = '';
+  ids.forEach(id => N[id].uses.filter(u => ids.includes(u)).forEach(u => {
+    const a = xy[id], b = xy[u]; const on = lit.has(id) && lit.has(u);
+    const x1 = a.x + W / 2, y1 = a.y + H, x2 = b.x + W / 2, y2 = b.y;
+    const my = (y1 + y2) / 2;
+    edges += `<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}" fill="none" stroke="${on ? 'var(--primary)' : 'var(--border-acc)'}" stroke-width="${on ? 1.6 : 1}" opacity="${on ? .9 : .45}" marker-end="url(#arr${on ? 'On' : ''})"/>`;
+  }));
+  ids.forEach(id => {
+    const x = N[id], p = xy[id]; const on = lit.has(id), sel = id === curG;
+    let fill = 'var(--bg)', stroke = 'var(--border-acc)', dash = '';
+    if (gColorV === 'cls') { if (x.cls === 'novel') { fill = 'var(--primary-soft)'; stroke = 'var(--primary)'; } else if (x.cls === 'standard') { dash = 'stroke-dasharray="4 3"'; stroke = 'var(--muted)'; } }
+    else { stroke = SEC_COLORS[secIdx(id) % SEC_COLORS.length]; fill = 'var(--bg)'; }
+    if (sel) { stroke = 'var(--primary)'; }
+    const name = x.name.length > 24 ? x.name.slice(0, 23) + '…' : x.name;
+    nodes += `<g transform="translate(${p.x},${p.y})" opacity="${on ? 1 : .28}" style="cursor:pointer" onclick="gSelect('${id}')"><title>${x.name} — ${x.ref}</title>
+      <rect width="${W}" height="${H}" rx="7" fill="${fill}" stroke="${stroke}" stroke-width="${sel ? 2.5 : 1.2}" ${dash}/>
+      ${x.kind === 'claim' ? `<rect width="${W}" height="${H}" rx="7" fill="none" stroke="${stroke}" stroke-width="1" stroke-dasharray="2 2" transform="translate(3,3) scale(${(W-6)/W},${(H-6)/H})"/>` : ''}
+      <text x="9" y="16" font-size="9.5" fill="var(--dim)" font-family="var(--mono)">${x.ref}${x.friction.length ? '  •' : ''}</text>
+      <text x="9" y="30" font-size="11.5" font-weight="${sel ? 600 : 500}" fill="var(--text)" font-family="var(--sans)">${name}</text>
+    </g>`;
+  });
+  const svg = document.getElementById('gsvg');
+  svg.setAttribute('width', totalW); svg.setAttribute('height', totalH); svg.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`); svg.dataset.w = totalW; svg.dataset.h = totalH;
+  svg.innerHTML = `<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--border-acc)"/></marker><marker id="arrOn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--primary)"/></marker></defs>${edges}${nodes}`;
+  document.getElementById('gstat').textContent = `${ids.length} nodes · ${maxD + 1} levels · focus: ${down.size} below, ${up.size} above`;
+  document.getElementById('gside').innerHTML = nodeHtml(curG, true);
+  document.getElementById('urlG').textContent = `localhost:3120/eth/${curG}?view=graph${gModeV === 'focus' ? '&mode=focus' : ''}`;
+  if (gModeV === 'all') { const wrap = document.getElementById('gwrap'); wrap.scrollLeft = Math.max(0, (xy[curG].x + W / 2) - wrap.clientWidth / 2); wrap.scrollTop = Math.max(0, xy[curG].y - 40); }
+}
+function gSelect(id){ curG = id; renderGraph(); }
+function gFit(){ const svg = document.getElementById('gsvg'), wrap = document.getElementById('gwrap'); const fit = svg.getAttribute('width') == wrap.clientWidth; if (fit) { svg.setAttribute('width', svg.dataset.w); svg.setAttribute('height', svg.dataset.h); } else { const s = wrap.clientWidth / svg.dataset.w; svg.setAttribute('width', wrap.clientWidth); svg.setAttribute('height', svg.dataset.h * s); } }
+
+/* ---------------- form + run ---------------- */
+function srcTab(i, btn){ document.querySelectorAll('#srcTabs button').forEach(b=>b.classList.remove('on')); btn.classList.add('on'); document.querySelectorAll('.srcpane').forEach(p => p.style.display = p.dataset.src == i ? '' : 'none'); }
+function finishRun(){
+  document.querySelectorAll('#stepper .step').forEach(s => { s.classList.remove('run'); s.classList.add('done'); s.querySelector('.sdot').textContent = '✓'; });
+  document.getElementById('exMeta').textContent = '10 / 10 sections · 53 nodes · 3m 12s';
+  document.getElementById('rsMeta').textContent = '161 mechanical · 23 inferred · 1m 48s';
+  document.getElementById('crMeta').textContent = '3 fixes applied · 1 reviewed (accepted) · 48s';
+  document.getElementById('anMeta').textContent = '53 / 53 · 7 levels · 3 novel · 2m 31s';
+  document.getElementById('fnMeta').textContent = 'metrics · 4 friction · 0.2s';
+  document.getElementById('runSub').innerHTML = 'Finished in 7m 44s · openai/gpt-6-sol · run <code>run_8f3k</code>';
+  document.getElementById('runBtns').innerHTML = '<button class="btn outline sm">Re-run from stage…</button><button class="btn solid sm" onclick="document.getElementById(\'f2\').scrollIntoView({behavior:\'smooth\'})">Open map →</button>';
+  document.getElementById('tokIn').textContent = '1.9M / 240k'; document.getElementById('cost').textContent = '$4.10'; document.getElementById('elapsed').textContent = '7m 44s';
+  document.getElementById('recall').textContent = '44 / 44 statements'; document.getElementById('inferred').textContent = '23 (12.5%)';
+  const log = document.getElementById('runLog'); log.querySelector('.shimmer')?.remove();
+  log.insertAdjacentHTML('beforeend', `<div><span class="dim">12:07:24</span> extract · done · 53 nodes (44 statements + 9 claims) · recall 44/44</div>
+    <div><span class="dim">12:09:12</span> resolve · 161 \\ref edges mechanical · 23 inferred from prose (flagged <code>inferred_dep</code>)</div>
+    <div><span class="dim">12:09:14</span> critique · opus-5.5 over the assembled DAG · 4 findings: 3 applied (confidence ≥ 0.85), 1 queued for review</div>
+    <div><span class="dim">12:09:15</span> run paused · waiting for review · "merge claim 3 and claim 4 under prop:count (restatement)?"</div>
+    <div><span class="dim">12:09:52</span> review · accepted by operator · resuming</div>
+    <div><span class="dim">12:09:53</span> annotate · topological sort → 7 levels, fan-out per level</div>
+    <div><span class="dim">12:10:05</span> annotate · L3 · <code>lem:incidence-parameters</code> → "Parameter choice balancing the three costs" · novel</div>
+    <div><span class="dim">12:10:05</span> annotate · L3 · <code>lem:rational-idempotent</code> → "Integer lift of a clause indicator" · standard (cites [Wil13] Lemma 2.1)</div>
+    <div><span class="dim">12:11:44</span> annotate · done 53/53</div>
+    <div><span class="dim">12:11:44</span> finalize · wrote paper JSON (53 nodes) · metrics saved · 4 friction items</div>
+    <div class="ok" style="color:var(--green)">✓ Run complete</div>`);
+  log.scrollTop = log.scrollHeight; document.getElementById('jumpBtn').style.display='none';
+}
+
+/* ---------------- theme ---------------- */
+function toggleTheme(){ const h = document.documentElement; h.dataset.theme = h.dataset.theme === 'dark' ? 'light' : 'dark'; }
+if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
+
+/* ---------------- init ---------------- */
+renderTree(document.getElementById('tree2'), ['s1','s6']);
+selectNode('thm-main');
+document.getElementById('msgs3').innerHTML = QA.map(x => `<div class="msg user">${x.q}</div><div class="msg ai">${linkify(x.a)}</div>`).join('');
+document.getElementById('node3').innerHTML = nodeHtml('lem-incidence-parameters', true);
+renderGraph();
+// frame 5
+const t5 = document.getElementById('tree5'); renderTree(t5, ['s6']); t5.querySelectorAll('.tnode').forEach(t => t.classList.toggle('sel', t.dataset.id==='lem-sparsify'));
+document.getElementById('node5').innerHTML = nodeHtml('lem-sparsify');
+document.getElementById('node5m').innerHTML = nodeHtml('lem-sparsify', true);
+</script>
+</body>
+</html>

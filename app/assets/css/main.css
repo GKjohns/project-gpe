@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+@import "katex/dist/katex.min.css";
+
+/* Long display math scrolls inside its block instead of widening the page. */
+[data-math-text] .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.25rem;
+}

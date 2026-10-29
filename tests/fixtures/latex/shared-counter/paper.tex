@@ -1,0 +1,32 @@
+\documentclass{amsart}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{claim}{Claim}
+\theoremstyle{definition}\newtheorem{definition}[theorem]{Definition}
+\newtheorem*{remark*}{Remark}
+\begin{document}
+\section{One}
+\begin{definition}\label{def:a}A definition.\end{definition}
+\begin{lemma}\label{lem:a}A lemma.\end{lemma}
+\begin{proof}Uses Definition~\ref{def:a}.\end{proof}
+\begin{theorem}\label{thm:a}A theorem.\end{theorem}
+\begin{claim}\label{cl:a}An independent counter.\end{claim}
+\section{Two}
+\subsection{Two point one}
+\begin{lemma}\label{lem:b}Counter reset by section.\end{lemma}
+\begin{remark*}Unnumbered.\end{remark*}
+\begin{claim}\label{cl:b}Not reset.\end{claim}
+\begin{corollary}\label{cor:b}Shares the theorem counter.\end{corollary}
+\begin{proof}[Proof of Theorem~\ref{thm:a}]
+Combine Lemma~\ref{lem:a} and \cref{lem:b,cl:a}.
+\begin{claim}\label{cl:inner}Nested.\end{claim}
+\begin{proof}Inner proof cites Corollary~\ref{cor:b}.\end{proof}
+\end{proof}
+\appendix
+\section{Extra}
+\begin{lemma}\label{lem:app}In the appendix.\end{lemma}
+\begin{proof}
+By Theorem~\ref{thm:a}.
+\end{proof}
+\end{document}

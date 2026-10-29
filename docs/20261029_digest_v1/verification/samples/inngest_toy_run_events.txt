@@ -1,0 +1,13 @@
+# GET /api/runs/37d6c296-f755-4ba8-bef1-c7030b56b367 (toy upload, quick, run through Inngest dev server; Sprint 9)
+# events, trimmed: time (UTC)  stage  message
+17:18:47.422 run       queued · upload main.tex, prelim.tex · quick · pipeline · budget $2
+17:18:47.428 run       sent to Inngest
+17:18:47.772 run       run started
+17:18:47.781 fetch     fetch started
+...
+17:19:01.662 classify  classify · 1 standard · 0 routine · 0 novel (none) · 1 unknown
+17:19:01.662 classify  classify finished
+17:19:01.700 finalize  finalize started
+17:19:01.707 finalize  finalize · digest written: 2 nodes, 2 sections, roots thm-main, unlabeled-2-1 · 2 friction rows from outline f
+17:19:01.707 finalize  finalize finished
+17:19:01.710 run       run finished

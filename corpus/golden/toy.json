@@ -1,0 +1,11 @@
+{
+  "slug": "toy",
+  "source": "tests/fixtures/latex/toy (main.tex + sections/prelim.tex)",
+  "notes": "Four statements. thm:main's proof refs lem:roots and def:poly (\\eqref{eq:deg} is an equation and \\ref{sec:prelim} a section: unresolved, not edges); lem:roots' proof refs def:poly (the \\ref{lem:bogus} is in a comment). The commented-out lemma is not a statement. The unlabeled theorem in section 2 is unlabeled-2-1.",
+  "nodes": [
+    { "id": "def-poly", "kind": "definition", "deps_paper": [] },
+    { "id": "lem-roots", "kind": "lemma", "deps_paper": ["def-poly"] },
+    { "id": "thm-main", "kind": "theorem", "deps_paper": ["lem-roots", "def-poly"] },
+    { "id": "unlabeled-2-1", "kind": "theorem", "deps_paper": [] }
+  ]
+}

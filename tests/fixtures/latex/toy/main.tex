@@ -1,0 +1,23 @@
+\documentclass{article}
+\usepackage{amsthm,amssymb}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\norm}[1]{\lVert #1 \rVert}
+\DeclareMathOperator{\rank}{rank}
+\begin{document}
+\section{Preliminaries}\label{sec:prelim}
+\input{sections/prelim}
+\section{Main result}
+% \begin{lemma}\label{lem:commented} This lemma is commented out. \end{lemma}
+\begin{theorem}[Main]\label{thm:main}
+Every nonzero $p \in \F[x]$ of degree $d$ has at most $d$ roots; 100\% of the time.
+\end{theorem}
+\begin{proof}
+By Lemma~\ref{lem:roots} and Definition~\ref{def:poly}, and by \eqref{eq:deg}.
+See also Section~\ref{sec:prelim}.
+\end{proof}
+\begin{theorem}
+An unlabeled statement with no proof.
+\end{theorem}
+\end{document}

@@ -1,0 +1,5 @@
+{
+  "db": "pglite",
+  "migrations": 1,
+  "gateway": true
+}

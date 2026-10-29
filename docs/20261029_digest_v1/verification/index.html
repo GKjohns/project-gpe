@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project GPE v1 verification</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #18181b; --muted: #5f5f6b; --line: #e4e4e7; --soft: #f4f4f5;
+    --accent: #4f46e5; --ok: #15803d; --warn: #b45309; --code-bg: #f6f6f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111114; --fg: #ececf0; --muted: #a1a1aa; --line: #2e2e35; --soft: #1b1b20;
+      --accent: #a5b4fc; --ok: #4ade80; --warn: #fbbf24; --code-bg: #1a1a1f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 56px 20px 120px; }
+  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.45rem; margin: 72px 0 12px; padding-top: 24px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.1rem; margin: 36px 0 8px; }
+  p, li { color: var(--fg); }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  .meta { color: var(--muted); font-size: 0.92rem; }
+  a { color: var(--accent); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.45; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0 32px; }
+  img { max-width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 8px; }
+  figcaption { color: var(--muted); font-size: 0.92rem; margin-top: 8px; }
+  figcaption b { color: var(--fg); font-weight: 600; }
+  .badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line); color: var(--ok); vertical-align: middle; margin-left: 6px; }
+  .note { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; font-size: 0.94rem; }
+  .gotchas { font-size: 0.94rem; }
+  .gotchas li { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.86rem; margin: 16px 0; }
+  .tablewrap { overflow-x: auto; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 600; }
+  td.l { white-space: normal; }
+  nav.toc { columns: 2; font-size: 0.94rem; margin: 20px 0 0; }
+  nav.toc a { text-decoration: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } nav.toc { columns: 1; } h1 { font-size: 1.7rem; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Project GPE v1: verification</h1>
+<p class="sub">Graphical Proof Explorer, Phase 1 (paper only). Implementation plan <a href="../implementation_plan.md">20261029_digest_v1</a>, executed Oct 29, 2026. Renamed from Digest the same day; screenshots taken before the rename show "Digest" in the header and titles.</p>
+
+<h2 style="border-top:none;margin-top:32px;padding-top:0">What was built</h2>
+<p>From the browser, an operator pastes a GitHub directory or arXiv id (or uploads <code>.tex</code>), watches the run, then browses the paper as a tree, a dependency DAG, node pages with deep links, and a chat that cites nodes. The pipeline (fetch, deterministic LaTeX chunk, outline, extract, resolve, critique with a human review queue, annotate, classify, finalize) runs against a <code>StepRunner</code>: an in-process <code>LocalRunner</code> in dev and Inngest in production, with Drizzle over PGlite locally and Postgres by <code>DATABASE_URL</code>. Two structure methods were built and compared: a fixed pipeline (one whole-paper outline call) and a Claude Agent SDK agent in a Vercel Sandbox. Both ran over a nine-paper tiered corpus from a corpus page, and the numbers set the default: pipeline under 200k tokens.</p>
+
+<nav class="toc">
+  <a href="#s1">Sprint 1: Foundation</a><br>
+  <a href="#s2">Sprint 2: Ingest, chunker, run page</a><br>
+  <a href="#s3">Sprint 3: Outline, extract, resolve</a><br>
+  <a href="#s4">Sprint 4: Critique to finalize</a><br>
+  <a href="#s4b">Sprint 4b: Agent method</a><br>
+  <a href="#s5">Sprint 5: App shell</a><br>
+  <a href="#s6">Sprint 6: Graph view</a><br>
+  <a href="#s7">Sprint 7: Chat and friction</a><br>
+  <a href="#s8">Sprint 8: Corpus</a><br>
+  <a href="#s9">Sprint 9: Inngest runner</a><br>
+  <a href="#polish">Post-sprint polish</a><br>
+  <a href="#corpus">Corpus results and default method</a><br>
+  <a href="#e2e">End-to-end: ETH</a><br>
+  <a href="#checks">Checks</a>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="s1">Sprint 1: Foundation <span class="badge">complete</span></h2>
+<p>DB schema (papers, sources, runs, run_events, stage_outputs, review_items), shared types, the <code>LocalRunner</code> with cancel and budget checks at step boundaries, the gateway model wrapper <code>callObject</code>, and a fixture digest for the UI sprints.</p>
+<p class="meta">Live from the running dev server (<a href="samples/health.json">samples/health.json</a>):</p>
+<pre><code>$ curl -s localhost:3120/api/health
+{
+  "db": "pglite",
+  "migrations": 1,
+  "gateway": true
+}</code></pre>
+<p class="meta">Run metrics as the runner records them: <code>GET /api/runs/:id</code> for the Sprint 4 end-to-end ETH run, trimmed (<a href="samples/eth_e2e_run_metrics.json">samples/eth_e2e_run_metrics.json</a>):</p>
+<pre><code>"run": { "id": "266200a5-…", "status": "complete", "profile": "careful",
+         "structureMethod": "pipeline", "costUsd": 3.586127 },
+"run.metrics": {
+  "statements_in_source": 36, "statements_extracted": 36, "claims": 50,
+  "refs_mechanical": 52, "refs_inferred": 60,
+  "critique_findings": 7, "review_items": 6, "schema_retries": 0,
+  "calls": 231, "tokens_in": 801820, "tokens_out": 67522,
+  "cost_usd": 3.586127, "wallclock_ms": 654227,
+  "per_stage": {
+    "outline":  { "ms": 104691, "calls": 1,  "cost_usd": 0.787856 },
+    "extract":  { "ms": 25521,  "calls": 50, "cost_usd": 0.3319 },
+    "critique": { "ms": 40462,  "calls": 1,  "cost_usd": 0.834121 },
+    "annotate": { "ms": 399721, "calls": 86, "cost_usd": 0.71305 },
+    "classify": { "ms": 59512,  "calls": 87, "cost_usd": 0.838116 }, …
+  }
+}</code></pre>
+<ul class="gotchas">
+  <li><code>useDb()</code> is async: it builds and migrates on first call rather than as an import side effect, so the Nitro bundle needs no top-level await.</li>
+  <li>The gateway reports cost in <code>providerMetadata.gateway.cost</code> as a string; it is parsed, with a price table as fallback.</li>
+  <li>Later fix (Sprint 8): stage payloads pass through <code>jsonbSafe</code>, because Postgres jsonb rejects <code>\u0000</code> and unpaired surrogates (one agent run died writing its classify output).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s2">Sprint 2: Ingest UI, source fetch, chunker, run page <span class="badge">complete</span></h2>
+<p>GitHub directory, arXiv e-print and upload fetchers; a deterministic chunker that inlines <code>\input</code>, emulates <code>\newtheorem</code> counters and finds statements, proofs and refs; the New paper form and a live run page.</p>
+<figure>
+  <img src="screenshots/sprint2_form_filled.webp" alt="New paper form filled with the ETH GitHub directory">
+  <figcaption><b>Proves:</b> the form validates the GitHub URL server-side, lists the source files and size, and picks a default profile from the size estimate before anything runs. (Predates the rename.)</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint2_run_after_chunk.webp" alt="Run page after chunk">
+  <figcaption><b>Proves:</b> fetch and chunk run from the UI: 4 files · 258 KB, then 10 sections · 36 statements · 40 refs, with the chunker's warnings in the live log.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint2_run_cancelled.webp" alt="Cancelled run">
+  <figcaption><b>Proves:</b> Cancel takes effect at the next step boundary (the arXiv run stopped during fetch; chunk never started).</figcaption>
+</figure>
+<ul class="gotchas">
+  <li>The plan expected 44 statements and 161 refs on ETH; the revised Oct 25 source has 36 statements (35 labeled) and 40 statement refs in proofs. Tests assert the real numbers.</li>
+  <li><code>lem:sparsify</code> has no proof environment (Appendix A proves it), and <code>thm:main</code> has two titled proofs. Both became outline-prompt guidance.</li>
+  <li>Later fix (Sprint 8): a section titled "Proof of Lemma \ref{…}" now counts as that statement's proof (Rao, ALWZ).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s3">Sprint 3: Outline (Method A), extract, resolve <span class="badge">complete</span></h2>
+<p>One whole-paper Opus call outlines claims inside every proof of 60+ lines, extract writes each claim's statement, and resolve builds <code>\ref</code> edges plus model-inferred edges with a cycle guard.</p>
+<figure>
+  <img src="screenshots/sprint3_run_health.webp" alt="Run page health card after resolve">
+  <figcaption><b>Proves:</b> statement recall 36/36 on ETH, 53 claims, and edges split into mechanical <code>\ref</code> (52) vs inferred (55), each inferred edge logged with its reason. (Predates the rename.)</figcaption>
+</figure>
+<ul class="gotchas">
+  <li>Extract does not send the whole source as a cached prefix: through the gateway, auto-caching marks the last message, so a shared prefix never hit. Each claim gets a ±15-line window instead ($0.35 for 53 calls).</li>
+  <li>The outline prompt line-numbers the source (about 65k extra tokens on ETH) so spans are exact.</li>
+  <li>Later fix (Sprint 8): a paper's own <code>\begin{claim}</code> is kind <code>lemma</code>, not an outlined claim.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s4">Sprint 4: Critique, annotate, classify, finalize <span class="badge">complete</span></h2>
+<p>A whole-DAG critique call auto-applies fixes at 0.85+ confidence and queues the rest for a human; annotate writes names, plain statements and explanations dependencies-first; classify marks standard / routine / novel with a citation; finalize writes the digest and metrics. ETH end to end from the form: $3.59, 231 calls, 10 m 54 s.</p>
+<figure>
+  <img src="screenshots/sprint4_review_queue.webp" alt="Review queue on the run page">
+  <figcaption><b>Proves:</b> the run pauses in <code>waiting_review</code> and shows each proposed fix with the affected nodes and the model's note; Accept / Reject resumes it. The model queued items on its own (7 here). (Predates the rename.)</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint4_run_complete.webp" alt="Completed run">
+  <figcaption><b>Proves:</b> every stage completes with real counters (critique findings / applied / for review, annotate and classify n/n, novel count) and "Open map" appears once the digest exists.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint4_library.webp" alt="Library with digested ETH cards">
+  <figcaption><b>Proves:</b> the library reads real rows: digested cards with node, section, novel and friction counts plus wallclock, cost and calls.</figcaption>
+</figure>
+<ul class="gotchas">
+  <li><code>root_ids</code> ignores uses by corollaries and remarks; otherwise <code>thm-main</code> (used inside a corollary's proof) was not a root and the corollaries came first.</li>
+  <li>The review wait lives in <code>ingestPaper</code> outside any step, so the same code works under Inngest. The dev boot sweep fails <code>waiting_review</code> runs because their in-process waiter dies with Nitro.</li>
+  <li>Classify caps a paper at five novel nodes with one extra call (ETH: 6 to 5).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s4b">Sprint 4b: Agent structure method (Method B) <span class="badge">complete</span></h2>
+<p>The outline step can instead boot a Vercel Sandbox from a snapshot, run a Claude Agent SDK agent that reads the proofs with shell tools and validates its own JSON, and stream its trace to the run page. On ETH (careful): 17 turns, $0.58, 50 claims in 11 proofs, the same shape as Method A.</p>
+<figure>
+  <img src="screenshots/sprint4b_agent_trace_midrun.webp" alt="Agent trace mid-run">
+  <figcaption><b>Proves:</b> the agent's tool calls arrive in the run log while it works (turn 12 here) and the stepper shows <code>agent · turn N · last tool</code>. (Predates the rename.)</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint4b_agent_finished.webp" alt="Agent run finished">
+  <figcaption><b>Proves:</b> the agent's outline feeds the rest of the pipeline unchanged and the run completes (17 turns · $0.58 for the outline).</figcaption>
+</figure>
+<ul class="gotchas">
+  <li>The gateway key never enters the VM: the sandbox network policy injects the Authorization header for the gateway host.</li>
+  <li>A sandbox can't reach <code>localhost</code>, so dev polls the VM's <code>trace.jsonl</code>; the HTTP callback is used only with a public app URL.</li>
+  <li>Gateway usage arrives in <code>message_delta</code>, not <code>message_start</code>; the first ETH run under-counted running cost until both were read.</li>
+  <li>Every sandbox was stopped after every run, including cancels (checked with <code>Sandbox.list</code>).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s5">Sprint 5: App shell, tree, node page, deep links <span class="badge">complete</span></h2>
+<p>Dashboard layout with a paper tree (sections, statements, claims), node pages with KaTeX, breadcrumbs, share links, <code>⌘K</code> search, and a collapsing sidebar on narrow screens.</p>
+<figure>
+  <img src="screenshots/sprint5_eth_node.webp" alt="ETH node page for lem-sparsify">
+  <figcaption><b>Proves:</b> a cold deep link to <code>/eth/lem-sparsify</code> opens with the tree expanded to §6.4 and the node selected, its six claims listed, and the statement rendered in KaTeX with no red macro errors.</figcaption>
+</figure>
+<div class="grid2">
+  <figure>
+    <img src="screenshots/sprint5_mobile.webp" alt="390px node page">
+    <figcaption><b>Proves:</b> at 390 px the sidebar collapses to a toggle and the node page reads without horizontal scroll.</figcaption>
+  </figure>
+  <figure>
+    <img src="screenshots/sprint5_dark.webp" alt="Dark mode node page">
+    <figcaption><b>Proves:</b> dark mode works with no per-component overrides (toy fixture).</figcaption>
+  </figure>
+</div>
+<ul class="gotchas">
+  <li>Built against the toy fixture first; the ETH checks ran once Sprint 4 landed the digest. That surfaced <code>\label</code> inside display math and <code>\mathds</code> as KaTeX errors, now stripped or mapped.</li>
+  <li>The node page is keyed by paper, so moving between nodes keeps the sidebar, tree state and panel sizes mounted. <code>select(id)</code> pushes history so browser back walks the selection.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s6">Sprint 6: Graph view <span class="badge">complete</span></h2>
+<p>A layered dependency DAG (dagre) in the center panel with focus mode, a claims toggle, color by class or section, and a compact node card on the right, sharing selection with the tree.</p>
+<figure>
+  <img src="screenshots/sprint6_whole_paper.webp" alt="Whole-paper graph">
+  <figcaption><b>Proves:</b> the whole-paper DAG lays out with the most-supported results on top and leaves below.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint6_focus_mode_claims.webp" alt="Focus mode with claims">
+  <figcaption><b>Proves:</b> Focus re-lays out only the selection's cone, and the claims toggle adds in-proof claims under their parent.</figcaption>
+</figure>
+<div class="grid2">
+  <figure>
+    <img src="screenshots/sprint6_by_section.webp" alt="Colored by section">
+    <figcaption><b>Proves:</b> "by section" recolors cards by top-level section.</figcaption>
+  </figure>
+  <figure>
+    <img src="screenshots/sprint6_mobile.webp" alt="Graph at 390px">
+    <figcaption><b>Proves:</b> at 390 px the controls wrap and the graph stays inside the page (no horizontal page scroll).</figcaption>
+  </figure>
+</div>
+<ul class="gotchas">
+  <li>dagre's default ranker floated leaves up and pinned orphans on the top row, so it read upside down. Ranks now come from <code>graphRanks</code> (longest path down to a leaf), with leaves tucked up under their lowest user.</li>
+  <li>The 400-node guard (default to Focus) was not exercised in the browser: no paper is that large.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s7">Sprint 7: Chat and friction table <span class="badge">complete</span></h2>
+<p>A streaming chat (Sonnet 5.5 through the gateway, digest in the instructions, cached) that cites nodes as <code>[[id]]</code>, rendered as chips that drive the center panel; plus a plain friction table.</p>
+<figure>
+  <img src="screenshots/sprint7_chat_answer.webp" alt="Chat answer with chips">
+  <figcaption><b>Proves:</b> answers cite real nodes as chips (0 unknown ids, 0 KaTeX errors, no raw <code>[[…]]</code> left). (Predates the rename.)</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint7_chip_graph.webp" alt="Chip click in graph view">
+  <figcaption><b>Proves:</b> a chip clicked in Graph view keeps <code>?view=graph</code> and moves the focus, and the conversation survives the switch.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint7_friction.webp" alt="Friction table">
+  <figcaption><b>Proves:</b> <code>/eth/friction</code> lists all 71 paper-internal rows with severity tabs and source links.</figcaption>
+</figure>
+<ul class="gotchas">
+  <li>Citations are a Comark/markdown-it inline rule, not a text rewrite: the rewrite approach broke on "([[a]], [[b]])".</li>
+  <li>Comark's math rule refuses spans that start with a digit (a currency guard), dropping <code>$2^{O(…)}$</code>; those get a <code>{}</code> prefix.</li>
+  <li>Cost per turn on ETH: about $0.12 cold (writes the ~47k-token prefix to cache), $0.007–0.010 warm.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s8">Sprint 8: Corpus page, metrics, method comparison <span class="badge">complete</span></h2>
+<p>A manifest of nine papers in three tiers, goldens for the tier-1 paper and the toy, a corpus page that ingests each paper under both methods and shows the metrics side by side, and the default-method decision. Corpus spend for the sprint: $32.96 of the $80 cap.</p>
+<figure>
+  <img src="screenshots/sprint8_corpus_mixed.webp" alt="Corpus page mid-sweep">
+  <figcaption><b>Proves:</b> "Run all pending" queues the set and the LocalRunner drains it one at a time, with live per-row status. (Predates the rename.)</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint8_corpus_complete.webp" alt="Corpus page complete">
+  <figcaption><b>Proves:</b> all 18 paper × method rows digested; the sensitivity golden shows 0 diffs under both methods.</figcaption>
+</figure>
+<ul class="gotchas">
+  <li>The plan's PFR arXiv id (2311.05330) was a different paper; PFR is 2311.05762.</li>
+  <li>An empty <code>UTable</code> column header caused a hydration mismatch (found by bisecting).</li>
+  <li>The single whole-paper outline call held up at 134k tokens, so the hierarchical outline variant stays unbuilt.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s9">Sprint 9: Inngest runner for production <span class="badge">complete</span></h2>
+<p>The same <code>ingestPaper</code> runs under Inngest: each stage is a step, the review and agent waits are sliced <code>waitForEvent</code>s, and dev stays on the LocalRunner unless <code>INNGEST_EVENT_KEY</code> is set.</p>
+<p class="meta">Boot log lines (from <code>server/utils/dispatch.ts</code>):</p>
+<pre><code>[gpe] runner: LocalRunner (dev, no INNGEST_EVENT_KEY)
+[gpe] runner: Inngest (INNGEST_EVENT_KEY set or not dev)</code></pre>
+<p class="meta">A toy upload run through the local Inngest dev server, live from <code>GET /api/runs/:id</code>, trimmed (<a href="samples/inngest_toy_run_events.txt">samples/inngest_toy_run_events.txt</a>). The log is the LocalRunner's plus one <code>sent to Inngest</code> line, with no duplicates from replay:</p>
+<pre><code>17:18:47.422 run       queued · upload main.tex, prelim.tex · quick · pipeline · budget $2
+17:18:47.428 run       sent to Inngest
+17:18:47.772 run       run started
+17:18:47.781 fetch     fetch started
+…
+17:19:01.707 finalize  finalize · digest written: 2 nodes, 2 sections, roots thm-main, unlabeled-2-1 · …
+17:19:01.707 finalize  finalize finished
+17:19:01.710 run       run finished</code></pre>
+<ul class="gotchas">
+  <li><code>serve</code> comes from <code>inngest/edge</code>: the Nuxt adapter imported a hoisted h3@2 and returned 500 on every route.</li>
+  <li><code>maxDuration</code> is global (<code>nitro.vercel.functions.maxDuration: 800</code>) because Nitro builds one Vercel function.</li>
+  <li>Waits are sliced (≤ 15 min each, after a memoized deadline). This closes the race where the last review decision lands before the wait registers, and notices a cancel within 15 min.</li>
+  <li>Replay audit fixed one bug: a retried critique step re-created its review items.</li>
+  <li>Not run: <code>nuxt build</code> on the Vercel preset (no deploy yet).</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="polish">Post-sprint polish</h2>
+<p>Owner feedback after the sprints, all on the reading experience.</p>
+<h3>Equation and cross-references</h3>
+<p><code>\eqref</code>, <code>\ref</code>, <code>\cref</code> and friends no longer print raw labels. Equations get a "(1.1)" link whose popover shows the equation in KaTeX with its section and source line; statement refs read "Lemma 6.3" and select the node. Numbering is extracted deterministically at finalize; existing digests were backfilled with $0 finalize-only re-runs.</p>
+<figure>
+  <img src="screenshots/fix_eqref_popover.webp" alt="Equation reference popover">
+  <figcaption><b>Proves:</b> an equation reference opens a popover with the rendered equation, its number, section, file:line and an "Open in source" link.</figcaption>
+</figure>
+<h3>Graph headlines and roles</h3>
+<p>Graph cards now say what each node establishes (a short headline, verb-first, "So …" for corollaries, "Defines …" for definitions) and, on a muted second line, its role for the results that use it. One graph-labels pass at the end of annotate writes them; all 19 digested papers were backfilled for $2.12.</p>
+<figure>
+  <img src="screenshots/sprint6_headlines.webp" alt="Graph cards with headlines">
+  <figcaption><b>Proves:</b> cards carry a math-rendered headline and a role line instead of a bare name, so the chain of reasoning reads card to card.</figcaption>
+</figure>
+<h3>Zoom UX, "feeds into" arrows, leaf tuck</h3>
+<p>A d3-zoom viewport replaced overflow scrolling: wheel and pinch zoom around the cursor, drag to pan, click to select with an animated glide, keyboard shortcuts (<code>0</code> whole graph, <code>1</code> 100%, <code>F</code> fit the chain, arrows to walk edges), a minimap, and level of detail when zoomed out. Arrows now point from a supporting node up to the result it feeds into. Leaves are tucked one layer under their lowest user so the drawing is narrower.</p>
+<figure>
+  <img src="screenshots/sprint6_zoomed.webp" alt="Zoomed graph with hover">
+  <figcaption><b>Proves:</b> zooming keeps cards crisp, and hovering a card highlights its direct edges.</figcaption>
+</figure>
+
+<!-- ============================================================ -->
+<h2 id="corpus">Corpus results and the default method</h2>
+<p>All runs from the corpus page on Oct 29. Tier 1 and ALWZ on <code>standard</code>, the rest on <code>careful</code>. Outline = the structure stage only.</p>
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Paper (tokens)</th><th>Method</th><th>Recall</th><th>Claims</th><th>Edges ref / inf</th><th>Critique · review</th><th>Calls</th><th>Turns</th><th>Outline $ · time</th><th>Run $</th><th>Wallclock</th><th>Golden</th></tr></thead>
+  <tbody>
+    <tr><td>sensitivity (6.6k)</td><td>pipeline</td><td>8/8</td><td>0</td><td>2 / 4</td><td>5 · 1</td><td>21</td><td>—</td><td>$0.03 · 10 s</td><td>$0.15</td><td>0.9 m</td><td><b>0 diffs</b></td></tr>
+    <tr><td></td><td>agent</td><td>8/8</td><td>0</td><td>2 / 5</td><td>4 · 0</td><td>23</td><td>3</td><td>$0.02 · 10 s</td><td>$0.14</td><td>0.9 m</td><td><b>0 diffs</b></td></tr>
+    <tr><td>noncoordinate (6.1k)</td><td>pipeline</td><td>3/3</td><td>9</td><td>3 / 10</td><td>2 · 1</td><td>35</td><td>—</td><td>$0.04 · 26 s</td><td>$0.25</td><td>1.6 m</td><td>—</td></tr>
+    <tr><td></td><td>agent</td><td>3/3</td><td>10</td><td>3 / 11</td><td>1 · 1</td><td>41</td><td>5</td><td>$0.06 · 19 s</td><td>$0.27</td><td>1.5 m</td><td>—</td></tr>
+    <tr><td>sunflowers-rao (24k)</td><td>pipeline</td><td>5/5</td><td>4</td><td>3 / 13</td><td>4 · 1</td><td>25</td><td>—</td><td>$0.06 · 28 s</td><td>$0.29</td><td>1.8 m</td><td>—</td></tr>
+    <tr><td></td><td>agent</td><td>5/5</td><td>5</td><td>3 / 9</td><td>2 · 0</td><td>31</td><td>4</td><td>$0.06 · 13 s</td><td>$0.29</td><td>1.3 m</td><td>—</td></tr>
+    <tr><td>sunflower-alwz (25k)</td><td>pipeline</td><td>35/35</td><td>5</td><td>16 / 24</td><td>15 · 1</td><td>102</td><td>—</td><td>$0.11 · 62 s</td><td>$0.88</td><td>3.9 m</td><td>—</td></tr>
+    <tr><td></td><td>agent</td><td>35/35</td><td>5</td><td>19 / 27</td><td>16 · 0</td><td>102 + 40</td><td>4</td><td>$0.08 · 13 s</td><td>$1.01 (lineage)</td><td>—</td><td>—</td></tr>
+    <tr><td>pfr (27k)</td><td>pipeline</td><td>21/21</td><td>10</td><td>6 / 25</td><td>7 · 5</td><td>76</td><td>—</td><td>$0.25 · 30 s</td><td>$1.11</td><td>2.4 m</td><td>—</td></tr>
+    <tr><td></td><td>agent</td><td>21/21</td><td>9</td><td>6 / 26</td><td>5 · 3</td><td>79</td><td>7</td><td>$0.35 · 50 s</td><td>$1.20</td><td>2.9 m</td><td>—</td></tr>
+    <tr><td>unit-distance (59k)</td><td>pipeline</td><td>39/39</td><td>57</td><td>54 / 85</td><td>12 · 6</td><td>260</td><td>—</td><td>$0.55 · 103 s</td><td>$3.18</td><td>11.5 m</td><td>—</td></tr>
+    <tr><td></td><td>agent</td><td>39/39</td><td>58</td><td>54 / 83</td><td>14 · 7</td><td>278</td><td>19</td><td>$0.67 · 110 s</td><td>$3.38</td><td>11.6 m</td><td>—</td></tr>
+    <tr><td>intmult (85k)</td><td>pipeline</td><td>23/23</td><td>72</td><td>39 / 110</td><td>7 · 2</td><td>268</td><td>—</td><td>$0.77 · 137 s</td><td>$3.93</td><td>8.1 m</td><td>—</td></tr>
+    <tr><td></td><td>agent</td><td>23/23</td><td>74</td><td>39 / 106</td><td>6 · 5</td><td>289</td><td>17</td><td>$1.05 · 158 s</td><td>$4.23</td><td>13.1 m</td><td>—</td></tr>
+    <tr><td>eth (85k)</td><td>pipeline</td><td>36/36</td><td>50</td><td>52 / 60</td><td>7 · 6</td><td>231</td><td>—</td><td>$0.79 · 105 s</td><td>$3.59</td><td>10.9 m</td><td>—</td></tr>
+    <tr><td></td><td>agent</td><td>36/36</td><td>50</td><td>52 / 61</td><td>8 · 6</td><td>246</td><td>17</td><td>$0.58 · 116 s</td><td>$3.35</td><td>6.3 m</td><td>—</td></tr>
+    <tr><td>logspace (134k)</td><td>pipeline</td><td>76/76</td><td>88</td><td>177 / 87</td><td>8 · 5</td><td>422</td><td>—</td><td>$1.08 · 169 s</td><td>$5.57</td><td>13.8 m</td><td>—</td></tr>
+    <tr><td></td><td>agent</td><td>76/76</td><td>86</td><td>177 / 67</td><td>9 · 6</td><td>433</td><td>18</td><td>$0.88 · 150 s</td><td>$5.27</td><td>13.0 m</td><td>—</td></tr>
+    <tr><td><b>Total (9 papers)</b></td><td>pipeline</td><td></td><td></td><td></td><td></td><td></td><td></td><td><b>$3.68</b></td><td><b>$18.95</b></td><td></td><td></td></tr>
+    <tr><td></td><td>agent</td><td></td><td></td><td></td><td></td><td></td><td></td><td><b>$3.75</b></td><td><b>$19.14</b></td><td></td><td></td></tr>
+  </tbody>
+</table>
+</div>
+<ul>
+  <li><b>Same structure under both methods.</b> 100% statement recall everywhere, claim counts within 2, the same long proofs outlined, critique findings in the same range. The tier-1 golden passes under both.</li>
+  <li><b>Cost is a wash.</b> Outline $3.68 vs $3.75, whole runs $18.95 vs $19.14. The agent wins when the long proofs are a small share of a large source (ETH −27%, logspace −19%) and loses otherwise (PFR +40%, intmult +36%).</li>
+  <li><b>The pipeline is simpler to operate:</b> no sandbox, no OIDC token in dev, no 90-minute wait loop, and a fixed cost per call.</li>
+</ul>
+<p class="note"><b>Decision (implemented in <code>server/utils/aiModels.ts</code>):</b> default method <b>pipeline</b>; <b>agent at ≥ 200k tokens</b> (<code>AGENT_MIN_TOKENS</code>), where one whole-paper Opus call nears the per-step ceiling. The threshold is an extrapolation: no corpus paper is that large yet. Profile default is unchanged: <code>careful</code> over 30 pages or 100k tokens, else <code>standard</code>.</p>
+
+<!-- ============================================================ -->
+<h2 id="e2e">End-to-end: ETH, form to graph</h2>
+<p>The golden path on <em>The Exponential Time Hypothesis is False</em>, retaken with the GPE branding against the live dev server. The run and review queue are the recorded Sprint 4 run (paper <code>eth-e2e</code>, run <code>266200a5</code>); no new ingest runs were started for this page.</p>
+
+<figure>
+  <img src="screenshots/e2e_form.webp" alt="New paper form with the ETH source">
+  <figcaption><b>1 · Form.</b> <b>Proves:</b> pasting the ETH GitHub directory finds the 4 <code>.tex</code> files (~85k tokens, ~88 pages), defaults the profile to Careful, and estimates ~$4 before anything runs.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint4b_agent_trace_midrun.webp" alt="Run page mid-run">
+  <figcaption><b>2 · Run page, live.</b> <b>Proves:</b> the stepper and log update while the pipeline runs (this is the agent-method ETH run at turn 12). (Predates the rename.)</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/sprint4_review_queue.webp" alt="Review queue">
+  <figcaption><b>3 · Review queue.</b> <b>Proves:</b> critique pauses the run for the fixes it isn't sure of, and a human accepts or rejects each one from the run page. (Predates the rename.)</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_run_complete.webp" alt="Completed ETH run">
+  <figcaption><b>4 · Run complete.</b> <b>Proves:</b> all seven stage groups finished with counters (36 statements, 50 claims, 7 findings · 4 applied · 6 for review, 86/86 annotated and classified); spend $3.59 of a $15 budget, 231 calls, 10 m 54 s; recall 36/36; "Open map" is live.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_library.webp" alt="Library">
+  <figcaption><b>5 · Library.</b> <b>Proves:</b> every digested paper is a card with tier, run state and node / section / novel / friction counts; New paper and Corpus are one click away.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_node.webp" alt="ETH main theorem node page">
+  <figcaption><b>6 · Node page.</b> <b>Proves:</b> <code>/eth/thm-main</code> renders the paper statement in KaTeX, the headline and role under the title, the plain-English restatement and why it's here, with the tree showing §1 expanded and the theorem's five claims.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_node_eqref.webp" alt="Equation reference popover on the main theorem">
+  <figcaption><b>7 · Equation reference.</b> <b>Proves:</b> "as defined in (1.1)" is a live reference: its popover shows #F = |{x ∈ {0,1}<sup>n</sup> : F(x) = 1}| with "§1 Introduction · main_full_version.tex:67 · Open in source".</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_graph.webp" alt="Graph with headlines">
+  <figcaption><b>8 · Graph with headlines.</b> <b>Proves:</b> at 77% the chain reads card to card. The corollaries ("So E^NP needs more than cn√log n gates…") sit above <code>thm:main</code> ("Counts #k-CNF deterministically in 2<sup>O(n log log n/√log n)</sup> time"), which rests on the sparse-polynomial counting query and sparsification below it. Arrows point up ("feeds into"), inferred edges are dashed, and the minimap marks the viewport.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_graph_zoomed.webp" alt="Zoomed graph">
+  <figcaption><b>9 · Zoomed in.</b> <b>Proves:</b> at 169% the cards stay sharp, KaTeX included; hovering <code>lem:tensor-sparse-query</code> darkens its direct edges into and out of <code>thm:main</code>.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_chat.webp" alt="Chat answer with node chips">
+  <figcaption><b>10 · Chat with chips.</b> <b>Proves:</b> "Where does the main bound's exponent come from?" gets an answer that walks the fixed-density and arbitrary-density cases, with the math rendered and each step cited as a node chip (claims and lemmas from the digest).</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_chip_click.webp" alt="After clicking a chat chip">
+  <figcaption><b>10b · Chip click.</b> <b>Proves:</b> clicking the "Counting zeros of sparse polynomial systems" chip navigates to <code>/eth/lem-tensor-sparse-query</code>, the tree follows, and the conversation stays.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_friction.webp" alt="Friction report">
+  <figcaption><b>11 · Friction.</b> <b>Proves:</b> the paper-internal friction report lists 71 items (4 warn, 67 info). The warn rows are proofs that rest on unlabeled equations or external results, each linked to its source line; Lean columns wait for Phase 2.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/e2e_corpus.webp" alt="Corpus page">
+  <figcaption><b>12 · Corpus.</b> <b>Proves:</b> 18 of 18 paper × method runs digested across three tiers, with recall, edges, critique, calls · turns · retries, cost · time and golden diff per row (sensitivity 0 diffs under both methods); total corpus spend $45.05.</figcaption>
+</figure>
+
+<!-- ============================================================ -->
+<h2 id="checks">Checks</h2>
+<ul>
+  <li>Oct 29, when this page was built: <code>npm run lint</code> clean, <code>npm run typecheck</code> clean, <code>npx vitest run</code> 119/119 passing across 13 files.</li>
+  <li>Every UI sprint section above has at least one screenshot; all images are WebP in <code>screenshots/</code>; the samples were captured live from the dev server.</li>
+  <li>Open gaps, carried from the sprint notes: the 400-node graph guard is untested in the browser; no Vercel build or deploy yet; the 200k-token agent threshold is extrapolated; the agent's HTTP callback was verified only on its 401 path.</li>
+</ul>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "slug": "sensitivity",
+      "tier": "simple",
+      "title": "Induced subgraphs of hypercubes and a proof of the Sensitivity Conjecture",
+      "authors": ["Hao Huang"],
+      "source": { "kind": "arxiv", "id": "1907.00847" },
+      "pages": 6,
+      "estTokens": 6641,
+      "lean": { "kind": "mathlib", "ref": "Archive/Sensitivity.lean" },
+      "expectedStatements": 8,
+      "golden": "corpus/golden/sensitivity.json",
+      "profile": "standard",
+      "why": "Tiny, famous, one Lean file. Golden file."
+    },
+    {
+      "slug": "noncoordinate",
+      "tier": "simple",
+      "title": "An explicit noncoordinate polynomial with affine three-space zero fibre",
+      "authors": ["OpenAI"],
+      "source": { "kind": "github", "url": "https://github.com/openai/math/tree/main/preprints/An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026/build" },
+      "pages": 6,
+      "estTokens": 6056,
+      "lean": { "kind": "openai-math", "ref": "lean/OAI/AlgebraicGeometry/AbhyankarSathaye/Counterexample.lean (OAI.AbhyankarSathaye.exists_noncoordinate_polynomial)" },
+      "profile": "standard",
+      "why": "Same source format and model-written prose as ETH, at toy size: the shortest openai/math preprint in lean/formalization.yaml (6 pp, one .tex)."
+    },
+    {
+      "slug": "sunflowers-rao",
+      "tier": "simple",
+      "title": "Coding for Sunflowers",
+      "authors": ["Anup Rao"],
+      "source": { "kind": "arxiv", "id": "1909.04774" },
+      "pages": 8,
+      "estTokens": 23776,
+      "lean": { "kind": "none" },
+      "profile": "standard",
+      "why": "Human-written LaTeX baseline in a journal class (Discrete Analysis): 8 pp, no formalization known. The estimate is inflated by the two .cls files in the e-print."
+    },
+    {
+      "slug": "pfr",
+      "tier": "intermediate",
+      "title": "On a conjecture of Marton",
+      "authors": ["W. T. Gowers", "Ben Green", "Freddie Manners", "Terence Tao"],
+      "source": { "kind": "arxiv", "id": "2311.05762" },
+      "pages": 33,
+      "estTokens": 26943,
+      "lean": { "kind": "blueprint", "ref": "teorth/pfr" },
+      "profile": "careful",
+      "why": "Blueprint \\lean{} tags are ground-truth alignment for Phase 2. (arXiv 2311.05762; the plan's 2311.05330 was a different paper.)"
+    },
+    {
+      "slug": "unit-distance",
+      "tier": "intermediate",
+      "title": "A power saving for planar unit distances",
+      "authors": ["OpenAI"],
+      "source": { "kind": "github", "url": "https://github.com/openai/math/tree/main/preprints/A-power-saving-for-planar-unit-distances-September-23-2026/build" },
+      "pages": 53,
+      "estTokens": 58729,
+      "lean": { "kind": "openai-math", "ref": "lean/ComparatorChallenges/PlanarUnitDistances.lean (family 167, lean/docs/167.md)" },
+      "profile": "careful",
+      "why": "openai/math result family 167; multi-file source (main.tex + 8 section files). Larger than the plan assumed (53 pp, not ~22)."
+    },
+    {
+      "slug": "sunflower-alwz",
+      "tier": "intermediate",
+      "title": "Improved bounds for the sunflower lemma",
+      "authors": ["Ryan Alweiss", "Shachar Lovett", "Kewen Wu", "Jiapeng Zhang"],
+      "source": { "kind": "arxiv", "id": "1908.08483" },
+      "pages": 19,
+      "estTokens": 25078,
+      "lean": { "kind": "none" },
+      "profile": "standard",
+      "why": "Human-written, proof-heavy TCS paper (STOC 2020 / Annals), ~20 pp, no formalization known. Replaces the Kelley–Meka candidate (2302.05537: 79 pp, ~82k tokens, and partly formalized in YaelDillies/LeanAPAP)."
+    },
+    {
+      "slug": "eth",
+      "tier": "whopper",
+      "title": "The Exponential Time Hypothesis is False",
+      "authors": ["OpenAI"],
+      "source": { "kind": "github", "url": "https://github.com/openai/math/tree/main/preprints/The-Exponential-Time-Hypothesis-is-False-October-25-2026/build" },
+      "pages": 67,
+      "estTokens": 85285,
+      "lean": { "kind": "openai-math", "ref": "lean/ComparatorChallenges/SubexponentialSAT.lean + lean/OAI/Algorithms/SubexponentialSAT" },
+      "expectedStatements": 36,
+      "profile": "careful",
+      "why": "Primary target; known friction in lean/docs/378.md. Runs reused from Sprints 4 and 4b.",
+      "papers": { "pipeline": ["eth-e2e"] }
+    },
+    {
+      "slug": "logspace",
+      "tier": "whopper",
+      "title": "Exact Derandomization of Logarithmic Space: L = RL = BPL",
+      "authors": ["OpenAI"],
+      "source": { "kind": "github", "url": "https://github.com/openai/math/tree/main/preprints/Exact-Derandomization-of-Logarithmic-Space-L-equals-RL-equals-BPL-September-23-2026/build" },
+      "pages": 108,
+      "estTokens": 133580,
+      "lean": { "kind": "openai-math", "ref": "lean/OAI/Computability/Logspace/Equality.lean (comparator LogspaceEquality)" },
+      "profile": "careful",
+      "why": "Second 50+-page openai/math family with Lean (result 103), so the corpus isn't overfit to ETH's prose; the largest source in the set (17 .tex files)."
+    },
+    {
+      "slug": "intmult",
+      "tier": "whopper",
+      "title": "Integer multiplication below n log n",
+      "authors": ["OpenAI"],
+      "source": { "kind": "github", "url": "https://github.com/openai/math/tree/main/preprints/Integer-multiplication-below-n-log-n-September-23-2026/build" },
+      "pages": 73,
+      "estTokens": 84913,
+      "lean": { "kind": "none" },
+      "profile": "careful",
+      "why": "50+-page openai/math family without Lean (result 109), TCS like ETH, paper-only."
+    },
+    {
+      "slug": "anthropic-1",
+      "tier": "whopper",
+      "title": "A recent Anthropic-released long proof",
+      "authors": ["Anthropic"],
+      "source": { "kind": "none" },
+      "pages": null,
+      "estTokens": null,
+      "lean": { "kind": "none" },
+      "profile": "careful",
+      "why": "A different model's prose. Source not located; Kyle to supply."
+    }
+  ]
+}

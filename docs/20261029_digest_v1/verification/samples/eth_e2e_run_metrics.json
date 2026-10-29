@@ -1,0 +1,106 @@
+{
+  "run": {
+    "id": "266200a5-c007-4bc7-ae40-c3ece54cdfa8",
+    "status": "complete",
+    "profile": "careful",
+    "structureMethod": "pipeline",
+    "costUsd": 3.586127,
+    "startedAt": "2026-10-29T16:57:27.080Z",
+    "finishedAt": "2026-10-29T17:08:21.318Z"
+  },
+  "run.metrics": {
+    "calls": 231,
+    "claims": 50,
+    "cost_usd": 3.586127,
+    "per_stage": {
+      "chunk": {
+        "ms": 10,
+        "calls": 0,
+        "cost_usd": 0
+      },
+      "fetch": {
+        "ms": 11,
+        "calls": 0,
+        "cost_usd": 0
+      },
+      "extract": {
+        "ms": 25521,
+        "calls": 50,
+        "cost_usd": 0.3319
+      },
+      "outline": {
+        "ms": 104691,
+        "calls": 1,
+        "cost_usd": 0.787856
+      },
+      "resolve": {
+        "ms": 6240,
+        "calls": 6,
+        "cost_usd": 0.081084
+      },
+      "annotate": {
+        "ms": 399721,
+        "calls": 86,
+        "cost_usd": 0.71305
+      },
+      "classify": {
+        "ms": 59512,
+        "calls": 87,
+        "cost_usd": 0.838116
+      },
+      "critique": {
+        "ms": 40462,
+        "calls": 1,
+        "cost_usd": 0.834121
+      },
+      "finalize": {
+        "ms": 10,
+        "calls": 0,
+        "cost_usd": 0
+      }
+    },
+    "tokens_in": 801820,
+    "tokens_out": 67522,
+    "review_items": 6,
+    "wallclock_ms": 654227,
+    "refs_inferred": 60,
+    "tokens_cached": 0,
+    "schema_retries": 0,
+    "refs_mechanical": 52,
+    "critique_findings": 7,
+    "statements_extracted": 36,
+    "statements_in_source": 36
+  },
+  "paper": {
+    "slug": "eth-e2e",
+    "title": "The Exponential Time Hypothesis is False (end to end)",
+    "sourceKind": "github",
+    "hasDigest": true
+  },
+  "events (last 4 of 200)": [
+    {
+      "ts": "2026-10-29T17:08:21.297Z",
+      "stage": "finalize",
+      "level": "info",
+      "message": "finalize started"
+    },
+    {
+      "ts": "2026-10-29T17:08:21.317Z",
+      "stage": "finalize",
+      "level": "info",
+      "message": "finalize \u00b7 digest written: 86 nodes, 68 sections, roots thm-main \u00b7 8 friction rows from outline flags \u00b7 $3.59 \u00b7 231 calls"
+    },
+    {
+      "ts": "2026-10-29T17:08:21.317Z",
+      "stage": "finalize",
+      "level": "info",
+      "message": "finalize finished"
+    },
+    {
+      "ts": "2026-10-29T17:08:21.318Z",
+      "stage": "run",
+      "level": "info",
+      "message": "run finished"
+    }
+  ]
+}
