@@ -1,10 +1,10 @@
-// Chat tools (post-sprint): read a node's proof, search the LaTeX, trace dependency paths. The logic is pure
+// Chat tools (post-sprint): read a node's proof, search the LaTeX, trace dependency paths, view a figure. The logic is pure
 // (digest + optional sources in, JSON out) so tests/chat-tools.test.ts runs it without Nitro or a model.
 import { tool } from 'ai'
 import { z } from 'zod'
-import type { AncestorsOutput, ChatToolNode, ReadNodeOutput, SearchPaperHit, SearchPaperOutput, TraceOutput } from '#shared/api'
+import type { AncestorsOutput, ChatToolNode, ReadNodeOutput, SearchPaperHit, SearchPaperOutput, TraceOutput, ViewFigureOutput } from '#shared/api'
 import type { Outline, Skeleton } from '#shared/pipeline'
-import type { PaperDigest, ProofNode } from '#shared/types'
+import type { PaperDigest, PaperFigure, ProofNode } from '#shared/types'
 import { prerequisites } from '../pipeline/dag'
 import { stripComment } from '../pipeline/latex/chunk'
 import { slugifyLabel, statementIds } from '../pipeline/nodes'
@@ -483,10 +483,51 @@ export function depClosure(digest: PaperDigest, idRaw: string, direction: 'suppo
   return { id, direction, depth: maxDepth, total, levels, ...(truncated ? { truncated } : {}) }
 }
 
+// --- view_figure ---
+
+/** Accepts a LaTeX label (`fig:x`), `\\ref{fig:x}`, a figure id, "Figure 3", "Fig. 3" or "3". Throws listing the figures otherwise. */
+export function resolveFigure(digest: PaperDigest, raw: string): PaperFigure {
+  const figs = digest.figures ?? []
+  const q = raw.trim().replace(/^\\[a-zA-Z]*ref\*?\s*\{([^{}]*)\}$/, '$1').trim()
+  const num = /^(?:fig(?:ure)?\.?\s*)?((?:[A-Z]|\d+)(?:\.\d+)*)$/i.exec(q)?.[1]
+  const hit = figs.find(f => f.label === q || f.id === q)
+    ?? (num ? figs.find(f => f.number?.toUpperCase() === num.toUpperCase()) : undefined)
+    ?? figs.find(f => f.label?.toLowerCase() === q.toLowerCase())
+  if (hit) {
+    return hit
+  }
+  const list = figs.map(f => `${f.number ? `Figure ${f.number}` : f.id} (${f.label ?? f.id})`).join(', ')
+  throw new Error(`No figure "${q}" in this digest.${list ? ` Figures: ${list}.` : ' This paper has no figures.'}`)
+}
+
+export function viewFigure(digest: PaperDigest, raw: string, image = false): ViewFigureOutput {
+  const f = resolveFigure(digest, raw)
+  const byId = new Map(digest.nodes.map(n => [n.id, n]))
+  const section = digest.sections.find(s => s.id === f.section)
+  return {
+    id: f.id,
+    cite: f.label ?? f.id,
+    ...(f.number ? { number: f.number } : {}),
+    kind: f.kind,
+    ...(f.page ? { page: f.page } : {}),
+    section: section ? `§${section.id} ${section.title}` : `§${f.section}`,
+    caption: f.caption,
+    description: f.description || '(no description: there was no image to look at)',
+    ...(f.data_summary ? { data_summary: f.data_summary } : {}),
+    supports: f.node_ids.map(id => byId.get(id)).filter(x => !!x).map(brief),
+    image
+  }
+}
+
+/** The figure's PNG for the model, or null (no image, blob missing). Injected so the logic above stays testable. */
+export type FigureImageLoader = (figure: PaperFigure) => Promise<{ data: Uint8Array, mediaType: string } | null>
+
 // --- the tool set ---
 
 /** Tools for one chat request. `getSources` is called only when a tool needs the LaTeX, and should cache. */
-export function chatTools(digest: PaperDigest, getSources: () => Promise<ChatSources | null>) {
+export function chatTools(digest: PaperDigest, getSources: () => Promise<ChatSources | null>, loadFigureImage?: FigureImageLoader) {
+  // Image bytes by tool call, from execute to toModelOutput: the UI-facing output stays small JSON (no base64 in the stream).
+  const images = new Map<string, { data: Uint8Array, mediaType: string }>()
   return {
     read_node: tool({
       description: 'Read one node: its verbatim LaTeX statement, the proof (or claim span) text from the paper\'s source with line numbers, its headline/role, what it uses and is used by, and the equations it references. Use it to quote a proof or check an exact step.',
@@ -514,6 +555,25 @@ export function chatTools(digest: PaperDigest, getSources: () => Promise<ChatSou
         depth: z.number().int().min(1).max(6).optional().describe('Levels to follow (default 3)')
       }),
       execute: async ({ id, direction, depth }) => depClosure(digest, id, direction, depth)
+    }),
+    view_figure: tool({
+      description: 'View one figure: its LaTeX caption, the full description, the data summary for charts, page, section and the nodes it supports, plus the figure image when one was rendered. Use it for "what does Figure N show" or to check a detail the one-line summary leaves out.',
+      inputSchema: z.object({ ref: z.string().describe('The figure\'s cite key from the digest (e.g. fig:intervals), "Figure 2", or just 2') }),
+      execute: async ({ ref }, { toolCallId }) => {
+        const fig = resolveFigure(digest, ref)
+        const img = loadFigureImage ? await loadFigureImage(fig).catch(() => null) : null
+        if (img) {
+          images.set(toolCallId, img)
+        }
+        return viewFigure(digest, ref, !!img)
+      },
+      toModelOutput: ({ toolCallId, output }) => {
+        const img = images.get(toolCallId)
+        const text = { type: 'text' as const, text: JSON.stringify(output) }
+        return img
+          ? { type: 'content', value: [text, { type: 'file', mediaType: img.mediaType, data: { type: 'data', data: img.data } }] }
+          : { type: 'content', value: [text] }
+      }
     })
   }
 }

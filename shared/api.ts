@@ -113,6 +113,23 @@ export interface TraceOutput {
 }
 
 /** `ancestors`: the transitive closure in one direction, by distance. */
+/** `view_figure`: one figure's caption, the vision model's description and what it supports (the image goes to the model separately). */
+export interface ViewFigureOutput {
+  id: string
+  /** What to cite: `\ref{cite}` renders as the figure chip. The LaTeX label, or the figure id when it has none. */
+  cite: string
+  number?: string
+  kind: string
+  page?: number
+  section: string
+  caption: string
+  description: string
+  data_summary?: string
+  supports: ChatToolNode[]
+  /** Whether the rasterized image was attached for the model to look at. */
+  image: boolean
+}
+
 export interface AncestorsOutput {
   id: string
   direction: 'supports' | 'supported_by'

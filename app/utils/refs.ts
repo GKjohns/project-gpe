@@ -77,9 +77,11 @@ export function resolveRef(digest: PaperDigest | null | undefined, label: string
     const text = !n ? `(${human})` : cmd === 'ref' || cmd === 'nameref' || (prefixed && cmd !== 'eqref') ? n : `(${n})`
     return { kind: 'equation', label, text, ...(equation ? { equation } : {}) }
   }
-  if (meta?.kind === 'figure') {
-    const figure = digest.figures?.find(f => f.id === meta.target)
-    const n = meta.number ?? figure?.number
+  // A figure without a \label is cited by its id (`\ref{fig-2}`), which the chat's view_figure hands the model.
+  const figureById = !meta ? digest.figures?.find(f => f.id === label) : undefined
+  if (meta?.kind === 'figure' || figureById) {
+    const figure = figureById ?? digest.figures?.find(f => f.id === meta!.target)
+    const n = meta?.number ?? figure?.number
     const text = n ? (prefixed ? n : `Figure ${n}`) : 'Figure'
     if (figure) {
       return { kind: 'figure', label, text, figure }

@@ -893,6 +893,7 @@ Run ids (corpus page "Log"): sensitivity `05553b46` / `a110870c`, noncoordinate 
 
 #### For the chat
 The chat's digest dump does not include figures yet. Suggested: add one line per figure to the instructions (`Figure 3 · fig:label · kind · p. N · description · supports [[ids]]`) and a `view_figure` tool returning the caption, description, data summary and (optionally) the PNG as an image part, so the model can answer "what does Figure 2 show" without guessing; answers can cite `\ref{fig:…}` and the app renders the figure chip.
+- **Done (Oct 29):** `serializeDigest` adds one line per figure (`Figure 2 · \ref{cite} · kind · p. 31 · §6.2 · description ≤300 chars · supports [[ids]]`, 8k-char cap); `view_figure({ ref })` resolves a label, `\ref{…}`, an id, "Figure 2" / "Fig. A.1" / "2" and returns caption, full description, data summary, page, section and supported nodes, and its `toModelOutput` attaches the figure PNG as an image part in the tool result (checked through the gateway: +~270 input tokens, the model describes the image). Unlabeled figures are cited by id (`\ref{fig-2}`; `refs.ts` resolves it); tool row "Viewed Figure 2". Fixed on the way: Comark passed `prefixed=''`, which Vue casts to `true`, so every chat `\ref` chip dropped its kind ("2" for "Figure 2", "6.3" for "Lemma 6.3"). Live: "What does Figure 2 show and which results does it support?" → one view_figure call, a Figure 2 chip and the supported nodes as chips; $0.16 gateway on unit-distance (≈60k-token digest, first turn), $0.027 on sunflowers-rao.
 
 ---
 

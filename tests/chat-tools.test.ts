@@ -5,7 +5,7 @@ import { toolRow } from '../app/utils/chatToolRows'
 import { chunkLatex } from '../server/pipeline/latex/chunk'
 import { toyDigest } from '../server/fixtures/toy-digest'
 import { equationLines, serializeDigest } from '../server/utils/chat'
-import { buildChatSources, depClosure, normalizeForSearch, readNode, searchPaper, traceDeps } from '../server/utils/chatTools'
+import { buildChatSources, depClosure, normalizeForSearch, readNode, resolveFigure, searchPaper, traceDeps, viewFigure } from '../server/utils/chatTools'
 
 // The toy LaTeX fixture (main.tex \input's sections/prelim.tex) with a hand-built digest over its three statements.
 const dir = new URL('./fixtures/latex/toy/', import.meta.url)
@@ -139,5 +139,41 @@ describe('digest additions and tool rows', () => {
     expect(toolRow('trace', { state: 'output-available', input: { from: 'a', to: 'b' }, output: { from: 'a', to: 'b', found: true, steps: 4, paths: [] } }).suffix).toBe('4 steps')
     expect(toolRow('read_node', { state: 'input-streaming', input: { id: 'lem' } }, false)).toMatchObject({ state: 'stopped', suffix: 'stopped' })
     expect(toolRow('read_node', { state: 'output-error', input: { id: 'nope' }, errorText: 'No node' })).toMatchObject({ state: 'error', suffix: 'No node' })
+  })
+})
+
+describe('view_figure', () => {
+  const fig = (id: string, number: string | undefined, label?: string) => ({
+    id, number, ...(label ? { label } : {}), caption: `cap ${id}`, section: '2', file: 'main.tex', line: 20, page: 3, graphics: [], tikz: false,
+    kind: 'plot' as const, description: `desc ${id}`, data_summary: 'x vs y, increasing', node_ids: ['thm-main', 'gone'], confidence: 0.8
+  })
+  const d: PaperDigest = { ...fixtureDigest, figures: [fig('fig-curve', '1', 'fig:curve'), fig('fig-2', '2'), fig('fig-a1', 'A.1', 'fig:app')] }
+
+  it('resolves a label, \\ref{…}, an id, "Figure N", "Fig. N" and a bare number', () => {
+    expect(resolveFigure(d, 'fig:curve').id).toBe('fig-curve')
+    expect(resolveFigure(d, '\\ref{fig:curve}').id).toBe('fig-curve')
+    expect(resolveFigure(d, 'fig-2').id).toBe('fig-2')
+    expect(resolveFigure(d, 'Figure 2').id).toBe('fig-2')
+    expect(resolveFigure(d, 'fig. 2').id).toBe('fig-2')
+    expect(resolveFigure(d, ' 2 ').id).toBe('fig-2')
+    expect(resolveFigure(d, 'Figure A.1').id).toBe('fig-a1')
+    expect(resolveFigure(d, 'FIG:CURVE').id).toBe('fig-curve')
+  })
+
+  it('throws listing the figures when nothing matches', () => {
+    expect(() => resolveFigure(d, 'Figure 7')).toThrow(/No figure "Figure 7".*Figure 1 \(fig:curve\), Figure 2 \(fig-2\)/)
+    expect(() => resolveFigure(fixtureDigest, '1')).toThrow(/no figures/)
+  })
+
+  it('returns caption, description, data summary, section and the supported nodes that exist', () => {
+    const out = viewFigure(d, '2', true)
+    expect(out).toMatchObject({ id: 'fig-2', cite: 'fig-2', number: '2', page: 3, section: '§2 Main result', caption: 'cap fig-2', description: 'desc fig-2', data_summary: 'x vs y, increasing', image: true })
+    expect(out.supports.map(n => n.id)).toEqual(['thm-main'])
+    expect(viewFigure(d, 'fig:curve').cite).toBe('fig:curve')
+  })
+
+  it('renders as "Viewed Figure 2"', () => {
+    expect(toolRow('view_figure', { state: 'output-available', input: { ref: 'fig-2' }, output: viewFigure(d, 'fig-2') })).toMatchObject({ text: 'Viewed Figure 2', suffix: 'p. 3', state: 'done' })
+    expect(toolRow('view_figure', { state: 'input-available', input: { ref: '2' } }).text).toBe('Viewing Figure 2')
   })
 })

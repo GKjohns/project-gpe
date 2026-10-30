@@ -50,7 +50,8 @@ const paperRefs = defineComarkPlugin(() => ({
         return false
       }
       if (!silent) {
-        const prefixed = isPrefixed(state.src.slice(0, state.pos)) ? 'true' : ''
+        // 'false', not '': Vue casts an empty string to true for a boolean-typed prop.
+        const prefixed = isPrefixed(state.src.slice(0, state.pos)) ? 'true' : 'false'
         state.push('mdc_block_shorthand', 'paper-ref', 0).attrs = [['labels', m[2]!], ['cmd', m[1]!], ['prefixed', prefixed]]
       }
       state.pos += m[0].length

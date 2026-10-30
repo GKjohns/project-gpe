@@ -2,7 +2,7 @@
  * POST /api/papers/:slug/chat — the `useChat` transport for one paper (Sprint 7).
  *
  * No persistence: the whole digest rides in the instructions (gateway caching makes every turn after the first,
- * and every tool step, a cache read). Up to 4 tool rounds (read_node, search_paper, trace, ancestors; the paper's
+ * and every tool step, a cache read). Up to 4 tool rounds (read_node, search_paper, trace, ancestors, view_figure — which also hands the model the figure PNG; the paper's
  * sources load lazily, once, only when a tool needs them), then a forced answer. History is pruned once (old tool
  * calls dropped) and capped at CHAT_HISTORY_CHARS; provider errors reach the reader as one calm sentence.
  * Closing the request (Stop, tab close) aborts upstream.
@@ -17,9 +17,10 @@ import { useDb } from '../../../db'
 import { papers } from '../../../db/schema'
 import { toyDigest } from '../../../fixtures/toy-digest'
 import { estimateCost, MODELS } from '../../../utils/aiModels'
+import { blobStore } from '../../../utils/blobs'
 import { CHAT_UNAVAILABLE, chatInstructions, citedIds, trimHistory } from '../../../utils/chat'
 import { loadChatSources } from '../../../utils/chatSources'
-import type { ChatSources } from '../../../utils/chatTools'
+import type { ChatSources, FigureImageLoader } from '../../../utils/chatTools'
 import { chatTools } from '../../../utils/chatTools'
 
 /** isStepCount(CHAT_STEPS): at most CHAT_STEPS - 1 tool rounds, and the last step must answer. */
@@ -40,6 +41,16 @@ async function loadDigest(slug: string): Promise<PaperDigest | null> {
   }
   // Same fallback as GET /api/papers/toy.
   return import.meta.dev && slug === 'toy' ? toyDigest : null
+}
+
+/** Figure PNGs live in the blob table (`/api/blobs/<sha>`); anything else, or anything large, stays text-only. */
+const FIGURE_IMAGE_BYTES = 3_000_000
+const loadFigureImage: FigureImageLoader = async (figure) => {
+  const sha = /^\/api\/blobs\/([0-9a-f]{64})$/.exec(figure.image_url ?? '')?.[1]
+  const blob = sha ? await blobStore.get(sha) : null
+  return blob && blob.contentType.startsWith('image/') && blob.data.byteLength <= FIGURE_IMAGE_BYTES
+    ? { data: blob.data, mediaType: blob.contentType }
+    : null
 }
 
 function gatewayCost(meta: unknown): number | null {
@@ -84,7 +95,7 @@ export default defineEventHandler(async (event) => {
     model,
     instructions: chatInstructions(digest),
     messages: modelMessages,
-    tools: chatTools(digest, getSources),
+    tools: chatTools(digest, getSources, loadFigureImage),
     stopWhen: isStepCount(CHAT_STEPS),
     // Last step answers. toolChoice (not activeTools) so the tool list, and with it the cached prefix, stays the same.
     prepareStep: ({ stepNumber }) => stepNumber >= CHAT_STEPS - 1 ? { toolChoice: 'none' } : undefined,

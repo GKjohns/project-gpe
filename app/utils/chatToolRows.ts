@@ -1,5 +1,5 @@
 // One compact row per chat tool call ("Read lem:greedy-hashes", "Searched “sqrt log n” · 6 hits"). Pure, for MessageContent.
-import type { AncestorsOutput, ReadNodeOutput, SearchPaperOutput, TraceOutput } from '#shared/api'
+import type { AncestorsOutput, ReadNodeOutput, SearchPaperOutput, TraceOutput, ViewFigureOutput } from '#shared/api'
 
 export type ToolRowState = 'running' | 'done' | 'error' | 'stopped'
 
@@ -18,7 +18,8 @@ const ICONS: Record<string, string> = {
   read_node: 'i-lucide-file-text',
   search_paper: 'i-lucide-search',
   trace: 'i-lucide-route',
-  ancestors: 'i-lucide-git-fork'
+  ancestors: 'i-lucide-git-fork',
+  view_figure: 'i-lucide-image'
 }
 
 const str = (v: unknown) => typeof v === 'string' ? v : ''
@@ -79,6 +80,18 @@ function baseRow(name: string, part: ToolPartLike): ToolRow {
       suffix: err ?? (out ? `${out.total} node${out.total === 1 ? '' : 's'}` : undefined),
       state,
       details: out?.levels.map(l => `${l.depth}: ${l.nodes.map(x => x.id).join(', ')}`) ?? []
+    }
+  }
+  if (name === 'view_figure') {
+    const out = state === 'done' ? part.output as ViewFigureOutput : undefined
+    const raw = str(input.ref).trim()
+    const what = out ? (out.number ? `Figure ${out.number}` : out.cite) : /^\d/.test(raw) ? `Figure ${raw}` : raw
+    return {
+      icon,
+      text: `${running ? 'Viewing' : state === 'error' ? 'Couldn\'t view' : 'Viewed'} ${what}`.trim(),
+      suffix: err ?? (out?.page ? `p. ${out.page}` : undefined),
+      state,
+      details: out ? [`${out.kind} · ${out.section}`, ...(out.supports.length ? [`supports ${out.supports.map(n => n.id).join(', ')}`] : [])] : []
     }
   }
   return { icon, text: name, suffix: err, state, details: [] }
