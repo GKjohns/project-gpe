@@ -1,6 +1,6 @@
 // Contract: docs/20261029_digest_v1/implementation_plan.md § DB schema. Change the plan first.
 import { sql } from 'drizzle-orm'
-import { bigserial, customType, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigserial, boolean, customType, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { PaperDigest, Profile, RunMetrics, RunStage, RunStatus, StructureMethod } from '#shared/types'
 import type { RunProgress } from '#shared/pipeline'
 import type { ReviewItemPayload } from '#shared/runs'
@@ -17,6 +17,8 @@ export const papers = pgTable('papers', {
   tier: text('tier'),
   digest: jsonb('digest').$type<PaperDigest>(),
   latestRunId: uuid('latest_run_id'),
+  // Listed and queryable on the public agent API (/llms.txt, /api/v1, /api/mcp). Flip with `npm run paper:public`.
+  public: boolean('public').notNull().default(false),
   createdAt: tstz('created_at').notNull().defaultNow(),
   updatedAt: tstz('updated_at').notNull().defaultNow()
 })
@@ -100,6 +102,28 @@ export const sourceAssets = pgTable('source_assets', {
   blobSha: text('blob_sha').notNull().references(() => blobs.sha),
   bytes: integer('bytes').notNull()
 }, t => [index('source_assets_paper_idx').on(t.paperId)])
+
+// --- Agent API request log (Oct 29) ---
+
+export type AgentSurface = 'llms' | 'v1' | 'mcp'
+
+/** One row per agent API request (one per tools/call over MCP). Written fire-and-forget; read by `npm run agent:stats`. */
+export const agentRequests = pgTable('agent_requests', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  at: tstz('at').notNull().defaultNow(),
+  surface: text('surface').$type<AgentSurface>().notNull(),
+  tool: text('tool'),
+  paper: text('paper'),
+  status: integer('status').notNull(),
+  ms: integer('ms').notNull(),
+  // A family from the user-agent (Claude-User, curl, …), or the MCP client's own name/version when it sends one.
+  client: text('client').notNull(),
+  userAgent: text('user_agent'),
+  // sha256 of ip + AGENT_LOG_SALT; the raw IP is never stored.
+  ipHash: text('ip_hash'),
+  // The ?ref= query param, for attributing links (?ref=blog).
+  ref: text('ref')
+}, t => [index('agent_requests_at_idx').on(t.at)])
 
 export type PaperRow = typeof papers.$inferSelect
 export type RunRow = typeof runs.$inferSelect

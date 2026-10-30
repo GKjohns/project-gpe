@@ -12,7 +12,9 @@
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "paper:public": "tsx --env-file-if-exists=.env scripts/set-public.ts",
+    "agent:stats": "tsx --env-file-if-exists=.env scripts/agent-stats.ts"
   },
   "dependencies": {
     "@ai-sdk/vue": "^4.0.156",
@@ -50,6 +52,7 @@
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.13.0",
     "eslint-plugin-better-tailwindcss": "^4.10.0",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5",
     "vue-tsc": "^3.3.13"

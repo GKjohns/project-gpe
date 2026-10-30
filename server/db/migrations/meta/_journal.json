@@ -15,6 +15,20 @@
       "when": 1793321965355,
       "tag": "0001_paper_reader",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793328997212,
+      "tag": "0002_public_papers_agent_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793329428447,
+      "tag": "0003_public_canonical_papers",
+      "breakpoints": true
     }
   ]
 }

@@ -59,6 +59,35 @@ them are read-only, need no key and make no model calls. Each one is a database 
 minute) plus the chat tools' pure functions, with output capped by paging and `READ_NODE_CHARS`. Rate limiting is
 meant to be a Vercel Firewall rule on `/api/mcp` and `/api/v1`.
 
+Only papers with `papers.public` set are listed or queryable there; a private slug is the same 404 as a missing one.
+New papers start private. Migration `0003` made the canonical maps public (eth, sensitivity, pfr, sunflowers-rao,
+sunflower-alwz, noncoordinate, unit-distance, intmult, logspace), not their `-agent`/`-e2e`/`toy-inngest-*` copies; in
+dev the toy fixture counts as public. Every request is logged to `agent_requests` (`server/utils/agentLog.ts`): surface
+(`llms`, `v1`, `mcp`), tool, paper, status, ms, a client family read off the user-agent (Claude-User, ChatGPT-User,
+OAI-SearchBot, PerplexityBot, curl, python-requests, node, browser, …), the truncated user-agent, a salted sha256 of the
+IP (never the IP itself) and the `?ref=` param, so links like `/llms.txt?ref=blog` can be attributed (view_figure's own
+`ref` argument is not). Over MCP there is one row per `tools/call` and one per `initialize`; `client` is the MCP
+client's own name/version when the message carries it (always on `initialize`, and on every request in the modern
+protocol's `_meta`), otherwise the user-agent family. The write is fire-and-forget behind `event.waitUntil`, and a failed
+one is only a warning. Two operator commands, no HTTP endpoints (they load `.env`, so they hit Postgres when
+`DATABASE_URL` is set, else `.data/pg`, and refuse while the dev server holds PGlite):
+
+```bash
+npm run paper:public                      # every paper and its flag
+npm run paper:public -- eth pfr           # make public (or --off to make private); live within a minute
+npm run agent:stats -- --days 7           # requests, unique callers and errors by day, surface, client, tool, paper, ref
+```
+
+**Operator auth** (`server/utils/operator.ts`, `server/middleware/operator.ts`): anything that spends money or
+changes state is operator-only. That covers new papers and previews, retry/cancel/review, Render paper, graph labels
+and corpus ingests. Set `OPERATOR_TOKEN` to a long random value and sign in at `/login`, which sets a sealed httpOnly
+cookie (`SESSION_SECRET` optionally sets its key). The guard denies every `/api` write by default, with four
+exceptions: `/api/inngest` (Inngest signs it), `/api/mcp`, the sandbox callback `/api/runs/:id/events` (it has a
+per-run bearer token) and the chat. In dev with no token everything is open; in production with no token those writes
+are denied. Reading, the map and the agent API need no sign-in. The chat stays public but bounded for non-operators:
+20 turns per IP per hour and a daily spend ceiling (`CHAT_DAILY_USD`, default $5), both counted in memory per function
+instance (`server/utils/chatLimits.ts`). A Vercel Firewall rate-limit rule on the chat route is the real backstop.
+
 **Two structure methods** for the outline stage, chosen per run; everything after it is identical:
 
 - **Pipeline**: one whole-paper call over the line-numbered source plus the skeleton. Fixed cost.
@@ -171,6 +200,7 @@ which syncs on every deploy) at `https://<host>/api/inngest`.
 | `NUXT_PUBLIC_APP_URL` | agent method | Public URL the structure agent's sandbox posts progress to. |
 | `GITHUB_TOKEN` | no | Raises the GitHub API rate limit for directory fetches. |
 | `ARXIV_CONTACT_EMAIL` | no | Adds a `mailto:` contact to the arXiv fetch User-Agent (default is plain `gpe-ingest`). |
+| `AGENT_LOG_SALT` | recommended | Salt for the hashed IPs in `agent_requests` (a fixed dev salt otherwise). Changing it splits unique-caller counts. |
 | `SANDBOX_TEX_SNAPSHOT_ID` | recommended | The TeX snapshot for the render stage (build it once locally and copy the id from `.data/sandbox-tex-snapshot.json`); without it the first render on each instance rebuilds it. |
 
 Sandbox auth (render stage, agent method) is automatic on Vercel. Uploads are capped at 4.4 MB on Vercel (the
@@ -189,7 +219,9 @@ server/
   pipeline/         ingest.ts, runner.ts, stages/, latex/ (chunk, equations, figures, synctex), sources/, prompts/,
                     sandbox/ (agent scripts, TeX snapshot, figure rasterizer), llm.ts
   db/               Drizzle schema + migrations
-  utils/            aiModels (profiles, prices, defaults), dispatch (LocalRunner vs Inngest), runs, corpus
+  utils/            aiModels (profiles, prices, defaults), dispatch (LocalRunner vs Inngest), runs, corpus,
+                    mcpTools/agentApi/agentLog/agentStats (the public agent API)
+scripts/            operator CLIs (tsx): set-public.ts, agent-stats.ts
 shared/             types and zod schemas shared by app and server (types, pipeline, api, runs, corpus)
 corpus/             manifest.json (tiered test set) and golden/ (hand-written statement lists)
 tests/              vitest; tests/fixtures/latex/ holds the toy and downloaded sources
