@@ -9,7 +9,8 @@ import { appendEvent, createRun, getRun, patchProgress } from '../../../utils/ru
 import { stageOutputs } from '../../../utils/stageOutputs'
 
 // forceReview (dev only): critique adds a low-confidence test item if the model asks nothing, so the review queue can be exercised.
-const bodySchema = z.object({ fromStage: z.enum(RUN_STAGES as [RunStage, ...RunStage[]]), forceReview: z.boolean().optional() })
+// forceRenderFail (dev only): render skips the compile as if it failed, so the reader's fallbacks can be exercised.
+const bodySchema = z.object({ fromStage: z.enum(RUN_STAGES as [RunStage, ...RunStage[]]), forceReview: z.boolean().optional(), forceRenderFail: z.boolean().optional() })
 
 /** New run with parent_run_id; stage_outputs before `fromStage` are copied so those stages skip their work. */
 export default defineEventHandler(async (event) => {
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
   if (!parsed.success) {
     throw createError({ statusCode: 400, statusMessage: `fromStage must be one of ${RUN_STAGES.join(', ')}` })
   }
-  const { fromStage, forceReview } = parsed.data
+  const { fromStage, forceReview, forceRenderFail } = parsed.data
 
   const runId = await createRun({
     paperId: parent.paperId,
@@ -37,6 +38,9 @@ export default defineEventHandler(async (event) => {
   const copied = await stageOutputs.copyForward(parent.id, runId, fromStage)
   if (forceReview && import.meta.dev) {
     await patchProgress(runId, { force_review: true })
+  }
+  if (forceRenderFail && import.meta.dev) {
+    await patchProgress(runId, { force_render_fail: true })
   }
   const db = await useDb()
   await db.update(papers).set({ latestRunId: runId, updatedAt: new Date() }).where(eq(papers.id, parent.paperId))

@@ -1,10 +1,11 @@
 import { eq } from 'drizzle-orm'
 import { createPaperSchema } from '#shared/schemas'
 import { useDb } from '../db'
-import { papers, sources } from '../db/schema'
+import { papers } from '../db/schema'
 import { SourceError, sourceRef, summarize } from '../pipeline/sources'
 import type { SourceFile } from '../pipeline/sources'
 import { filesFromUpload } from '../pipeline/sources/upload'
+import { storeSources } from '../utils/sourceStore'
 import { startRun } from '../utils/dispatch'
 import { appendEvent, createRun } from '../utils/runs'
 
@@ -64,7 +65,7 @@ export default defineEventHandler(async (event) => {
   }).returning({ id: papers.id })
   const paperId = paper!.id
   if (uploaded) {
-    await db.insert(sources).values(uploaded.map(f => ({ paperId, path: f.path, content: f.content, bytes: Buffer.byteLength(f.content, 'utf8') })))
+    await storeSources(paperId, uploaded)
   }
 
   const runId = await createRun({ paperId, profile: body.profile, method: body.method, budgetUsd: body.budgetUsd })

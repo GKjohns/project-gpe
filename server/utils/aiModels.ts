@@ -7,7 +7,7 @@
  */
 import type { Profile, StructureMethod } from '#shared/types'
 
-export type ModelStep = 'outline' | 'extract' | 'resolve' | 'critique' | 'annotate' | 'classify' | 'agent'
+export type ModelStep = 'outline' | 'extract' | 'resolve' | 'critique' | 'annotate' | 'classify' | 'agent' | 'figures'
 
 export const PROFILES: Record<Profile, Record<ModelStep, string>> = {
   careful: {
@@ -17,7 +17,8 @@ export const PROFILES: Record<Profile, Record<ModelStep, string>> = {
     agent: 'anthropic/claude-opus-5.5',
     extract: 'anthropic/claude-sonnet-5.5',
     resolve: 'anthropic/claude-sonnet-5.5',
-    annotate: 'anthropic/claude-sonnet-5.5'
+    annotate: 'anthropic/claude-sonnet-5.5',
+    figures: 'anthropic/claude-opus-5.5'
   },
   standard: {
     outline: 'openai/gpt-6-sol',
@@ -26,7 +27,9 @@ export const PROFILES: Record<Profile, Record<ModelStep, string>> = {
     agent: 'anthropic/claude-sonnet-5.5',
     extract: 'anthropic/claude-sonnet-5.5',
     resolve: 'anthropic/claude-sonnet-5.5',
-    annotate: 'anthropic/claude-sonnet-5.5'
+    annotate: 'anthropic/claude-sonnet-5.5',
+    // Vision: few calls per paper and a misread chart is worse than a missing one, so the strongest reader on both.
+    figures: 'anthropic/claude-opus-5.5'
   },
   quick: {
     outline: 'anthropic/claude-sonnet-5.5',
@@ -35,7 +38,8 @@ export const PROFILES: Record<Profile, Record<ModelStep, string>> = {
     agent: 'anthropic/claude-haiku-5.5',
     extract: 'anthropic/claude-haiku-5.5',
     resolve: 'anthropic/claude-haiku-5.5',
-    annotate: 'anthropic/claude-haiku-5.5'
+    annotate: 'anthropic/claude-haiku-5.5',
+    figures: 'anthropic/claude-sonnet-5.5'
   }
 }
 

@@ -185,9 +185,23 @@ watch(selectedId, async () => {
         />
       </template>
       <template #item-label="{ item }">
+        <!-- Light card after a longer delay, so sweeping the pointer down the tree doesn't flash cards.
+             No tap-to-open: a tap on a row must keep selecting it. -->
+        <NodeHoverCard
+          v-if="item.node"
+          :id="item.node.id"
+          compact
+          :open-delay="700"
+          :touch="false"
+          side="right"
+          trigger-class="block min-w-0 truncate"
+        >
+          <span :class="item.node.kind === 'claim' && 'text-muted'">{{ item.label }}</span>
+        </NodeHoverCard>
         <span
-          :class="[item.section && 'font-medium', item.node?.kind === 'claim' && 'text-muted']"
-          :title="item.node ? `${item.node.name}${item.node.paper_ref.label ? ` (${item.node.paper_ref.label})` : ''}` : item.label"
+          v-else
+          class="font-medium"
+          :title="item.label"
         >{{ item.label }}</span>
       </template>
       <template #item-trailing="{ item, ui }">

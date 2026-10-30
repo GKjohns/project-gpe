@@ -2,7 +2,7 @@ import { asc, eq, sql } from 'drizzle-orm'
 import { goldenDiff, goldenDiffCount } from '#shared/corpus'
 import type { Outline, RunProgress, Skeleton } from '#shared/pipeline'
 import { RUN_STAGES } from '#shared/pipeline'
-import type { PaperDigest, ProofNode, RunMetrics, RunStage } from '#shared/types'
+import type { PaperDigest, PaperFigure, PaperLabel, PaperRender, ProofNode, RunMetrics, RunStage } from '#shared/types'
 import { useDb } from '../../db'
 import { papers, reviewItems, runEvents, runs, sources } from '../../db/schema'
 import { goldenForPaper } from '../../utils/corpus'
@@ -12,7 +12,11 @@ import { rootIds } from '../dag'
 import { extractLabels } from '../latex/equations'
 import type { PaperLabels } from '../latex/equations'
 import { statementIds } from '../nodes'
+import { blobUrl } from '../../utils/blobs'
 import type { ClassifyOutput } from './classify'
+import type { FiguresOutput } from './figures'
+import { toPaperFigure } from './figures'
+import type { RenderOutput } from './render'
 import type { StageFn } from './stub'
 
 export interface MetricEvent { stage: string, message: string, data: Record<string, unknown> | null, ts: Date }
@@ -108,6 +112,33 @@ export function flagFriction(nodes: ProofNode[], outline: Outline | null, skelet
   return added
 }
 
+/** The reader's part of the digest from the render and figures stage outputs (either may be absent). */
+export function readerParts(render: RenderOutput | null, figs: FiguresOutput | null): { render?: PaperRender, figures?: PaperFigure[] } {
+  if (!render) {
+    return {}
+  }
+  const out: PaperRender = {
+    status: render.status,
+    ...(render.engine ? { engine: render.engine } : {}),
+    ...(render.pdf ? { pdf_url: blobUrl(render.pdf.sha), pages: render.pdf.pages, ...(render.pdf.pageSize ? { page_size: render.pdf.pageSize } : {}) } : {}),
+    synctex: !!render.synctex_sha,
+    ...(Object.keys(render.anchors).length ? { anchors: render.anchors } : {}),
+    ...(render.error ? { error: render.error.slice(0, 600) } : {}),
+    rendered_at: render.rendered_at
+  }
+  const figures = figs?.figures ?? render.figures.map(f => toPaperFigure(f, null))
+  return { render: out, ...(figures.length ? { figures } : {}) }
+}
+
+/** Every \label inside a figure resolves to it (so \ref{fig:x} renders "Figure 3"). */
+export function figureLabels(labels: Record<string, PaperLabel>, figures: PaperFigure[] | undefined, all: Map<string, string[]>) {
+  for (const f of figures ?? []) {
+    for (const label of all.get(f.id) ?? (f.label ? [f.label] : [])) {
+      labels[label] = { kind: 'figure', target: f.id, ...(f.number ? { number: f.number } : {}) }
+    }
+  }
+}
+
 export function buildDigest(input: {
   paper: { slug: string, title: string, authors: string[], sourceKind: PaperDigest['source']['kind'], sourceRef: string }
   skeleton: Skeleton
@@ -117,6 +148,8 @@ export function buildDigest(input: {
   metrics: RunMetrics
   /** Equations and the \label index (additive); omitted when the sources are gone. */
   refs?: PaperLabels
+  /** The rendered paper and its figures (additive); omitted before the paper is rendered. */
+  reader?: { render?: PaperRender, figures?: PaperFigure[] }
 }): PaperDigest {
   const { paper, skeleton, nodes } = input
   return {
@@ -129,6 +162,7 @@ export function buildDigest(input: {
     root_ids: rootIds(nodes, skeleton.sections),
     macros: skeleton.macros,
     ...input.refs,
+    ...input.reader,
     generated_at: input.generatedAt,
     run_id: input.runId,
     metrics: input.metrics
@@ -181,7 +215,12 @@ export const finalizeStage: StageFn = async (ctx) => {
   } catch (err) {
     await appendEvent(ctx.runId, 'finalize', 'warn', `finalize · equation index skipped: ${(err as Error).message}`)
   }
-  const digest = buildDigest({ paper, skeleton, nodes, runId: ctx.runId, generatedAt: now.toISOString(), metrics, refs })
+  const render = await stageOutputs.get<RenderOutput>(ctx.runId, 'render')
+  const reader = readerParts(render, await stageOutputs.get<FiguresOutput>(ctx.runId, 'figures'))
+  if (refs && render) {
+    figureLabels(refs.labels, reader.figures, new Map(render.figures.map(f => [f.id, f.labels])))
+  }
+  const digest = buildDigest({ paper, skeleton, nodes, runId: ctx.runId, generatedAt: now.toISOString(), metrics, refs, reader })
 
   await db.update(papers).set({ digest, latestRunId: ctx.runId, updatedAt: now }).where(eq(papers.id, ctx.paperId))
   await db.update(runs).set({ metrics }).where(eq(runs.id, ctx.runId))

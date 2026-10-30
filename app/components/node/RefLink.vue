@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { ResolvedRef } from '~/utils/refs'
 
-// A \ref / \eqref / \cref in paper text: equations open a popover with the rendered equation, statements and
-// sections select their node, anything else is a muted humanized label. Never the raw label in monospace.
+// A \ref / \eqref / \cref in paper text: equations open a popover with the rendered equation, statements get the
+// node hover card and select their node on click, sections select their first node, anything else is a muted humanized label. Never the raw label in monospace.
 const props = defineProps<{
   /** One label or several, comma-separated (\cref{a,b}). */
   labels: string
@@ -14,6 +14,8 @@ const props = defineProps<{
 const ctx = injectDigest()
 const chat = injectPaperChat()
 const { select } = useSelection()
+// Inside a node hover card refs stay plain: no card or equation popover on top of a card.
+const inCard = useInHoverCard()
 
 const refs = computed(() => {
   const prefixed = props.prefixed === true || (typeof props.prefixed === 'string' && props.prefixed !== '' && props.prefixed !== 'false')
@@ -36,7 +38,7 @@ function equationSource(r: ResolvedRef) {
   const e = r.equation
   const s = ctx?.index.value.sectionById.get(e.section)
   return {
-    where: [s ? sectionLabel(s.id, s.title) : e.section === 'front' ? 'Front matter' : `§${e.section}`, `${e.file}:${e.line}`],
+    section: s ? sectionLabel(s.id, s.title) : e.section === 'front' ? 'Front matter' : `§${e.section}`,
     url: sourceUrl(ctx?.paper.value, { section: e.section, file: e.file, line: e.line })
   }
 }
@@ -50,7 +52,7 @@ const LINK = 'cursor-pointer whitespace-nowrap text-primary underline decoration
       v-for="(r, i) in refs"
       :key="r.label"
     ><template v-if="i > 0">, </template><UPopover
-      v-if="r.kind === 'equation' && r.equation"
+      v-if="r.kind === 'equation' && r.equation && !inCard"
       :content="{ side: 'top', align: 'center', collisionPadding: 12 }"
     >
       <button
@@ -71,47 +73,35 @@ const LINK = 'cursor-pointer whitespace-nowrap text-primary underline decoration
             v-html="equationHtml(r.equation.latex)"
           />
           <!-- eslint-enable vue/no-v-html -->
-          <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-            <span
+          <div class="flex flex-col gap-1.5 border-t border-default pt-2">
+            <div
               v-if="r.equation.number"
-              class="font-medium text-default"
-            >({{ r.equation.number }})</span>
-            <template
-              v-for="(w, j) in equationSource(r)?.where"
-              :key="j"
+              class="text-xs font-semibold text-highlighted"
             >
-              <span
-                v-if="j > 0 || r.equation.number"
-                class="text-dimmed"
-              >·</span>
-              <span :class="j === 1 ? 'font-mono' : ''">{{ w }}</span>
-            </template>
-            <ULink
-              v-if="equationSource(r)?.url"
-              :to="equationSource(r)?.url"
-              target="_blank"
-              class="ms-auto inline-flex items-center gap-1 text-primary"
-            >
-              Open in source
-              <UIcon
-                name="i-lucide-external-link"
-                class="size-3"
-              />
-            </ULink>
+              Equation ({{ r.equation.number }})
+            </div>
+            <NodeProvenance
+              :section="equationSource(r)?.section"
+              :file="r.equation.file"
+              :lines="r.equation.line"
+              :label="r.label"
+              :url="equationSource(r)?.url"
+            />
           </div>
         </div>
       </template>
-    </UPopover><UTooltip
+    </UPopover><NodeHoverCard
       v-else-if="r.kind === 'statement'"
-      :text="`${capitalize(r.node.kind)}${r.number ? ` ${r.number}` : ''} · ${r.node.name}`"
+      :id="r.node.id"
     >
       <button
         type="button"
         :class="LINK"
         :data-ref-node="r.node.id"
+        :aria-label="`${r.text}: ${r.node.name}`"
         @click="go(r.node.id)"
       >{{ r.text }}</button>
-    </UTooltip><UTooltip
+    </NodeHoverCard><UTooltip
       v-else-if="r.kind === 'section' && r.nodeId"
       :text="sectionLabel(r.section.id, r.section.title)"
     >
@@ -121,9 +111,30 @@ const LINK = 'cursor-pointer whitespace-nowrap text-primary underline decoration
         :data-ref-section="r.section.id"
         @click="go(r.nodeId)"
       >{{ r.text }}</button>
-    </UTooltip><span
+    </UTooltip><UPopover
+      v-else-if="r.kind === 'figure' && !inCard"
+      :content="{ side: 'top', align: 'center', collisionPadding: 12 }"
+    >
+      <button
+        type="button"
+        :class="LINK"
+        :data-ref-figure="r.figure.id"
+      >{{ r.text }}</button>
+      <template #content>
+        <!-- Figure refs: the rasterized figure, its caption and the vision model's description. -->
+        <div
+          class="max-h-[min(34rem,80vh)] w-[min(26rem,calc(100vw-2rem))] overflow-y-auto p-3"
+          data-ref-popover
+        >
+          <FigureCard
+            :figure="r.figure"
+            compact
+          />
+        </div>
+      </template>
+    </UPopover><span
       v-else
-      :class="r.kind === 'unknown' || r.kind === 'equation' ? 'text-muted' : ''"
+      :class="r.kind === 'unknown' || r.kind === 'equation' || r.kind === 'figure' ? 'text-muted' : ''"
       :title="r.label"
       :data-ref-unresolved="r.label"
     >{{ r.text }}</span></template>

@@ -91,12 +91,14 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => {
 })
 
 const viewTabs: TabsItem[] = [
+  { label: 'Paper', value: 'paper', icon: 'i-lucide-book-open-text' },
   { label: 'Node', value: 'tree', icon: 'i-lucide-file-text' },
   { label: 'Graph', value: 'graph', icon: 'i-lucide-git-fork' }
 ]
+// `/[paper]` lands on ?view=paper (the reader); a bare node link stays the node page so old deep links keep working.
 const view = computed({
-  get: () => route.query.view === 'graph' ? 'graph' : 'tree',
-  set: (v: string | number) => setQuery('view', v === 'graph' ? 'graph' : undefined)
+  get: () => route.query.view === 'graph' ? 'graph' : route.query.view === 'paper' ? 'paper' : 'tree',
+  set: (v: string | number) => setQuery('view', v === 'graph' || v === 'paper' ? String(v) : undefined)
 })
 
 // --- graph view (Sprint 6) ----------------------------------------------------
@@ -158,7 +160,7 @@ onMounted(() => {
 })
 const chatPref = ref<boolean | null>(null)
 // In graph view the right panel is the node card unless chat was explicitly opened.
-const chatOpen = computed(() => view.value === 'graph' ? chatPref.value === true : (chatPref.value ?? (mounted.value && isXl.value)))
+const chatOpen = computed(() => view.value !== 'tree' ? chatPref.value === true : (chatPref.value ?? (mounted.value && isXl.value)))
 function toggleChat() {
   chatPref.value = !chatOpen.value
 }
@@ -304,7 +306,7 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
 
     <UDashboardPanel
       id="node"
-      :ui="{ body: view === 'graph' ? 'p-0 sm:p-0 gap-0 sm:gap-0 overflow-hidden' : 'lg:py-8' }"
+      :ui="{ body: view !== 'tree' ? 'p-0 sm:p-0 gap-0 sm:gap-0 overflow-hidden' : 'lg:py-8' }"
     >
       <template #header>
         <UDashboardNavbar
@@ -439,6 +441,31 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
             />
           </div>
         </div>
+        <!-- Paper view: the typeset paper (PDF.js), statements linked to nodes via SyncTeX. -->
+        <div
+          v-else-if="view === 'paper' && digest"
+          class="flex h-full min-h-0 flex-col"
+        >
+          <ReaderPaperReader class="min-h-0 flex-1" />
+          <div
+            v-if="node"
+            class="flex shrink-0 items-center gap-2 border-t border-default px-4 py-2 lg:hidden"
+          >
+            <UIcon
+              :name="KIND_ICON[node.kind]"
+              class="size-4 shrink-0 text-muted"
+            />
+            <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ node.name }}</span>
+            <UButton
+              label="Open"
+              trailing-icon="i-lucide-arrow-right"
+              color="neutral"
+              variant="outline"
+              size="xs"
+              @click="view = 'tree'"
+            />
+          </div>
+        </div>
         <div
           v-else-if="node"
           class="mx-auto w-full max-w-3xl"
@@ -448,9 +475,9 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
       </template>
     </UDashboardPanel>
 
-    <!-- Graph view: the selected node's compact card on the right (chat replaces it when opened). -->
+    <!-- Graph and paper views: the selected node's compact card on the right (chat replaces it when opened). -->
     <UDashboardPanel
-      v-if="view === 'graph' && node && !(chatPref === true && mounted && isXl)"
+      v-if="view !== 'tree' && node && !(chatPref === true && mounted && isXl)"
       id="graph-node"
       :ui="{ root: 'hidden lg:flex', handle: 'hidden lg:block', body: 'sm:p-5' }"
       resizable
@@ -484,7 +511,7 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
     </UDashboardPanel>
 
     <UDashboardPanel
-      v-if="(view === 'graph' ? chatPref === true : chatPref !== false) && !(mounted && !isXl)"
+      v-if="(view !== 'tree' ? chatPref === true : chatPref !== false) && !(mounted && !isXl)"
       id="chat"
       :ui="{ root: 'hidden xl:flex', handle: 'hidden xl:block' }"
       resizable

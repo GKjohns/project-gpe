@@ -220,6 +220,10 @@ export async function failRun(runId: string, err: unknown) {
     const { stopAgentSandbox } = await import('./stages/outline-agent')
     await stopAgentSandbox(runId, 'run ended').catch(() => {})
   }
+  if (run?.progress.render_sandbox && !run.progress.render_sandbox_stopped) {
+    const { stopRenderSandbox } = await import('./stages/render')
+    await stopRenderSandbox(runId).catch(() => {})
+  }
   if (err instanceof RunCancelled || run?.status === 'cancelled') {
     await appendEvent(runId, 'run', 'warn', 'run cancelled').catch(() => {})
     return
@@ -267,6 +271,11 @@ async function sweep(): Promise<number> {
   if (agents.length) {
     const { stopAgentSandbox } = await import('./stages/outline-agent')
     await Promise.all(agents.map(r => stopAgentSandbox(r.id, 'dev server restarted').catch(() => {})))
+  }
+  const renders = rows.filter(r => r.progress.render_sandbox && !r.progress.render_sandbox_stopped)
+  if (renders.length) {
+    const { stopRenderSandbox } = await import('./stages/render')
+    await Promise.all(renders.map(r => stopRenderSandbox(r.id).catch(() => {})))
   }
   return rows.length
 }

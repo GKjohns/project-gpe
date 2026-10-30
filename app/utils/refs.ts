@@ -1,6 +1,6 @@
 // Cross-references in paper LaTeX (\ref, \eqref, \cref, …) → what the reader sees: "(1.2)", "Lemma 6.3", "§3.2".
 // Shared by MathText (prose and math), chat Comark and chat math. Pure over the digest, so it also works in tests.
-import type { PaperDigest, PaperEquation, PaperSection, ProofNode } from '#shared/types'
+import type { PaperDigest, PaperEquation, PaperFigure, PaperSection, ProofNode } from '#shared/types'
 import { plainTitle } from './nodes'
 
 /** One \ref-family command; group 2 may hold several comma-separated labels (\cref{a,b}). */
@@ -23,6 +23,7 @@ export type ResolvedRef
   = | { kind: 'equation', label: string, text: string, equation?: PaperEquation }
     | { kind: 'statement', label: string, text: string, node: ProofNode, number?: string }
     | { kind: 'section', label: string, text: string, section: PaperSection, nodeId?: string }
+    | { kind: 'figure', label: string, text: string, figure: PaperFigure }
     | { kind: 'unknown', label: string, text: string }
 
 interface Lookup {
@@ -75,6 +76,15 @@ export function resolveRef(digest: PaperDigest | null | undefined, label: string
     const n = equation?.number
     const text = !n ? `(${human})` : cmd === 'ref' || cmd === 'nameref' || (prefixed && cmd !== 'eqref') ? n : `(${n})`
     return { kind: 'equation', label, text, ...(equation ? { equation } : {}) }
+  }
+  if (meta?.kind === 'figure') {
+    const figure = digest.figures?.find(f => f.id === meta.target)
+    const n = meta.number ?? figure?.number
+    const text = n ? (prefixed ? n : `Figure ${n}`) : 'Figure'
+    if (figure) {
+      return { kind: 'figure', label, text, figure }
+    }
+    return { kind: 'unknown', label, text }
   }
   const node = (meta?.kind === 'statement' && meta.target ? l.byId.get(meta.target) : undefined) ?? l.byLabel.get(label)
   if (node) {

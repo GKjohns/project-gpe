@@ -142,7 +142,21 @@ export interface ProofNode {
 export interface PaperSection { id: string; title: string; level: 1 | 2 | 3; order: number; parent_id?: string; file: string; line: number }
 // Additive (Oct 29, cross-ref fix): deterministic from the sources at finalize (server/pipeline/latex/equations.ts).
 export interface PaperEquation { latex: string; number?: string; section: string; file: string; line: number } // latex: KaTeX-ready (aligned/gathered wrapper, \label/\tag stripped); number: best-effort display number
-export interface PaperLabel { kind: 'equation' | 'section' | 'statement' | 'other'; target?: string; number?: string } // target: section id / node id
+export interface PaperLabel { kind: 'equation' | 'section' | 'statement' | 'figure' | 'other'; target?: string; number?: string } // target: section id / node id / figure id ('figure' added with the reader)
+// Additive (Oct 29, paper reader; § Post-v1: paper reader and figures):
+export interface PageRect { page: number; x: number; y: number; w: number; h: number }      // PDF points, top-left origin
+export interface PaperAnchor extends PageRect { part: 'statement' | 'proof'; approx?: boolean } // approx: page-only (arXiv PDF)
+export type FigureKind = 'plot' | 'commutative_diagram' | 'graph' | 'diagram' | 'schematic' | 'illustration' | 'table' | 'photo' | 'other'
+export interface PaperFigure {
+  id: string; label?: string; number?: string; caption: string; section: string; file: string; line: number
+  page?: number; rect?: PageRect; image_url?: string; width?: number; height?: number; image_source?: 'pdf' | 'file'
+  graphics: string[]; tikz: boolean
+  kind: FigureKind; description: string; data_summary?: string; node_ids: string[]; confidence: number; model?: string
+}
+export interface PaperRender {
+  status: 'compiled' | 'arxiv_pdf' | 'unavailable'; engine?: string; pdf_url?: string; pages?: number; page_size?: { w: number; h: number }
+  synctex: boolean; anchors?: Record<string, PaperAnchor[]>; error?: string; rendered_at: string
+}
 
 export interface PaperDigest {
   slug: string; title: string; authors?: string[]
@@ -153,11 +167,13 @@ export interface PaperDigest {
   macros: Record<string, string> // \newcommand map for KaTeX
   equations?: Record<string, PaperEquation> // by \label; additive, absent on digests finalized before Oct 29
   labels?: Record<string, PaperLabel>       // every \label in the body, classified; additive
+  render?: PaperRender                      // additive: the typeset paper (render stage)
+  figures?: PaperFigure[]                   // additive: figure environments, rasterized and described (figures stage)
   generated_at: string; run_id: string
   metrics: RunMetrics
 }
 
-export type RunStage = 'fetch' | 'chunk' | 'outline' | 'extract' | 'resolve' | 'critique' | 'annotate' | 'classify' | 'finalize'
+export type RunStage = 'fetch' | 'chunk' | 'outline' | 'extract' | 'resolve' | 'critique' | 'annotate' | 'classify' | 'render' | 'figures' | 'finalize'
 export type RunStatus = 'queued' | 'running' | 'waiting_review' | 'failed' | 'cancelled' | 'complete' | 'structure_partial'
 export type Profile = 'careful' | 'standard' | 'quick'
 export type StructureMethod = 'pipeline' | 'agent'
@@ -218,6 +234,8 @@ Proof-length threshold for outlining: proofs with `lines >= 60` get claims; shor
 | `run_events` | `id bigserial pk`, `run_id fk`, `ts timestamptz`, `stage text`, `level text` (info/warn/error), `message text`, `data jsonb null` |
 | `stage_outputs` | `run_id fk`, `stage text`, `payload jsonb`, `created_at`; pk (`run_id`,`stage`) — what "retry from stage" reuses |
 | `review_items` | `id uuid pk`, `run_id fk`, `kind text`, `payload jsonb` (a CritiqueResult fix), `decision text null` (accept/reject), `decided_at null` |
+| `blobs` | `sha text pk` (sha256 hex), `content_type text`, `size int`, `data bytea`, `created_at` — content-addressed PDFs, SyncTeX files, figure PNGs, binary source assets (added with the reader, migration `0001_paper_reader`) |
+| `source_assets` | `id uuid pk`, `paper_id fk`, `path text`, `blob_sha fk → blobs`, `bytes int` — a paper's non-LaTeX source files (figure images, TikZ inputs, `.bst`…) |
 
 Migrations: `drizzle-kit generate` into `server/db/migrations/`; `server/db/index.ts` runs `migrate()` on first import in dev. Driver choice in `server/db/index.ts`: `process.env.DATABASE_URL ? drizzle(postgres(url)) : drizzle(new PGlite('.data/pg'))`. Nothing else in the codebase knows which.
 
@@ -259,12 +277,14 @@ Vercel ceiling: under Inngest each `step.run` is one function invocation. A whol
 | `critique` | assembled DAG + source | CritiqueResult; `review_items` | same as outline, `reasoning: 'high'`. Fixes with `confidence >= 0.85` apply; the rest become review items, status → `waiting_review`, `waitForEvent('review/decided')` |
 | `annotate` | DAG in topological levels | `name`, `statement_plain`, `explanation` | sonnet-5.5 / sonnet-5.5 / haiku-5.5; one call per node, batched per level, with its deps' finished explanations in context |
 | `classify` | node + statement + deps | `classification`, `classification_cite` | opus-5.5 / gpt-6-sol / sonnet-5.5; `novel` must cite why nothing prior covers it |
-| `finalize` | everything | `papers.digest`, `runs.metrics`, `runs.status = complete` | none |
+| `render` | sources + `source_assets`, Skeleton, Outline, classify nodes | `stage_outputs.render` (status, PDF/SyncTeX blob shas, node anchors, figures with crops); blobs | none (TeX Live in a no-network Vercel Sandbox) |
+| `figures` | `stage_outputs.render`, nodes | `stage_outputs.figures` = PaperFigure[] + raw vision answers | opus-5.5 / opus-5.5 / sonnet-5.5, image input, one call per figure |
+| `finalize` | everything | `papers.digest` (with `render`, `figures`, figure labels when present), `runs.metrics`, `runs.status = complete` | none |
 
 Model registry contract — `server/utils/aiModels.ts`:
 
 ```ts
-export const PROFILES: Record<Profile, Record<'outline' | 'extract' | 'resolve' | 'critique' | 'annotate' | 'classify' | 'agent', string>> = {
+export const PROFILES: Record<Profile, Record<'outline' | 'extract' | 'resolve' | 'critique' | 'annotate' | 'classify' | 'agent' | 'figures', string>> = {  // figures: added with the reader
   careful:  { outline: 'anthropic/claude-opus-5.5', critique: 'anthropic/claude-opus-5.5', classify: 'anthropic/claude-opus-5.5', agent: 'anthropic/claude-opus-5.5',
               extract: 'anthropic/claude-sonnet-5.5', resolve: 'anthropic/claude-sonnet-5.5', annotate: 'anthropic/claude-sonnet-5.5' },
   standard: { outline: 'openai/gpt-6-sol', critique: 'openai/gpt-6-sol', classify: 'openai/gpt-6-sol', agent: 'anthropic/claude-sonnet-5.5',
@@ -294,7 +314,8 @@ Default profile is `careful` when the source is over 30 pages (estimate: source 
 | `POST /api/papers/preview` | `{ source }` → `{ files: [{ path, bytes }], mainFile, estTokens, estPages }`; drives the profile default and the estimate line on the form |
 | `GET /api/papers/toy` | Dev only: serves `server/fixtures/toy-digest.ts` when no `toy` row exists |
 | `POST /api/papers/:slug/labels` | Backfill/redo the graph cards' `headline` + `role`: annotate's single graph-labels pass (`server/pipeline/graphLabels.ts`) on the digest's run profile's annotate model, cost recorded on the digest's run; patches `papers.digest`. Returns `{ labeled, total, missing, long, cost_usd, calls, model }`. Button: run page, "Regenerate graph labels" |
-| `POST /api/papers/:slug/chat` | `useChat` transport. Body `{ messages }`. `streamText`, digest in instructions, `stopWhen: isStepCount(1)`, caching on, calm error mapping |
+| `POST /api/papers/:slug/chat` | `useChat` transport. Body `{ messages }`. `streamText`, digest in instructions, tools `read_node` / `search_paper` / `trace` / `ancestors` (outputs typed in `shared/api.ts`; stream carries `tool-<name>` parts), `stopWhen: isStepCount(5)` with the last step forced to answer, caching on, calm error mapping |
+| `GET /api/blobs/:sha` | Content-addressed bytes (PDF, PNG), immutable cache headers, single-range `Range` support (PDF.js streams the PDF) |
 | `GET /api/corpus` | Manifest joined with latest run per slug and method |
 | `POST /api/corpus/:slug/ingest` | `{ method, profile }` → same as `POST /api/papers` with manifest-filled fields |
 | `/api/inngest` | Sprint 9 only |
@@ -306,14 +327,15 @@ Default profile is `careful` when the source is over 30 pages (estimate: source 
 | `pages/index.vue` | Library (frame 01) |
 | `pages/papers/new.vue` | New paper form (frame 00) |
 | `pages/papers/[slug]/run.vue` | Run page (frame 00b); polls while status is queued/running/waiting_review |
-| `pages/[paper]/index.vue` | Redirects to `/[paper]/<root_ids[0]>` |
-| `pages/[paper]/[node].vue` | Dashboard shell (frame 02 / 02b); `?view=tree\|graph`, `?mode=focus`, `?claims=1` |
+| `pages/[paper]/index.vue` | Redirects to `/[paper]/<root_ids[0]>?view=paper&page=1` when the digest has `render`, else to the node page |
+| `pages/[paper]/[node].vue` | Dashboard shell (frame 02 / 02b); `?view=paper\|tree\|graph` (no `view` = node page), `?mode=focus`, `?claims=1`, `?figure=<id>` / `?page=N` (reader) |
 | `pages/[paper]/friction.vue` | Friction table (frame 04) |
 | `pages/corpus.vue` | Corpus page (frame 06) |
 | `layouts/dashboard.vue` | `UDashboardGroup` wrapper, no header/footer |
 | `components/tree/PaperTree.vue` | `UTree` over sections → statements → claims; item slot renders kind icon, novel badge, friction dot |
 | `components/node/NodePage.vue`, `NodeChip.vue`, `MathText.vue` | Node page (full/compact), dependency chips, KaTeX render with digest macros |
 | `components/graph/ProofGraph.vue` | **Custom.** dagre layout → HTML cards over an SVG edge layer in one d3-zoom viewport (zoom, pan, minimap, keyboard); props `nodes, selectedId, mode, showClaims, colorBy, viewKey`; emits `select` |
+| `components/reader/PaperReader.vue`, `components/figure/FigureCard.vue` | PDF.js reader with SyncTeX overlays; figure image + caption + vision description (popover, node page, reader dialog) |
 | `components/chat/ChatPanel.vue`, `MessageContent.vue`, `NodeLink.vue` | `UChatMessages` + `UChatPrompt`; Comark with a `[[node-id]]` inline component |
 | `components/run/RunStepper.vue`, `RunLog.vue`, `ReviewQueue.vue` | `UStepper`, event list, accept/reject per item |
 | `composables/useDigest.ts`, `useSelection.ts` | Fetch + index the digest once; selected node id ↔ route |
@@ -721,6 +743,8 @@ On ETH the two methods land on the same shape (same 11 proofs, 50 claims each; b
 - **"Ask about this node"** is a small outline button under the node's sub-line (hidden when no chat is provided, e.g. outside a paper page); it prefills, doesn't send.
 - **Friction page:** dashboard layout, one panel (no tree sidebar; "Back to the map" in the navbar). Stat cards: paper statements (non-claim nodes), Lean declarations "—", aligned pairs "—", friction items. Severity filter is local state, not `?severity`, because `NodeChip` carries the whole query onto node pages. Source column links to GitHub file:line via the new shared `sourceUrl()` in `app/utils/nodes.ts` (moved out of `NodePage`). The navbar link is a warning-colored count button on the node page (only when the paper has friction).
 - **Dev-server note:** the Sprint 9 agent's concurrent `server/` edits restarted Nitro several times during verification, which cuts in-flight streams; all checks above were re-run on a stable server.
+- **Chat tools (post-sprint, Oct 29).** The chat went from one step to up to 4 tool rounds plus a forced answer (`isStepCount(5)`; `prepareStep` sets `toolChoice: 'none'` on the last step rather than `activeTools: []`, so the tool list, and the cached prefix, stay the same). Tools, pure logic in `server/utils/chatTools.ts`: `read_node({ id })` (id, `[[id]]` or LaTeX label) → verbatim statement, proof text from the stored sources with line numbers (span from `stage_outputs.chunk`'s `proof`, else the claims' outline spans when no proof environment follows the statement, else a scan for `\begin{proof}`; claims use their outline span), headline/role, uses / used by / claims, referenced equations, capped at 12k chars with a truncation note; digest-only with a note when no sources are stored (the toy). `search_paper({ query, max? })` → comment-stripped, preamble skipped, phrase match ignoring LaTeX punctuation (`\sqrt{\log n}` = "sqrt log n" = "√log n"), then all-words lines; ≤ 15 hits with file:line, section, the innermost node span containing the line, ±2 lines. `trace({ from, to })` → up to 3 shortest "feeds into" paths over `prerequisites()` from `server/pipeline/dag.ts` (deps_paper ∪ deps_inferred, claim → parent), each link marked cited / inferred / claim of; says when there is no path and whether the reverse holds. `ancestors({ id, direction: 'supports' | 'supported_by', depth? })` → closure by distance, ≤ 60 nodes. Sources (`sources` rows + the digest run's chunk/outline outputs) load lazily on the first tool call and are cached for the request (`server/utils/chatSources.ts`). History pruning now also drops earlier turns' tool calls (`toolCalls: 'before-last-message'`). The serialized digest gained each node's `headline` / `role` and an equations list (label (number): LaTeX, ≤ 100, 160 chars each); ETH instructions are now ~61k tokens. The client renders each call as a compact `UChatTool` row (`app/utils/chatToolRows.ts`): "Read lem:greedy-hashes · file:lines", "Searched “…” · 6 hits", "Traced a → b · 1 step"; spinner while running, error state, "stopped" after Stop; details (paths, hit locations) on click. Cost metadata now sums the gateway cost over all steps. Verified on ETH: the proof-quote question fired `read_node`, the √log n question `search_paper` ×2, the chain question `trace` (after the instructions said to always trace chain questions; before that the model answered from the digest's direct uses). Cost per turn, gateway-reported: warm $0.017–0.046 (1–3 steps, 62k–131k input tokens, ~94–99% cached); the first turn after an instructions change writes the cache, $0.17. Tests: `tests/chat-tools.test.ts`. Screenshot `verification/screenshots/fix_chat_tools.webp`.
+- **Hover cards (post-sprint, Oct 29).** Every node reference now opens one shared card, `NodeHoverCard` (`app/components/node/HoverCard.vue` → `HoverCardBody.vue`), replacing the one-line name tooltips: statement refs in paper text (`RefLink`), Uses / Used by / claim chips and friction-table chips (`NodeChip`), chat citations (`chat/NodeLink`), graph cards, and tree rows. Order, for a mathematician: header ("Lemma 6.1 · lem:sparse-checks", semantic name, class + friction badges, "claim inside the proof of …", an inferred-edge note when reached through a dashed chip); the exact statement typeset with the paper's macros (clamped, "Show full statement"); plain terms; why it's here (headline, role, explanation); "Uses: Lemma 6.1, Theorem 4.2 (+2 more)" / "Used by: …" as small links, inferred edges dashed and marked; classification with its citation; provenance (section + title, page when `paper_ref.page` is set, file:line with "Open in source", label, and origin: labeled statement read verbatim vs. claim extracted inside the proof of X (k of n), with the claim's line span up to the next claim); actions Open node / Show in graph / Ask about this (the last only where a chat is provided). Text helpers are pure in `app/utils/nodeCard.ts` (`tests/node-card.test.ts`); the provenance block is `NodeProvenance`, also used by the equation-ref popover so both read the same. Interaction: Nuxt UI `UPopover mode="hover"`, 250 ms open / 150 ms close so the pointer can cross into the card, which is interactive and scrolls (≤ 34rem); keyboard focus opens it and Escape closes it; on touch the first tap opens the card and is swallowed (no navigation), the card's buttons navigate; refs inside a card render as plain links (no card in a card, no equation popover). The graph uses one card anchored to the hovered graph card (not one popover per card): mouse/pen only, not while a drag is in progress, and any pan/zoom closes it, so d3-zoom's drag, wheel and pinch are untouched; the native `title` tooltip is gone. Tree rows get the `compact` card (header, headline, short statement, one provenance line) after 700 ms and never on tap, so sweeping the pointer down the tree doesn't flash cards and a tap still selects the row. Screenshots `verification/screenshots/hover_*.webp`.
 
 ---
 
@@ -828,6 +852,47 @@ Run ids (corpus page "Log"): sensitivity `05553b46` / `a110870c`, noncoordinate 
 #### For Sprint 8 (corpus) and Sprint 4b (agent)
 - **Sprint 8:** the corpus ingest route creates the run as `POST /api/papers` does and calls `await startRun(runId, paperId)` from `server/utils/dispatch.ts`. Under Inngest, runs of *different* papers run in parallel (concurrency is per `paperId`); only LocalRunner serializes everything. "Run all pending" therefore needs no queueing logic of its own.
 - **Sprint 4b:** a wait can't live inside a step and the outline stage is one, so the agent method must split like critique: step `outline` boots the sandbox and returns; `ingestPaper` (top level, `ctx.method === 'agent'`) calls `step.waitForEvent('structure/agent.finished', { match: { 'data.runId': ctx.runId }, timeoutMs })`; step `outline:collect` reads `outline.json` and stops the sandbox. `events.post.ts` calls `signalRun(runId, 'structure/agent.finished')`. Under Inngest the 10-s trace polling of 4b.7 cannot run (no step may last 90 min inside Vercel's 800 s), so prod relies on the HTTP callback; sandbox timeout extension has to happen from the callback route or short polling steps between wait slices. Hook comment is at the bottom of `server/inngest/functions/ingest-paper.ts`.
+
+---
+
+## Post-v1: paper reader and figures [Complete]
+**Goal (owner, Oct 29):** the paper's home view is the paper itself, rendered with a real TeX engine, with its figures extracted and looked at by a vision model. Design and alternatives: [../20261029_paper_reader/design.md](../20261029_paper_reader/design.md).
+
+#### What was built
+- **Render stage** (`server/pipeline/stages/render.ts`): latexmk + TeX Live 2025 (pdfLaTeX; XeLaTeX/LuaLaTeX when the source asks) in a no-network Vercel Sandbox booted from a TeX snapshot (`server/pipeline/sandbox/tex.ts`, `vercel/sandbox/universal` + Ubuntu's TeX Live collections, poppler, Ghostscript, rsvg-convert, Pillow; built once in ~2 min, cached in `.data/sandbox-tex-snapshot.json` / `SANDBOX_TEX_SNAPSHOT_ID`). SyncTeX on; `server/pipeline/latex/synctex.ts` parses it into node anchors (`PaperRender.anchors`). Fallbacks: arXiv's PDF (page-level anchors and figure pages from `pdftotext`), then `unavailable`. Never fails the run.
+- **Figures**: fetchers keep binary assets (`source_assets` over content-addressed `blobs`); `server/pipeline/latex/figures.ts` extracts figure environments; the render stage crops each figure from the compiled PDF via its SyncTeX boxes (caption excluded) and rasterizes with `pdftoppm` + Pillow (`render_figures.py`), or rasterizes the figure's own files when the paper did not compile. **Figures stage** (`stages/figures.ts`): one Opus 5.5 vision call per figure with the image attached (`callObject` gained `images`), schema `figureVisionSchema`.
+- **Reader** (`app/components/reader/PaperReader.vue`): PDF.js 6 viewer in the dashboard shell at `?view=paper`, the default landing for `/[paper]`; overlays + margin markers from the anchors; click in a statement selects the node; tree/graph/chat selection scrolls the PDF; find, zoom, page nav, invert for dark mode; figure badges open a dialog. `FigureCard.vue` is shared by the figure-ref popover (`refs.ts` resolves `PaperLabel.kind === 'figure'` → "Figure 3"), the node page's Figures section and the reader dialog.
+- **Run page**: "Render paper" / "Re-render" (= re-run from `render`, every structural stage reused); stepper group "Render + figures".
+
+#### Verification
+- [x] `/eth` lands on `/eth/thm-main?view=paper&page=1` with the typeset 67-page PDF (pdfLaTeX, 5 s compile, 9.8 s stage); 89/89 nodes anchored (eth-e2e 86/86, eth-agent 86/86, sensitivity 8/8, unit-distance 96/96, sunflowers-rao 9/9)
+- [x] Clicking text inside Proposition 2.4 of unit-distance selects `inc-piece`; selecting "Szemerédi–Trotter bound for unit circles" in the tree scrolls to Proposition 2.3 and highlights it; deep links (`/unit-distance/inc-incidence?view=paper`) open at the statement
+- [x] Figures: unit-distance (2 TikZ figures, cropped from the PDF) and sunflowers-rao (2 PDF graphics, cropped from the PDF; files fetched by the render stage since the original fetch had dropped them); vision descriptions checked against the images (§ below); a `\ref{fig:budget-intervals}` in a chat answer renders "Figure 1" with the image popover; "Show in paper" scrolls the reader to the figure; the node page lists the figure under "Figures"
+- [x] Fallback: `sunflowers-rao-agent` re-rendered with the dev-only `forceRenderFail` shows arXiv's PDF with a banner, 5/10 nodes located by page, figures rasterized from their own files and described; a never-rendered paper (`pfr`) shows "Rendered view unavailable" with source and Render links
+- [x] Dark chrome + inverted pages, 390 px (toolbar wraps, page-width scale, node strip at the bottom)
+- [x] `npm run lint && npm run typecheck && npx vitest run` clean (new: `tests/figures.test.ts`, `tests/synctex.test.ts`, `tests/figure-vision.test.ts`)
+
+#### Vision spot-check (Opus 5.5)
+- unit-distance Figure 1 (interval budgets, TikZ): axis, the four tick labels, the two flanks, the gray "different bits" band and the orange central window with dotted lines are all described correctly.
+- unit-distance Figure 2 (strict crosses, TikZ): open circles $y_1=(a,b)$ bottom-left and $y_2=(a',b')$ top-right, filled $(a',b)$ top-left and $(a,b')$ bottom-right, $Y=1$ horizontal and $Y=0$ vertical sides: correct.
+- sunflowers-rao Figure 1 (PDF graphic): $V$, $\chi(X,U)$, the ellipse $\chi(j,U)$, the black region inside $\chi(X,U)$ but outside $V$, the gray disk $A$ and the "$\ge|\chi(X,W)|$" annotation: correct. Figure 2: eight petals around the core $A$ and the wavy $V$ are right; one run said the $\chi(X,U)$ petal sticks out of $V$ "on both ends" (it sticks out on the left only), so small spatial claims can be wrong; confidence was 0.8.
+- No paper in the corpus has a data plot, so `data_summary` and the "unreadable" rule are covered by the prompt, the schema and a mocked test only.
+
+#### Deviations and notes (Oct 29)
+- **TeX Live from Ubuntu's archive instead of Tectonic.** The universal sandbox image is Ubuntu 26.04 with sudo; `apt-get install` of the TeX Live 2025 collections takes ~2.5 min once (snapshot), gives the engine arXiv itself uses, and needs no network at compile time. Tectonic and LaTeXML were weighed, not built (design doc).
+- **`latexmk -f`**: recoverable errors don't stop the compile (Rao's 2019 journal class trips a modern `hyperxmp` check but typesets fine); the PDF is kept when it has pages, and the error lines go to the run log and `render.error`.
+- **Stage order** `… classify, render, figures, finalize` (contract change: `RunStage` and `RUN_STAGES`). Rendering needs only the sources, but placing it after classify makes "Re-render" a plain re-run from `render` that reuses all structure; a fresh ingest renders at the end.
+- **SyncTeX rules learned on ETH/unit-distance**: count glyph and math leaves only (the space after `\end{figure}` is glue tagged with the figure file); a typeset line's box and its first glyph record carry the line that *ended* the paragraph, so leaves with the box's own tag/line are ignored when it has others (else a paragraph ending right before `\begin{theorem}` was drawn as part of the theorem); vboxes never count as "own" boxes; running heads and page numbers (outside each page's body box, tagged with the shipout line) are ignored; rects merge per column.
+- **Figure ids** are label-derived (`fig-<label slug>`, `fig:` prefix dropped) or `fig-<number>`; every label inside a figure (subfigures too) becomes `PaperLabel { kind: 'figure', target, number }` at finalize.
+- **`/[paper]` lands on the reader only when the digest has `render`**; never-rendered papers land on the node page (the Paper tab then shows the "Render paper" empty state). A bare `/[paper]/[node]` is still the node page.
+- **Uploads**: 4.4 MB on Vercel (platform request cap), 32 MB elsewhere; zips may include images. Asset caps: 15 MB per file, 60 MB per paper (skipped assets are logged).
+- **Blobs in Postgres** (bytea), not Vercel Blob: works under PGlite, transactional, content-addressed; `GET /api/blobs/:sha` honors Range so no response approaches Vercel's 4.5 MB cap.
+- **Failure paths stop the render sandbox**: the stage's `finally`, `failRun`, and the dev boot sweep (a dev-server restart mid-render killed one backfill and its sandbox was stopped by the sweep).
+- **Dev-only** `forceRenderFail` on the retry route skips the compile to exercise the fallbacks.
+- **Spend**: vision $0.015–0.035 per figure; sandbox time ~10–20 s per paper (4 vCPU). All development + backfills for this section: well under $1 of model spend.
+
+#### For the chat
+The chat's digest dump does not include figures yet. Suggested: add one line per figure to the instructions (`Figure 3 · fig:label · kind · p. N · description · supports [[ids]]`) and a `view_figure` tool returning the caption, description, data summary and (optionally) the PNG as an image part, so the model can answer "what does Figure 2 show" without guessing; answers can cite `\ref{fig:…}` and the app renders the figure chip.
 
 ---
 

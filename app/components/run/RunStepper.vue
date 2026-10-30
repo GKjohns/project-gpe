@@ -6,7 +6,7 @@ import type { RunStage } from '#shared/types'
 
 const props = defineProps<{ run: RunResponse['run'], events: RunEvent[] }>()
 
-// Nine stages shown as seven, as in storyboard frame 00b.
+// Eleven stages shown as eight (storyboard frame 00b plus the reader's render + figures).
 // Runs from before Sprint 4 logged stub stages; those render as "stub" so they don't read as real work.
 const GROUPS: { title: string, stages: RunStage[] }[] = [
   { title: 'Fetch', stages: ['fetch'] },
@@ -15,6 +15,7 @@ const GROUPS: { title: string, stages: RunStage[] }[] = [
   { title: 'Resolve', stages: ['resolve'] },
   { title: 'Critique', stages: ['critique'] },
   { title: 'Annotate + classify', stages: ['annotate', 'classify'] },
+  { title: 'Render + figures', stages: ['render', 'figures'] },
   { title: 'Finalize', stages: ['finalize'] }
 ]
 
@@ -78,6 +79,13 @@ function counters(s: RunStage): string | null {
   if (s === 'classify' && n('classify_total') !== undefined) {
     return `classified ${n('classified') ?? 0}/${n('classify_total')}${n('novel') !== undefined ? ` · ${n('novel')} novel` : ''}`
   }
+  if (s === 'render' && typeof props.run.progress.render_status === 'string') {
+    const st = props.run.progress.render_status
+    return `${st === 'compiled' ? `typeset · ${n('render_pages') ?? 0} pp` : st === 'arxiv_pdf' ? 'arXiv PDF (did not compile)' : 'unavailable'} · ${n('figures_rasterized') ?? 0}/${n('figures_found') ?? 0} figures`
+  }
+  if (s === 'figures' && n('figures_described') !== undefined) {
+    return `${n('figures_described')} described`
+  }
   if (s === 'finalize' && n('digest_nodes') !== undefined) {
     return `digest · ${n('digest_nodes')} nodes`
   }
@@ -90,7 +98,9 @@ const groups = computed(() => GROUPS.map((g) => {
   const done = g.stages.every(stageDone)
   const current = props.run.stage !== null && g.stages.includes(props.run.stage)
   let state: GroupState = 'pending'
-  if (done && g.stages.every(st => stubbed.value.has(st))) {
+  // Runs finished before the reader existed never rendered.
+  const neverRendered = g.stages.includes('render') && props.run.progress.render_status === undefined && !finished.value.has('render')
+  if (done && (g.stages.every(st => stubbed.value.has(st)) || neverRendered)) {
     state = 'stub'
   } else if (done) {
     state = 'done'
@@ -103,7 +113,7 @@ const groups = computed(() => GROUPS.map((g) => {
   if (state === 'done') {
     description = [description || 'done', ms ? secs(ms) : null].filter(Boolean).join(' · ')
   } else if (state === 'stub') {
-    description = 'stub (older run)'
+    description = neverRendered ? 'not run (older run)' : 'stub (older run)'
   } else if (state === 'active') {
     description = description || (props.run.status === 'queued' ? 'queued' : 'running…')
   } else if (state === 'review') {

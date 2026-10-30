@@ -15,6 +15,7 @@ export interface CallObjectOptions<T> {
   prompt: string
   reasoning?: Reasoning
   cache?: boolean // gateway caching: 'auto' — use when the prompt starts with a big shared prefix
+  images?: { data: Uint8Array, mediaType: string }[] // additive (figures stage): sent after the prompt text in one user message
   // Additive to the contract: where usage is recorded. Omit both for a call outside a run.
   runId?: string
   stage?: RunStage
@@ -69,10 +70,13 @@ export async function callObject<T>(opts: CallObjectOptions<T>): Promise<{ objec
 
   const attempt = async (prompt: string) => {
     try {
+      const input = opts.images?.length
+        ? { messages: [{ role: 'user' as const, content: [{ type: 'text' as const, text: prompt }, ...opts.images.map(i => ({ type: 'image' as const, image: i.data, mediaType: i.mediaType }))] }] }
+        : { prompt }
       const result = await generateText({
         model: opts.model,
         instructions: opts.instructions,
-        prompt,
+        ...input,
         output: Output.object({ schema: opts.schema }),
         ...(opts.reasoning ? { reasoning: opts.reasoning } : {}),
         ...(opts.cache ? { providerOptions: { gateway: { caching: 'auto' } } } : {})

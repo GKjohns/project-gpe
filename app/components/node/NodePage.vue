@@ -7,7 +7,7 @@ const props = defineProps<{
   compact?: boolean
 }>()
 
-const { paper, index } = useDigestContext()
+const { paper, digest, index } = useDigestContext()
 const chat = injectPaperChat()
 
 const section = computed(() => index.value.sectionOf[props.node.id])
@@ -22,6 +22,7 @@ const uses = computed(() => [
 ])
 const usedBy = computed(() => index.value.usedBy[props.node.id] ?? [])
 const claims = computed(() => index.value.children[props.node.id] ?? [])
+const figures = computed(() => figuresForNode(digest.value, props.node.id))
 const frictionKinds = computed(() => [...new Map(props.node.friction.map(f => [f.kind, f])).values()])
 
 const nodeSourceUrl = computed(() => sourceUrl(paper.value, props.node.paper_ref))
@@ -211,6 +212,23 @@ const nodeSourceUrl = computed(() => sourceUrl(paper.value, props.node.paper_ref
           v-for="c in claims"
           :id="c.id"
           :key="c.id"
+        />
+      </div>
+    </section>
+
+    <section
+      v-if="figures.length"
+      data-node-figures
+    >
+      <h2 class="mb-2 text-[11px] font-semibold tracking-wider text-dimmed uppercase">
+        Figures
+      </h2>
+      <div class="flex flex-col gap-5">
+        <FigureCard
+          v-for="f in figures"
+          :key="f.id"
+          :figure="f"
+          :compact="compact"
         />
       </div>
     </section>

@@ -15,7 +15,8 @@ and the corpus results are in [docs/20261029_digest_v1/implementation_plan.md](d
 ## How it works
 
 Everything an operator does is a page: `/papers/new` (paste a GitHub directory or arXiv id, or upload `.tex`), the run
-page (`/papers/<slug>/run`: stepper, live log, spend, review queue), the map (`/<slug>/<node>` with tree, node page,
+page (`/papers/<slug>/run`: stepper, live log, spend, review queue, Render paper / Re-render), the paper itself
+(`/<slug>` lands on the reader: `/<slug>/<node>?view=paper`), the map (`/<slug>/<node>` with tree, node page,
 `?view=graph`, chat), `/<slug>/friction`, and `/corpus`.
 
 **Pipeline** (`server/pipeline/ingest.ts`, one file per stage in `server/pipeline/stages/`):
@@ -30,10 +31,24 @@ page (`/papers/<slug>/run`: stepper, live log, spend, review queue), the map (`/
 | critique | One whole-DAG review; fixes ≥ 0.85 confidence apply, the rest wait in a review queue on the run page | strong |
 | annotate | Name, plain statement and explanation per node, in dependency order (deps explained first) | mid |
 | classify | standard / routine / novel, with a citation or a reason | strong |
+| render | Compiles the stored sources with TeX Live 2025 (latexmk; pdfLaTeX, or XeLaTeX/LuaLaTeX when the source asks) in a no-network Vercel Sandbox with SyncTeX on; maps every node to its boxes in the PDF; crops each figure environment out of the PDF (TikZ included) to a PNG. Falls back to arXiv's PDF, then to "unavailable"; never fails the run | none |
+| figures | Looks at each figure image: kind, alt-text description, for plots the axes/series/trend and only legible values ("unreadable" otherwise), the nodes it supports, confidence | vision (Opus 5.5; Sonnet on quick) |
 | finalize | Digest JSON on the paper row, run metrics, paper-internal friction, golden diff for corpus papers with a golden | none |
 
 The rule behind it: the skeleton comes from the LaTeX, never from a model. Models only add what the source leaves
 implicit (claims inside long proofs, prose dependencies) and the prose.
+
+**Paper reader** (`app/components/reader/PaperReader.vue`): the typeset PDF in PDF.js (text selection, the paper's
+own links, find, zoom, page nav, an invert option for dark mode). Each statement's SyncTeX boxes are drawn as a faint
+overlay with a margin marker; clicking inside a statement or proof selects its node (node card on the right), and
+selecting a node in the tree, graph or chat scrolls the PDF to it. Figures get a badge in the PDF; `\ref{fig:…}` in
+any rendered text is a "Figure 3" chip whose popover shows the image, caption and the vision description; node pages
+list their figures. PDFs, SyncTeX files, figure PNGs and figure source files are content-addressed blobs in Postgres
+(`blobs`, `source_assets`), served by `GET /api/blobs/:sha` with Range support. Design notes:
+[docs/20261029_paper_reader/design.md](docs/20261029_paper_reader/design.md).
+
+**Chat** answers from the digest (in the instructions, cached) and, when that isn't enough, calls tools over the stored
+LaTeX and the graph: `read_node` (a proof's text), `search_paper`, `trace` / `ancestors` (`server/utils/chatTools.ts`).
 
 **Two structure methods** for the outline stage, chosen per run; everything after it is identical:
 
@@ -58,12 +73,13 @@ in prod.
 - Nuxt 4, Nuxt UI 4, Tailwind 4
 - Node ≥ 22.19, npm
 - Drizzle (PGlite / Postgres), Vercel AI SDK 7 through the AI Gateway, Inngest, Vercel Sandbox + Claude Agent SDK
+- TeX Live 2025 (in the render sandbox), PDF.js (`pdfjs-dist`) for the reader
 
 ## Dev
 
 ```bash
 npm ci
-cp .env.example .env        # set AI_GATEWAY_API_KEY; VERCEL_OIDC_TOKEN for the agent method (below)
+cp .env.example .env        # set AI_GATEWAY_API_KEY; VERCEL_OIDC_TOKEN for rendering and the agent method (below)
 npm run dev                 # http://localhost:3120
 ```
 
@@ -90,6 +106,17 @@ INNGEST_EVENT_KEY=local npm run dev          # any value works against the dev s
 
 The boot log then says `runner: Inngest`, each stage shows up as a step in the Inngest UI (http://localhost:8288), and
 the run page looks the same as under LocalRunner. Review decisions send `review/decided` to resume the waiting run.
+
+### Rendering papers: the TeX sandbox
+
+The `render` stage compiles in a Vercel Sandbox, so locally it needs the same `VERCEL_OIDC_TOKEN` as the agent method
+(below). The first render builds a snapshot of `vercel/sandbox/universal` with TeX Live 2025 from Ubuntu's archive,
+poppler, Ghostscript, `rsvg-convert` and Pillow (~2 min, once); it is cached by id in `.data/sandbox-tex-snapshot.json`
+(delete it to rebuild, or bump `TEX_IMAGE_VERSION` in `server/pipeline/sandbox/tex.ts`), and `SANDBOX_TEX_SNAPSHOT_ID`
+overrides it (set it on Vercel, where the cache file isn't writable). Render sandboxes have no network and are stopped
+when the step ends. Papers digested before the reader existed get **Render paper** on their run page: a re-run from
+`render` that reuses every other stage (a few seconds of sandbox, ~$0.02–0.04 per figure for the vision pass). In dev,
+`POST /api/runs/:id/retry { fromStage: 'render', forceRenderFail: true }` skips the compile to exercise the fallbacks.
 
 ### Agent structure method (Method B): sandbox, snapshot, progress transport
 
@@ -135,8 +162,10 @@ which syncs on every deploy) at `https://<host>/api/inngest`.
 | `NUXT_PUBLIC_APP_URL` | agent method | Public URL the structure agent's sandbox posts progress to. |
 | `GITHUB_TOKEN` | no | Raises the GitHub API rate limit for directory fetches. |
 | `ARXIV_CONTACT_EMAIL` | no | Adds a `mailto:` contact to the arXiv fetch User-Agent (default is plain `gpe-ingest`). |
+| `SANDBOX_TEX_SNAPSHOT_ID` | recommended | The TeX snapshot for the render stage (build it once locally and copy the id from `.data/sandbox-tex-snapshot.json`); without it the first render on each instance rebuilds it. |
 
-Sandbox auth (agent method) is automatic on Vercel. Migrations do not run on boot against a real Postgres outside dev;
+Sandbox auth (render stage, agent method) is automatic on Vercel. Uploads are capped at 4.4 MB on Vercel (the
+platform's request body limit) and 32 MB elsewhere. Migrations do not run on boot against a real Postgres outside dev;
 apply them before deploying a schema change with `DATABASE_URL=… npm run db:migrate`.
 
 ## Layout
@@ -144,11 +173,12 @@ apply them before deploying a schema change with `DATABASE_URL=… npm run db:mi
 ```
 app/
   pages/            library (index), papers/new, papers/[slug]/run, [paper]/[node] (map), [paper]/friction, corpus
-  components/       tree/, node/, graph/ (custom dagre DAG), chat/, run/
+  components/       tree/, node/, graph/ (custom dagre DAG), reader/ (PDF.js + SyncTeX overlays), figure/, chat/, run/
   composables/      useDigest, useSelection, usePaperChat
 server/
   api/              papers, runs (retry/cancel/review/agent events), corpus, chat, inngest
-  pipeline/         ingest.ts, runner.ts, stages/, latex/chunk.ts, sources/, prompts/, sandbox/ (agent scripts), llm.ts
+  pipeline/         ingest.ts, runner.ts, stages/, latex/ (chunk, equations, figures, synctex), sources/, prompts/,
+                    sandbox/ (agent scripts, TeX snapshot, figure rasterizer), llm.ts
   db/               Drizzle schema + migrations
   utils/            aiModels (profiles, prices, defaults), dispatch (LocalRunner vs Inngest), runs, corpus
 shared/             types and zod schemas shared by app and server (types, pipeline, api, runs, corpus)

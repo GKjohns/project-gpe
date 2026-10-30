@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{
   id: string
-  /** Inferred (prose) dependency: dashed outline + tooltip. */
+  /** Inferred (prose) dependency: dashed outline; the hover card says so. */
   inferred?: boolean
 }>()
 
@@ -11,9 +11,11 @@ const node = computed(() => index.value.byId.get(props.id))
 </script>
 
 <template>
-  <UTooltip
+  <NodeHoverCard
     v-if="node"
-    :text="inferred ? `${node.name} · inferred from prose, no \\ref` : node.name"
+    :id="node.id"
+    :inferred="inferred"
+    trigger-class="inline-flex max-w-full"
   >
     <UButton
       :to="linkTo(node.id)"
@@ -22,11 +24,12 @@ const node = computed(() => index.value.byId.get(props.id))
       variant="outline"
       :class="['max-w-full', inferred && 'border-dashed ring-0 border border-default']"
       :data-node-chip="node.id"
+      :aria-label="`${node.name}${inferred ? ' (inferred dependency)' : ''}`"
     >
       <span class="font-mono text-[10px] uppercase text-dimmed">{{ KIND_SHORT[node.kind] }}</span>
       <span class="truncate">{{ node.name }}</span>
     </UButton>
-  </UTooltip>
+  </NodeHoverCard>
   <UBadge
     v-else
     color="neutral"

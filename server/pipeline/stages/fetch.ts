@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { useDb } from '../../db'
 import { papers, sources } from '../../db/schema'
 import { appendEvent, patchProgress, setStage } from '../../utils/runs'
+import { storeSources } from '../../utils/sourceStore'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { fetchRemoteSource, summarize } from '../sources'
 import type { SourceFile, SourceSummary } from '../sources'
@@ -31,11 +32,13 @@ export const fetchStage: StageFn = async (ctx) => {
   } else {
     await appendEvent(ctx.runId, 'fetch', 'info', `fetch · ${paper.sourceKind === 'github' ? 'GitHub' : 'arXiv'} ${paper.sourceRef}`)
     files = await fetchRemoteSource(paper.sourceKind, paper.sourceRef)
-    // A fresh fetch replaces whatever an earlier run stored.
-    await db.transaction(async (tx) => {
-      await tx.delete(sources).where(eq(sources.paperId, paper.id))
-      await tx.insert(sources).values(files.map(f => ({ paperId: paper.id, path: f.path, content: f.content, bytes: Buffer.byteLength(f.content, 'utf8') })))
-    })
+    // A fresh fetch replaces whatever an earlier run stored; figures' images etc. go to source_assets.
+    const assets = await storeSources(paper.id, files)
+    if (assets.stored || assets.skipped.length) {
+      await appendEvent(ctx.runId, 'fetch', assets.skipped.length ? 'warn' : 'info',
+        `fetch · ${assets.stored} assets (${kb(assets.bytes)}) for the renderer${assets.skipped.length ? ` · skipped for size: ${assets.skipped.slice(0, 5).join(', ')}` : ''}`)
+    }
+    files = files.filter(f => !f.data)
   }
 
   const summary = summarize(files)

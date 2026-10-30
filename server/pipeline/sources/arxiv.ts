@@ -2,7 +2,7 @@
 import { Readable } from 'node:stream'
 import { gunzipSync } from 'fflate'
 import tar from 'tar-stream'
-import { isTextSource, SourceError } from './main'
+import { isAsset, isTextSource, SourceError } from './main'
 import type { SourceFile } from './main'
 
 const ID_RE = /^(?:\d{4}\.\d{4,5}|[a-z-]+(?:\.[A-Z]{2})?\/\d{7})(?:v\d+)?$/
@@ -33,6 +33,8 @@ async function untar(bytes: Uint8Array): Promise<SourceFile[]> {
         const path = header.name.replace(/^\.\//, '')
         if (header.type === 'file' && isTextSource(path)) {
           files.push({ path, content: text(Buffer.concat(chunks)) })
+        } else if (header.type === 'file' && isAsset(path)) {
+          files.push({ path, content: '', data: new Uint8Array(Buffer.concat(chunks)) })
         }
         next()
       })
@@ -70,7 +72,7 @@ export async function fetchArxiv(input: string): Promise<SourceFile[]> {
     throw new SourceError(`arXiv ${id} has no LaTeX source (PDF only)`, 422)
   }
   const files = isTar(bytes) ? await untar(bytes) : [{ path: `${id.replace('/', '_')}.tex`, content: text(bytes) }]
-  if (!files.some(f => f.path.toLowerCase().endsWith('.tex'))) {
+  if (!files.some(f => !f.data && f.path.toLowerCase().endsWith('.tex'))) {
     throw new SourceError(`arXiv ${id}: no .tex files in the e-print`, 422)
   }
   return files

@@ -130,6 +130,63 @@ const hoverId = ref<string | null>(null)
 const hoverEdges = computed(() => hoverId.value ? layout.value.edges.filter(e => e.from === hoverId.value || e.to === hoverId.value) : [])
 const hoverNeighbors = computed(() => new Set(hoverEdges.value.flatMap(e => [e.from, e.to])))
 
+// --- hover card: one shared NodeHoverCard anchored to the hovered card ----------------
+// Mouse/pen only (a tap selects, and the side panel shows the selection); never while a drag is
+// in progress; any zoom or pan closes it, since the anchor moves with the world transform.
+const cardTip = shallowRef<{ id: string, el: HTMLElement } | null>(null)
+const cardTipOpen = ref(false)
+const cardTipNode = computed(() => cardTip.value ? index.value.byId.get(cardTip.value.id) : undefined)
+let tipOpenTimer: ReturnType<typeof setTimeout> | undefined
+let tipCloseTimer: ReturnType<typeof setTimeout> | undefined
+let pressing = false
+function tipClearTimers() {
+  clearTimeout(tipOpenTimer)
+  clearTimeout(tipCloseTimer)
+}
+function tipShow(id: string, el: HTMLElement, delay: number) {
+  tipClearTimers()
+  tipOpenTimer = setTimeout(() => {
+    cardTip.value = { id, el }
+    cardTipOpen.value = true
+  }, delay)
+}
+function tipHide(delay = 150) {
+  clearTimeout(tipOpenTimer)
+  clearTimeout(tipCloseTimer)
+  tipCloseTimer = setTimeout(() => {
+    cardTipOpen.value = false
+  }, delay)
+}
+function onCardEnter(e: PointerEvent, id: string) {
+  hoverId.value = id
+  if (e.pointerType === 'touch' || pressing) {
+    return
+  }
+  // Moving between cards while one is open swaps quickly; a fresh hover waits.
+  tipShow(id, e.currentTarget as HTMLElement, cardTipOpen.value ? 120 : 250)
+}
+function onCardLeave() {
+  hoverId.value = null
+  tipHide()
+}
+function onCardFocus(e: FocusEvent, id: string) {
+  const el = e.currentTarget as HTMLElement
+  if (el.matches(':focus-visible')) {
+    tipShow(id, el, 250)
+  }
+}
+function onViewportPointerdown(e: PointerEvent) {
+  if ((e.target as Element | null)?.closest('[data-pg-chrome]')) {
+    return
+  }
+  pressing = true
+  tipHide(0)
+  window.addEventListener('pointerup', () => {
+    pressing = false
+  }, { once: true })
+}
+onBeforeUnmount(tipClearTimers)
+
 function cardStyle(n: ProofNode) {
   const selected = n.id === props.selectedId
   let border: string, style: string, fill: string
@@ -308,6 +365,9 @@ function start() {
     })
     .on('zoom', (e) => {
       view.value = { x: e.transform.x, y: e.transform.y, k: e.transform.k }
+      if (cardTipOpen.value || e.sourceEvent) {
+        tipHide(0)
+      }
     })
     .on('end', () => {
       savedGraphViews.set(viewKey.value, view.value)
@@ -425,6 +485,7 @@ const KEYS_HELP = 'Wheel or pinch: zoom · drag: pan · ↑: a result it feeds i
       aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - 0 1 F C"
       :data-lod="lod"
       @keydown="onKey"
+      @pointerdown="onViewportPointerdown"
     >
       <div
         data-pg-world
@@ -516,12 +577,13 @@ const KEYS_HELP = 'Wheel or pinch: zoom · drag: pan · ↑: a result it feeds i
           :data-claim="c.n.kind === 'claim' || undefined"
           class="absolute flex cursor-pointer flex-col justify-center gap-1 overflow-hidden rounded-md border px-2.5 py-2 text-left transition-opacity"
           :style="cardStyle(c.n)"
-          :title="`${c.n.name} — ${c.n.paper_ref.label ?? c.n.id}`"
           :aria-pressed="c.n.id === selectedId"
           :aria-label="`${c.n.name}${c.n.headline ? `: ${c.n.headline}` : ''}`"
           @click="emit('select', c.n.id)"
-          @mouseenter="hoverId = c.n.id"
-          @mouseleave="hoverId = null"
+          @pointerenter="onCardEnter($event, c.n.id)"
+          @pointerleave="onCardLeave"
+          @focus="onCardFocus($event, c.n.id)"
+          @blur="tipHide()"
         >
           <span
             v-if="lod === 'label'"
@@ -562,6 +624,31 @@ const KEYS_HELP = 'Wheel or pinch: zoom · drag: pan · ↑: a result it feeds i
           </template>
         </button>
       </div>
+
+      <!-- The hovered card's node card, anchored to that card (one popover for the whole graph). -->
+      <UPopover
+        v-model:open="cardTipOpen"
+        mode="hover"
+        :open-delay="0"
+        :close-delay="150"
+        :reference="cardTip?.el"
+        :content="{ side: 'right', align: 'start', sideOffset: 8, collisionPadding: 12 }"
+        :ui="{ content: 'w-[min(30rem,calc(100vw-2rem))] max-h-[min(34rem,var(--reka-hover-card-content-available-height,70vh))] overflow-y-auto overscroll-contain' }"
+      >
+        <template #content>
+          <div
+            @pointerenter="tipClearTimers"
+            @pointerleave="tipHide()"
+          >
+            <NodeHoverCardBody
+              v-if="cardTipNode"
+              :key="cardTipNode.id"
+              :node="cardTipNode"
+              @done="tipHide(0)"
+            />
+          </div>
+        </template>
+      </UPopover>
 
       <!-- Controls: zoom, fit, minimap toggle. -->
       <div

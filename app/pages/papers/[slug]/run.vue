@@ -195,6 +195,19 @@ const rerunItems = computed<DropdownMenuItem[]>(() => [
               @click="relabel"
             />
           </UTooltip>
+          <UTooltip
+            v-if="(run.status === 'complete' || run.status === 'structure_partial') && data?.paper?.hasDigest"
+            text="Typeset the paper (TeX Live + SyncTeX in a sandbox) and describe its figures; reuses everything else from this run"
+          >
+            <UButton
+              :label="run.progress.render_status ? 'Re-render' : 'Render paper'"
+              icon="i-lucide-printer"
+              color="neutral"
+              variant="outline"
+              data-render
+              @click="rerun('render')"
+            />
+          </UTooltip>
           <UButton
             v-if="(run.status === 'complete' || run.status === 'structure_partial') && data?.paper?.hasDigest"
             label="Open map"

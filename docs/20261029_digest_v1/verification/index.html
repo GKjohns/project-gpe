@@ -71,6 +71,7 @@
   <a href="#s7">Sprint 7: Chat and friction</a><br>
   <a href="#s8">Sprint 8: Corpus</a><br>
   <a href="#s9">Sprint 9: Inngest runner</a><br>
+  <a href="#reader">Paper reader and figures</a><br>
   <a href="#polish">Post-sprint polish</a><br>
   <a href="#corpus">Corpus results and default method</a><br>
   <a href="#e2e">End-to-end: ETH</a><br>
@@ -293,6 +294,79 @@
 </ul>
 
 <!-- ============================================================ -->
+<h2 id="reader">Paper reader and figures</h2>
+<p>The paper's home view is now the paper: the stored LaTeX compiled with TeX Live 2025 (latexmk, pdfLaTeX) in a no-network Vercel Sandbox with SyncTeX on, shown in PDF.js. SyncTeX maps every node's statement and proof lines to boxes on the page, so statements carry a faint overlay and a margin marker, a click in one selects its node, and selecting a node anywhere scrolls the PDF to it. Figures are cropped out of the compiled PDF (TikZ included), described by Opus 5.5 from the image, and shown wherever <code>\ref{fig:…}</code> appears. Design: <a href="../../20261029_paper_reader/design.md">20261029_paper_reader/design.md</a>; plan: § Post-v1: paper reader and figures.</p>
+<figure>
+  <img src="screenshots/reader_eth_landing.webp" alt="ETH paper reader landing">
+  <figcaption><b>Proves:</b> <code>/eth</code> lands on the typeset 67-page paper (compiled here, not arXiv's copy) with the main theorem's card on the right and the tree on the left.</figcaption>
+</figure>
+<div class="grid2">
+<figure>
+  <img src="screenshots/reader_tree_scroll.webp" alt="Tree selection scrolls the PDF">
+  <figcaption><b>Proves:</b> picking "Szemerédi–Trotter bound for unit circles" in the tree scrolls to Proposition 2.3 and highlights its lines; other statements show margin markers.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/reader_pdf_click.webp" alt="Clicking a statement in the PDF selects the node">
+  <figcaption><b>Proves:</b> clicking text inside Proposition 2.4 selects its node (URL, tree and card follow); the page number below, which TeX tags with the same line, is not highlighted.</figcaption>
+</figure>
+</div>
+<div class="grid2">
+<figure>
+  <img src="screenshots/reader_figure_dialog.webp" alt="Figure dialog with vision description">
+  <figcaption><b>Proves:</b> a figure's badge in the PDF opens the crop (caption left out), the caption, what the vision model read in it, and the nodes it supports.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/reader_figure_ref_popover.webp" alt="Figure reference popover">
+  <figcaption><b>Proves:</b> <code>\ref{fig:budget-intervals}</code> renders as a figure chip whose popover shows the image, caption and description, with "Show in paper".</figcaption>
+</figure>
+</div>
+<div class="grid2">
+<figure>
+  <img src="screenshots/reader_show_in_paper.webp" alt="Show in paper scrolls to the figure">
+  <figcaption><b>Proves:</b> "Show in paper" switches to the reader at the figure (TikZ, typeset by TeX).</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/reader_node_figures.webp" alt="Node page Figures section">
+  <figcaption><b>Proves:</b> the node page of the lemma the figure illustrates lists it under "Figures" with the vision description.</figcaption>
+</figure>
+</div>
+<div class="grid2">
+<figure>
+  <img src="screenshots/reader_find.webp" alt="Find in paper">
+  <figcaption><b>Proves:</b> PDF.js find: "parity check", match 1 of 2, highlighted on page 20.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/reader_dark.webp" alt="Reader in dark mode with inverted pages">
+  <figcaption><b>Proves:</b> dark chrome with the optional page inversion; Theorem 1.1 selected, and the paragraph that ends right before it is not part of its box.</figcaption>
+</figure>
+</div>
+<div class="grid2">
+<figure>
+  <img src="screenshots/reader_unavailable.webp" alt="Rendered view unavailable">
+  <figcaption><b>Proves:</b> a paper that was never rendered says so, with links to the source and to "Render paper".</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/reader_run_page.webp" alt="Run page with Re-render">
+  <figcaption><b>Proves:</b> the run page's "Re-render" (a re-run from <code>render</code>) and the log: assets fetched, compiled in 5 s with one recoverable TeX error kept, 2/2 figures cropped, 2 described.</figcaption>
+</figure>
+</div>
+<div class="grid2">
+<figure>
+  <img src="screenshots/reader_mobile.webp" alt="Reader at 390 px">
+  <figcaption><b>Proves:</b> at 390 px the toolbar wraps, the page fits the width, and the selected node is a strip at the bottom.</figcaption>
+</figure>
+<figure>
+  <img src="screenshots/reader_mobile_arxiv_fallback.webp" alt="arXiv PDF fallback at 390 px">
+  <figcaption><b>Proves:</b> when compiling fails (forced, dev-only) an arXiv paper falls back to arXiv's PDF with a banner; statements are located by page.</figcaption>
+</figure>
+</div>
+<ul class="gotchas">
+  <li>Backfilled: <code>eth</code>, <code>eth-e2e</code>, <code>eth-agent</code>, <code>sensitivity</code> (no figures), <code>unit-distance</code> (2 TikZ figures), <code>sunflowers-rao</code> (2 PDF figures); every node anchored on all six. <code>sunflowers-rao-agent</code> holds the forced fallback.</li>
+  <li>Vision: $0.015–0.035 per figure (Opus 5.5). Descriptions match the images; one Rao figure description misplaced a petal's end relative to the outline <i>V</i>. No corpus paper has a data plot, so the chart path (axes, series, "unreadable" values) is tested with a mocked model only.</li>
+  <li>The chat does not know figure descriptions yet (it found the label by searching the source); see the plan for the suggested <code>view_figure</code> tool.</li>
+</ul>
+
+<!-- ============================================================ -->
 <h2 id="polish">Post-sprint polish</h2>
 <p>Owner feedback after the sprints, all on the reading experience.</p>
 <h3>Equation and cross-references</h3>
@@ -312,6 +386,12 @@
 <figure>
   <img src="screenshots/sprint6_zoomed.webp" alt="Zoomed graph with hover">
   <figcaption><b>Proves:</b> zooming keeps cards crisp, and hovering a card highlights its direct edges.</figcaption>
+</figure>
+<h3>Chat tools</h3>
+<p>The paper chat can now look past the digest: <code>read_node</code> returns a node's verbatim statement and its proof text from the stored LaTeX (line-numbered, capped at 12k chars), <code>search_paper</code> searches the source, and <code>trace</code> / <code>ancestors</code> follow the dependency graph. Up to four tool rounds per answer; each call shows as a small muted row (spinner while running, error and stopped states, details on click). On ETH: "Quote the key step of the proof of lem:greedy-hashes" read the node and quoted lines 3468–3495; "Where is the √log n parameter chosen?" searched the source twice; "How does lem:sparse-checks lead to the main theorem?" traced the path. Warm turns cost $0.017–0.046 (gateway-reported).</p>
+<figure>
+  <img src="screenshots/fix_chat_tools.webp" alt="Chat answer with trace and read tool rows">
+  <figcaption><b>Proves:</b> a chain question fires <code>trace</code> (expanded to show the path) and <code>read_node</code>, each as one muted row above the answer, and the answer's citations still render as clickable node chips.</figcaption>
 </figure>
 
 <!-- ============================================================ -->

@@ -14,9 +14,11 @@ function open() {
 </script>
 
 <template>
-  <UTooltip
+  <NodeHoverCard
     v-if="node"
-    :text="`${capitalize(node.kind)}${node.paper_ref.label ? ` · ${node.paper_ref.label}` : ''}`"
+    :id="node.id"
+    side="left"
+    trigger-class="inline-flex max-w-full align-middle"
   >
     <UButton
       size="xs"
@@ -29,7 +31,7 @@ function open() {
       <span class="font-mono text-[10px] text-dimmed uppercase">{{ KIND_SHORT[node.kind] }}</span>
       <span class="truncate">{{ node.name }}</span>
     </UButton>
-  </UTooltip>
+  </NodeHoverCard>
   <!-- An id the digest doesn't have: shown raw and muted, never clickable. -->
   <UBadge
     v-else

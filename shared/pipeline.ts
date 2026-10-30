@@ -45,7 +45,8 @@ export interface CritiqueResult {
 export const CLAIM_PROOF_LINES = 60
 
 // Additive to the contract: the canonical stage order, shared by the runner, run page and retry.
-export const RUN_STAGES: readonly RunStage[] = ['fetch', 'chunk', 'outline', 'extract', 'resolve', 'critique', 'annotate', 'classify', 'finalize']
+// render + figures sit right before finalize so "re-run from render" re-renders a digested paper without touching its structure.
+export const RUN_STAGES: readonly RunStage[] = ['fetch', 'chunk', 'outline', 'extract', 'resolve', 'critique', 'annotate', 'classify', 'render', 'figures', 'finalize']
 
 // Additive to the contract: the shape of runs.progress. Stages add their own counters.
 export interface RunProgress {

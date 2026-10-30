@@ -1,6 +1,6 @@
 // Contract: docs/20261029_digest_v1/implementation_plan.md § DB schema. Change the plan first.
 import { sql } from 'drizzle-orm'
-import { bigserial, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigserial, customType, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { PaperDigest, Profile, RunMetrics, RunStage, RunStatus, StructureMethod } from '#shared/types'
 import type { RunProgress } from '#shared/pipeline'
 import type { ReviewItemPayload } from '#shared/runs'
@@ -74,6 +74,32 @@ export const reviewItems = pgTable('review_items', {
   decision: text('decision').$type<'accept' | 'reject'>(),
   decidedAt: tstz('decided_at')
 })
+
+// --- Binary storage (Oct 29, paper reader) ---
+
+/** bytea: PGlite hands back a Uint8Array, postgres.js a Buffer (also a Uint8Array). */
+const bytea = customType<{ data: Uint8Array, driverData: Uint8Array }>({ dataType: () => 'bytea' })
+
+/**
+ * Content-addressed bytes (sha256 hex): rendered PDFs, SyncTeX files, figure PNGs, a paper's binary source assets.
+ * Immutable, so retries and re-renders dedupe for free and URLs (/api/blobs/<sha>) cache forever.
+ */
+export const blobs = pgTable('blobs', {
+  sha: text('sha').primaryKey(),
+  contentType: text('content_type').notNull(),
+  size: integer('size').notNull(),
+  data: bytea('data').notNull(),
+  createdAt: tstz('created_at').notNull().defaultNow()
+})
+
+/** Files a paper needs to compile but the pipeline never reads as text (figures' images, .bst, data tables). */
+export const sourceAssets = pgTable('source_assets', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  paperId: uuid('paper_id').notNull().references(() => papers.id, { onDelete: 'cascade' }),
+  path: text('path').notNull(),
+  blobSha: text('blob_sha').notNull().references(() => blobs.sha),
+  bytes: integer('bytes').notNull()
+}, t => [index('source_assets_paper_idx').on(t.paperId)])
 
 export type PaperRow = typeof papers.$inferSelect
 export type RunRow = typeof runs.$inferSelect
