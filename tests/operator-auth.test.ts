@@ -8,6 +8,7 @@ describe('operator guard: which requests need the operator', () => {
     ['POST', '/api/papers'],
     ['POST', '/api/papers/preview'],
     ['POST', '/api/papers/eth/labels'],
+    ['POST', '/api/papers/eth/public'],
     ['POST', '/api/runs/0b5c0b8e-9d1c-4a52-9b0e-3c1d2e4f5a6b/retry'],
     ['POST', '/api/runs/0b5c0b8e-9d1c-4a52-9b0e-3c1d2e4f5a6b/cancel'],
     ['POST', '/api/runs/0b5c0b8e-9d1c-4a52-9b0e-3c1d2e4f5a6b/review'],

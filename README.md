@@ -69,17 +69,18 @@ IP (never the IP itself) and the `?ref=` param, so links like `/llms.txt?ref=blo
 `ref` argument is not). Over MCP there is one row per `tools/call` and one per `initialize`; `client` is the MCP
 client's own name/version when the message carries it (always on `initialize`, and on every request in the modern
 protocol's `_meta`), otherwise the user-agent family. The write is fire-and-forget behind `event.waitUntil`, and a failed
-one is only a warning. Two operator commands, no HTTP endpoints (they load `.env`, so they hit Postgres when
+one is only a warning. Two operator commands (they load `.env`, so they hit Postgres when
 `DATABASE_URL` is set, else `.data/pg`, and refuse while the dev server holds PGlite):
 
 ```bash
 npm run paper:public                      # every paper and its flag
 npm run paper:public -- eth pfr           # make public (or --off to make private); live within a minute
+curl -X POST localhost:3120/api/papers/eth/public -H 'content-type: application/json' -d '{"public":true}'  # same, over HTTP (operator-only); works while the dev server runs
 npm run agent:stats -- --days 7           # requests, unique callers and errors by day, surface, client, tool, paper, ref
 ```
 
 **Operator auth** (`server/utils/operator.ts`, `server/middleware/operator.ts`): anything that spends money or
-changes state is operator-only. That covers new papers and previews, retry/cancel/review, Render paper, graph labels
+changes state is operator-only. That covers new papers and previews, retry/cancel/review, Render paper, graph labels, the public flag
 and corpus ingests. Set `OPERATOR_TOKEN` to a long random value and sign in at `/login`, which sets a sealed httpOnly
 cookie (`SESSION_SECRET` optionally sets its key). The guard denies every `/api` write by default, with four
 exceptions: `/api/inngest` (Inngest signs it), `/api/mcp`, the sandbox callback `/api/runs/:id/events` (it has a
