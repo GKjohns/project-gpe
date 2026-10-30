@@ -50,6 +50,15 @@ list their figures. PDFs, SyncTeX files, figure PNGs and figure source files are
 **Chat** answers from the digest (in the instructions, cached) and, when that isn't enough, calls tools over the stored
 LaTeX and the graph: `read_node` (a proof's text), `search_paper`, `trace` / `ancestors` (`server/utils/chatTools.ts`).
 
+**Agent API** (`server/utils/mcpTools.ts`): other people's agents read the maps with their own model. Point an agent
+at `/llms.txt` (also `/agents.md`): plain markdown that lists the papers and every tool. The same tools are served two
+ways: as GET JSON at `/api/v1/papers` and `/api/v1/papers/<slug>/<tool>?…` (for agents that only have fetch or curl),
+and as a stateless MCP server at `/api/mcp`. Tools: `list_papers`, `get_overview`, `list_nodes`, `get_node`,
+`read_node`, `search_paper`, `trace`, `ancestors`, `view_figure` (over MCP the PNG comes attached), `get_friction`. All of
+them are read-only, need no key and make no model calls. Each one is a database read (cached per instance for a
+minute) plus the chat tools' pure functions, with output capped by paging and `READ_NODE_CHARS`. Rate limiting is
+meant to be a Vercel Firewall rule on `/api/mcp` and `/api/v1`.
+
 **Two structure methods** for the outline stage, chosen per run; everything after it is identical:
 
 - **Pipeline**: one whole-paper call over the line-numbered source plus the skeleton. Fixed cost.

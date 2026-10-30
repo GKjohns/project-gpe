@@ -21,6 +21,7 @@
     "@electric-sql/pglite": "^0.5.13",
     "@iconify-json/lucide": "^1.2.147",
     "@iconify-json/simple-icons": "^1.2.100",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@nuxt/ui": "^4.12.0",
     "@vercel/sandbox": "^3.9.1",
     "ai": "^7.0.156",
@@ -39,6 +40,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.4.0",
     "@nuxt/eslint": "^1.17.0",
     "@types/d3-selection": "^3.0.12",
     "@types/d3-transition": "^3.0.9",
