@@ -4,6 +4,8 @@ import type { RunResponse } from '#shared/runs'
 const props = defineProps<{ runId: string, items: RunResponse['reviewItems'] }>()
 const emit = defineEmits<{ decided: [] }>()
 const toast = useToast()
+const { operator } = useOperator()
+const route = useRoute()
 
 const KIND: Record<string, string> = {
   add_edge: 'Add an edge',
@@ -96,7 +98,23 @@ async function decide(itemId: string, decision: 'accept' | 'reject') {
             </li>
           </ul>
         </div>
-        <div class="flex shrink-0 gap-2">
+        <div
+          v-if="!operator"
+          class="shrink-0"
+        >
+          <UButton
+            :to="loginHref(route.fullPath)"
+            label="Sign in to decide"
+            icon="i-lucide-log-in"
+            color="neutral"
+            variant="ghost"
+            size="sm"
+          />
+        </div>
+        <div
+          v-else
+          class="flex shrink-0 gap-2"
+        >
           <UButton
             label="Accept"
             icon="i-lucide-check"

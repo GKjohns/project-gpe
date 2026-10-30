@@ -10,6 +10,7 @@ import type { Profile, StructureMethod } from '#shared/types'
 useSeoMeta({ title: 'Corpus' })
 
 const toast = useToast()
+const { operator } = useOperator()
 const { data, refresh } = await useFetch<CorpusResponse>('/api/corpus', { key: 'corpus' })
 
 const METHODS: StructureMethod[] = ['pipeline', 'agent']
@@ -236,6 +237,15 @@ async function runAllPending() {
           label="Papers"
         />
         <UButton
+          v-if="!operator"
+          :to="loginHref('/corpus')"
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-log-in"
+          label="Sign in to run"
+        />
+        <UButton
+          v-else
           color="neutral"
           variant="outline"
           icon="i-lucide-list-start"
@@ -412,7 +422,7 @@ async function runAllPending() {
             label="Log"
           />
           <UButton
-            v-if="!r.run || !ACTIVE_RUN_STATUSES.includes(r.run.status)"
+            v-if="operator && (!r.run || !ACTIVE_RUN_STATUSES.includes(r.run.status))"
             size="xs"
             :color="r.run ? 'neutral' : 'primary'"
             :variant="r.run ? 'outline' : 'soft'"

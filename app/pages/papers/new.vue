@@ -5,6 +5,8 @@ import { slugSchema } from '#shared/schemas'
 import type { Profile, StructureMethod } from '#shared/types'
 
 useSeoMeta({ title: 'New paper' })
+// Operator only: everyone else is sent to /login first.
+definePageMeta({ middleware: 'operator' })
 
 type SourceKind = 'github' | 'arxiv' | 'upload'
 // defaultProfile / defaultMethod come from the server (aiModels.ts) for GitHub/arXiv; uploads are summarized here without them.

@@ -6,6 +6,9 @@
  * sources load lazily, once, only when a tool needs them), then a forced answer. History is pruned once (old tool
  * calls dropped) and capped at CHAT_HISTORY_CHARS; provider errors reach the reader as one calm sentence.
  * Closing the request (Stop, tab close) aborts upstream.
+ *
+ * Public, but bounded for non-operators (server/utils/chatLimits.ts): turns per IP per hour and a daily spend
+ * ceiling, both in memory per instance. A limited turn is a 429 before any model call; the client turns it into a sentence.
  */
 import type { UIMessage } from 'ai'
 import { convertToModelMessages, createUIMessageStreamResponse, isStepCount, pruneMessages, streamText, toUIMessageStream } from 'ai'
@@ -13,10 +16,12 @@ import { z } from 'zod'
 import type { ChatTurnMetadata } from '#shared/api'
 import { estimateCost, MODELS } from '../../../utils/aiModels'
 import { CHAT_UNAVAILABLE, chatInstructions, citedIds, trimHistory } from '../../../utils/chat'
+import { CHAT_RATE_LIMITED, chatLimiter } from '../../../utils/chatLimits'
 import { loadChatSources } from '../../../utils/chatSources'
 import type { ChatSources } from '../../../utils/chatTools'
 import { chatTools } from '../../../utils/chatTools'
 import { loadDigest, loadFigureImage } from '../../../utils/digests'
+import { isOperator } from '../../../utils/operator'
 
 /** isStepCount(CHAT_STEPS): at most CHAT_STEPS - 1 tool rounds, and the last step must answer. */
 const CHAT_STEPS = 5
@@ -40,6 +45,32 @@ export default defineEventHandler(async (event) => {
   const digest = await loadDigest(slug)
   if (!digest) {
     throw createError({ statusCode: 404, statusMessage: `No digest for "${slug}"` })
+  }
+
+  // Operators chat freely; everyone else is admitted by the limiter, and their turns' cost counts toward the day.
+  const limiter = (await isOperator(event)) ? null : chatLimiter()
+  if (limiter) {
+    // On Vercel x-forwarded-for is set by the edge (a client-sent value is overwritten), so its first hop is the client.
+    const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'unknown'
+    const admitted = limiter.admit(ip)
+    if (!admitted.ok) {
+      console.info(`[chat ${slug}] limited (${admitted.reason}) ${ip} · today $${limiter.spend.spent().toFixed(2)}`)
+      if (admitted.retryAfterMs) {
+        setResponseHeader(event, 'retry-after', Math.ceil(admitted.retryAfterMs / 1000))
+      }
+      throw createError({
+        statusCode: 429,
+        statusMessage: admitted.reason === 'rate' ? CHAT_RATE_LIMITED : CHAT_UNAVAILABLE,
+        data: { reason: admitted.reason }
+      })
+    }
+  }
+  let recorded = false
+  const recordSpend = (usd: number) => {
+    if (limiter && !recorded) {
+      recorded = true
+      limiter.record(usd)
+    }
   }
 
   const model = MODELS.chat
@@ -84,7 +115,11 @@ export default defineEventHandler(async (event) => {
       const cost = costs.every(c => c !== null) ? `$${costs.reduce((a, c) => a + c!, 0).toFixed(4)} gateway` : 'cost n/a'
       console.info(`[chat ${slug}] ${steps.length} steps${tools.length ? ` (${tools.join(', ')})` : ''} · ${totalUsage.inputTokens ?? 0} in (${totalUsage.inputTokenDetails?.cacheReadTokens ?? 0} cached) · ${totalUsage.outputTokens ?? 0} out · ${cost} · ${Date.now() - t0} ms${unknown.length ? ` · unknown ids: ${unknown.join(', ')}` : ''}`)
     },
-    onAbort: () => console.info(`[chat ${slug}] aborted by client`)
+    onAbort: ({ steps }) => {
+      // An aborted turn still spent its finished steps (the step in flight is not reported; the Firewall rule covers that).
+      recordSpend(steps.reduce((a, st) => a + (gatewayCost(st.providerMetadata) ?? 0), 0))
+      console.info(`[chat ${slug}] aborted by client`)
+    }
   })
 
   const stream = toUIMessageStream({
@@ -106,12 +141,14 @@ export default defineEventHandler(async (event) => {
         cacheRead: part.totalUsage.inputTokenDetails?.cacheReadTokens ?? 0,
         cacheWrite: part.totalUsage.inputTokenDetails?.cacheWriteTokens ?? 0
       }
+      const costUsd = reportedCost ?? estimateCost(tokens, model)
+      recordSpend(costUsd)
       return {
         model,
         tokensIn: tokens.input,
         tokensOut: tokens.output,
         tokensCached: tokens.cacheRead,
-        costUsd: reportedCost ?? estimateCost(tokens, model),
+        costUsd,
         costSource: reportedCost === null ? 'price_table' : 'gateway',
         ms: Date.now() - t0
       }

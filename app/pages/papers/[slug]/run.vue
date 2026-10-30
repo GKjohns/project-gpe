@@ -8,6 +8,7 @@ import type { RunStatus } from '#shared/types'
 const route = useRoute()
 const slug = computed(() => String(route.params.slug))
 const toast = useToast()
+const { operator } = useOperator()
 
 // ?run=<id> pins a run; otherwise the paper's latest.
 const { data: paperData } = await useFetch<{ paper: { latestRunId: string | null, title: string } }>(() => `/api/papers/${slug.value}`, {
@@ -161,53 +162,63 @@ const rerunItems = computed<DropdownMenuItem[]>(() => [
         </div>
         <div class="flex items-center gap-2">
           <UButton
-            v-if="active"
-            label="Cancel"
-            icon="i-lucide-square"
+            v-if="!operator"
+            :to="loginHref(route.fullPath)"
+            label="Sign in to manage this run"
+            icon="i-lucide-log-in"
             color="neutral"
-            variant="outline"
-            :loading="cancelling"
-            @click="cancel"
+            variant="ghost"
           />
-          <UDropdownMenu
-            v-else
-            :items="rerunItems"
-          >
+          <template v-else>
             <UButton
-              label="Re-run from stage…"
-              icon="i-lucide-rotate-ccw"
+              v-if="active"
+              label="Cancel"
+              icon="i-lucide-square"
               color="neutral"
               variant="outline"
-              trailing-icon="i-lucide-chevron-down"
+              :loading="cancelling"
+              @click="cancel"
             />
-          </UDropdownMenu>
-          <UTooltip
-            v-if="(run.status === 'complete' || run.status === 'structure_partial') && data?.paper?.hasDigest"
-            text="Rewrite each graph card's headline and role (one model call on the annotate model)"
-          >
-            <UButton
-              label="Regenerate graph labels"
-              icon="i-lucide-tags"
-              color="neutral"
-              variant="outline"
-              :loading="relabeling"
-              data-relabel
-              @click="relabel"
-            />
-          </UTooltip>
-          <UTooltip
-            v-if="(run.status === 'complete' || run.status === 'structure_partial') && data?.paper?.hasDigest"
-            text="Typeset the paper (TeX Live + SyncTeX in a sandbox) and describe its figures; reuses everything else from this run"
-          >
-            <UButton
-              :label="run.progress.render_status ? 'Re-render' : 'Render paper'"
-              icon="i-lucide-printer"
-              color="neutral"
-              variant="outline"
-              data-render
-              @click="rerun('render')"
-            />
-          </UTooltip>
+            <UDropdownMenu
+              v-else
+              :items="rerunItems"
+            >
+              <UButton
+                label="Re-run from stage…"
+                icon="i-lucide-rotate-ccw"
+                color="neutral"
+                variant="outline"
+                trailing-icon="i-lucide-chevron-down"
+              />
+            </UDropdownMenu>
+            <UTooltip
+              v-if="(run.status === 'complete' || run.status === 'structure_partial') && data?.paper?.hasDigest"
+              text="Rewrite each graph card's headline and role (one model call on the annotate model)"
+            >
+              <UButton
+                label="Regenerate graph labels"
+                icon="i-lucide-tags"
+                color="neutral"
+                variant="outline"
+                :loading="relabeling"
+                data-relabel
+                @click="relabel"
+              />
+            </UTooltip>
+            <UTooltip
+              v-if="(run.status === 'complete' || run.status === 'structure_partial') && data?.paper?.hasDigest"
+              text="Typeset the paper (TeX Live + SyncTeX in a sandbox) and describe its figures; reuses everything else from this run"
+            >
+              <UButton
+                :label="run.progress.render_status ? 'Re-render' : 'Render paper'"
+                icon="i-lucide-printer"
+                color="neutral"
+                variant="outline"
+                data-render
+                @click="rerun('render')"
+              />
+            </UTooltip>
+          </template>
           <UButton
             v-if="(run.status === 'complete' || run.status === 'structure_partial') && data?.paper?.hasDigest"
             label="Open map"

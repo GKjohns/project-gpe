@@ -4,6 +4,8 @@ import type { RunStatus } from '#shared/types'
 
 useSeoMeta({ title: 'Papers' })
 
+const { operator } = useOperator()
+
 const { data: papers, refresh } = await useFetch<PaperListItem[]>('/api/papers', { key: 'papers', default: () => [] })
 
 const ACTIVE: RunStatus[] = ['queued', 'running', 'waiting_review']
@@ -87,7 +89,7 @@ function formatDate(iso: string | null) {
       description="Graphical Proof Explorer. A browsable map of each proof: paper structure, dependency edges, plain-English explanations, and a chat that cites nodes."
       :links="[
         { label: 'Corpus', to: '/corpus', color: 'neutral', variant: 'outline', icon: 'i-lucide-library' },
-        { label: 'New paper', to: '/papers/new', icon: 'i-lucide-plus', color: 'primary', variant: 'solid' }
+        ...(operator ? [{ label: 'New paper', to: '/papers/new', icon: 'i-lucide-plus', color: 'primary' as const, variant: 'solid' as const }] : [])
       ]"
     />
 
@@ -158,6 +160,7 @@ function formatDate(iso: string | null) {
       </UPageCard>
 
       <UPageCard
+        v-if="operator"
         to="/papers/new"
         variant="ghost"
         icon="i-lucide-plus"

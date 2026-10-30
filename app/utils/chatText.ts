@@ -41,7 +41,7 @@ export function chatErrorMessage(error: Error | undefined): string {
   if (!error?.message) {
     return fallback
   }
-  let body: { statusCode?: number } | undefined
+  let body: { statusCode?: number, statusMessage?: string } | undefined
   try {
     body = JSON.parse(error.message)
   } catch {
@@ -50,6 +50,10 @@ export function chatErrorMessage(error: Error | undefined): string {
   }
   if (body?.statusCode === 404) {
     return 'This paper has no digest to chat with yet.'
+  }
+  // The public chat's limits (server/utils/chatLimits.ts): the route's own sentence, never anything raw.
+  if (body?.statusCode === 429) {
+    return body.statusMessage && body.statusMessage.length <= 160 ? body.statusMessage : fallback
   }
   return fallback
 }

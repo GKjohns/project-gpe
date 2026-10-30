@@ -1,3 +1,12 @@
+<script setup lang="ts">
+const { operator, auth, refreshOperator } = useOperator()
+
+async function signOut() {
+  await $fetch('/api/session/logout', { method: 'POST' })
+  await refreshOperator()
+}
+</script>
+
 <template>
   <div>
     <UHeader>
@@ -11,6 +20,15 @@
       </template>
 
       <template #right>
+        <UButton
+          v-if="operator && auth === 'token'"
+          icon="i-lucide-log-out"
+          aria-label="Sign out"
+          title="Sign out (operator)"
+          color="neutral"
+          variant="ghost"
+          @click="signOut"
+        />
         <UColorModeButton />
         <UButton
           to="https://github.com/GKjohns/project-gpe"
