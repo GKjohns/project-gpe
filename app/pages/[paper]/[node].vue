@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { breakpointsTailwind, useBreakpoints, useClipboard } from '@vueuse/core'
-import type { BreadcrumbItem, CommandPaletteGroup, CommandPaletteItem, TabsItem } from '@nuxt/ui'
+import type { BreadcrumbItem, CommandPaletteGroup, CommandPaletteItem, DropdownMenuItem, SplitterItem, TabsItem } from '@nuxt/ui'
 import type { PaperListItem } from '#shared/api'
 import type { GraphColorBy, GraphMode } from '~/utils/graph'
 
@@ -24,7 +24,6 @@ if (paper.value && !digest.value) {
 }
 
 const node = computed(() => index.value.byId.get(selectedId.value))
-const section = computed(() => index.value.sectionOf[selectedId.value])
 
 useSeoMeta({ title: () => node.value ? `${node.value.name} · ${digest.value?.title}` : (digest.value?.title ?? 'Paper') })
 
@@ -70,14 +69,11 @@ const counts = computed(() => {
 })
 
 // --- navbar ---------------------------------------------------------------
+// Just parent › node: the paper title is in the sidebar switcher and the section is the tree's grouping.
 const breadcrumb = computed<BreadcrumbItem[]>(() => {
   const n = node.value
-  // On narrow screens only the node name shows; the rest is in the sidebar.
   const hideNarrow = { item: 'hidden md:flex', separator: 'hidden md:flex' }
-  const items: BreadcrumbItem[] = [{ label: digest.value?.title ?? paperSlug.value, icon: 'i-lucide-book-open', to: `/${paperSlug.value}`, ui: hideNarrow }]
-  if (section.value) {
-    items.push({ label: sectionLabel(section.value.id, section.value.title), ui: hideNarrow })
-  }
+  const items: BreadcrumbItem[] = []
   if (n?.parent_id) {
     const parent = index.value.byId.get(n.parent_id)
     if (parent) {
@@ -149,6 +145,12 @@ async function share() {
   toast.add({ title: 'Link copied', description: url, icon: 'i-lucide-link', color: 'success' })
 }
 
+// Occasional actions live behind one menu so the navbar stays quiet.
+const moreItems = computed<DropdownMenuItem[]>(() => [
+  { label: 'Copy link to this view', icon: 'i-lucide-link', onSelect: share },
+  { label: 'Friction report', icon: 'i-lucide-triangle-alert', to: `/${paperSlug.value}/friction`, suffix: counts.value.friction ? String(counts.value.friction) : undefined }
+])
+
 // --- chat panel (Sprint 7 fills it) -----------------------------------------
 // null = automatic: inline at xl and up (pure CSS, so SSR matches), hidden below. A click makes it explicit;
 // below xl an explicit open shows a slideover instead.
@@ -189,6 +191,30 @@ function clearChat() {
   chat.stop()
   chatMessages.value = []
 }
+
+// --- right panel ----------------------------------------------------------------
+// The main panel and the right panel (node card or chat) share a USplitter, so the divider between them drags.
+// The card shows from lg, the chat from xl; before mount the breakpoint is CSS-only (see the item classes).
+const isLg = breakpoints.greaterOrEqual('lg')
+const side = computed<'node' | 'chat' | null>(() => {
+  const chatWanted = view.value !== 'tree' ? chatPref.value === true : chatPref.value !== false
+  if (chatWanted && !(mounted.value && !isXl.value)) {
+    return 'chat'
+  }
+  if (view.value !== 'tree' && node.value && !(mounted.value && !isLg.value)) {
+    return 'node'
+  }
+  return null
+})
+const splitItems = computed<SplitterItem[]>(() => {
+  const items: SplitterItem[] = [{ id: 'main', slot: 'main', order: 1, minSize: 30, class: 'min-w-0' }]
+  if (side.value === 'node') {
+    items.push({ id: 'side-node', slot: 'side-node', order: 2, sizeUnit: 'px', defaultSize: 352, minSize: 280, maxSize: 640, class: 'hidden lg:flex min-w-0' })
+  } else if (side.value === 'chat') {
+    items.push({ id: 'side-chat', slot: 'side-chat', order: 2, sizeUnit: 'px', defaultSize: 384, minSize: 300, maxSize: 760, class: 'hidden xl:flex min-w-0' })
+  }
+  return items
+})
 
 // Unknown node id in the URL: fall back to the main theorem.
 watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
@@ -307,7 +333,11 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
           <span>·</span>
           <span>{{ counts.novel }} novel</span>
           <span>·</span>
-          <span :class="counts.friction ? 'text-warning' : ''">{{ counts.friction }} friction</span>
+          <NuxtLink
+            :to="`/${paperSlug}/friction`"
+            class="hover:underline"
+            :class="counts.friction ? 'text-warning' : ''"
+          >{{ counts.friction }} friction</NuxtLink>
         </div>
       </template>
     </UDashboardSidebar>
@@ -319,256 +349,262 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
       placeholder="Search nodes by name, label or id…"
     />
 
-    <UDashboardPanel
-      id="node"
-      :ui="{ body: view !== 'tree' ? 'p-0 sm:p-0 gap-0 sm:gap-0 overflow-hidden' : 'lg:py-8' }"
+    <!-- Main panel + right panel share a splitter: the divider between them drags (layout saved per pairing). -->
+    <USplitter
+      id="paper-split"
+      auto-save-id="digest-paper-split"
+      :items="splitItems"
+      class="min-w-0 flex-1"
+      :ui="{ handle: [side === 'chat' ? 'hidden xl:block' : 'hidden lg:block', 'w-px bg-(--ui-border) transition-colors hover:bg-primary data-[resize-handle-state=drag]:bg-primary'] }"
     >
-      <template #header>
-        <UDashboardNavbar
-          :as="{ root: 'div', title: 'div' }"
-          :ui="{ title: 'min-w-0', left: 'min-w-0', right: 'gap-1.5' }"
+      <template #main>
+        <UDashboardPanel
+          id="node"
+          :ui="{ body: view !== 'tree' ? 'p-0 sm:p-0 gap-0 sm:gap-0 overflow-hidden' : 'lg:py-8' }"
         >
-          <template #title>
-            <UBreadcrumb
-              :items="breadcrumb"
-              :ui="{ root: 'min-w-0', list: 'min-w-0', item: 'min-w-0', linkLabel: 'truncate max-w-48 md:max-w-64' }"
-            />
-          </template>
-          <template #right>
-            <UTooltip
-              v-if="counts.friction"
-              text="Friction report"
+          <template #header>
+            <UDashboardNavbar
+              :as="{ root: 'div', title: 'div' }"
+              :ui="{ title: 'min-w-0', left: 'min-w-0', right: 'gap-1.5' }"
             >
-              <UButton
-                :to="`/${paperSlug}/friction`"
-                icon="i-lucide-triangle-alert"
+              <template #title>
+                <UBreadcrumb
+                  :items="breadcrumb"
+                  :ui="{ root: 'min-w-0', list: 'min-w-0', item: 'min-w-0', linkLabel: 'truncate max-w-48 md:max-w-64' }"
+                />
+              </template>
+              <template #right>
+                <!-- Graph options tuck into a popover instead of a second toolbar row. -->
+                <UPopover
+                  v-if="view === 'graph'"
+                  :content="{ align: 'end' }"
+                >
+                  <UTooltip text="Graph options">
+                    <UButton
+                      icon="i-lucide-sliders-horizontal"
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Graph options"
+                    />
+                  </UTooltip>
+                  <template #content>
+                    <div class="flex w-56 flex-col gap-3 p-3 text-sm">
+                      <div class="flex flex-col gap-1.5">
+                        <span class="text-xs text-muted">Show</span>
+                        <UTabs
+                          v-model="graphMode"
+                          :items="modeTabs"
+                          :content="false"
+                          size="xs"
+                          color="neutral"
+                        />
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <span class="text-xs text-muted">Color</span>
+                        <UTabs
+                          v-model="colorBy"
+                          :items="colorTabs"
+                          :content="false"
+                          size="xs"
+                          color="neutral"
+                        />
+                      </div>
+                      <UCheckbox
+                        v-model="showClaims"
+                        label="Include claims"
+                        size="sm"
+                      />
+                    </div>
+                  </template>
+                </UPopover>
+                <UTabs
+                  v-model="view"
+                  :items="viewTabs"
+                  :content="false"
+                  size="xs"
+                  color="neutral"
+                  :ui="{ label: 'hidden 2xl:inline' }"
+                />
+                <UTooltip :text="chatOpen ? 'Close chat' : 'Ask the paper'">
+                  <UButton
+                    icon="i-lucide-message-square"
+                    color="neutral"
+                    :variant="chatOpen ? 'soft' : 'ghost'"
+                    size="sm"
+                    aria-label="Toggle chat"
+                    @click="toggleChat"
+                  />
+                </UTooltip>
+                <UDropdownMenu
+                  :items="moreItems"
+                  :content="{ align: 'end' }"
+                >
+                  <UButton
+                    icon="i-lucide-ellipsis"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="More"
+                  />
+                </UDropdownMenu>
+              </template>
+            </UDashboardNavbar>
+          </template>
+
+          <template #body>
+            <div
+              v-if="view === 'graph' && digest"
+              class="flex h-full min-h-0 flex-col"
+            >
+              <UAlert
+                v-if="graphTooBig && graphMode === 'focus'"
                 color="warning"
-                variant="ghost"
-                size="sm"
-                :label="String(counts.friction)"
-                aria-label="Friction report"
+                variant="subtle"
+                icon="i-lucide-gauge"
+                :title="`${graphSize} statements: showing the selection's focus`"
+                description="The whole-paper layout may be slow at this size."
+                :actions="[{ label: 'Whole paper', color: 'warning', variant: 'outline', onClick: () => { graphMode = 'all' } }]"
+                orientation="horizontal"
+                class="m-2 w-auto shrink-0"
               />
-            </UTooltip>
-            <UTabs
-              v-model="view"
-              :items="viewTabs"
-              :content="false"
-              size="xs"
-              color="neutral"
-              :ui="{ label: 'hidden sm:inline' }"
-            />
-            <UTooltip text="Copy link to this node">
-              <UButton
-                icon="i-lucide-link"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                aria-label="Share"
-                @click="share"
+              <GraphProofGraph
+                :nodes="digest.nodes"
+                :selected-id="selectedId"
+                :mode="graphMode"
+                :show-claims="showClaims"
+                :color-by="colorBy"
+                :view-key="paperSlug"
+                class="min-h-0 flex-1"
+                @select="select"
+              />
+              <!-- Below lg the node card panel is hidden; a strip names the selection and opens it. -->
+              <div
+                v-if="node"
+                class="flex shrink-0 items-center gap-2 border-t border-default px-4 py-2 lg:hidden"
               >
-                <span class="hidden sm:inline">Share</span>
-              </UButton>
-            </UTooltip>
-            <UButton
+                <UIcon
+                  :name="KIND_ICON[node.kind]"
+                  class="size-4 shrink-0 text-muted"
+                />
+                <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ node.name }}</span>
+                <UButton
+                  label="Open"
+                  trailing-icon="i-lucide-arrow-right"
+                  color="neutral"
+                  variant="outline"
+                  size="xs"
+                  @click="view = 'tree'"
+                />
+              </div>
+            </div>
+            <!-- Paper view: the typeset paper (PDF.js), statements linked to nodes via SyncTeX. -->
+            <div
+              v-else-if="view === 'paper' && digest"
+              class="flex h-full min-h-0 flex-col"
+            >
+              <ReaderPaperReader class="min-h-0 flex-1" />
+              <div
+                v-if="node"
+                class="flex shrink-0 items-center gap-2 border-t border-default px-4 py-2 lg:hidden"
+              >
+                <UIcon
+                  :name="KIND_ICON[node.kind]"
+                  class="size-4 shrink-0 text-muted"
+                />
+                <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ node.name }}</span>
+                <UButton
+                  label="Open"
+                  trailing-icon="i-lucide-arrow-right"
+                  color="neutral"
+                  variant="outline"
+                  size="xs"
+                  @click="view = 'tree'"
+                />
+              </div>
+            </div>
+            <div
+              v-else-if="node"
+              class="mx-auto w-full max-w-3xl"
+            >
+              <NodePage :node="node" />
+            </div>
+          </template>
+        </UDashboardPanel>
+      </template>
+
+      <!-- Graph and paper views: the selected node's compact card on the right (chat replaces it when opened). -->
+      <template #side-node>
+        <UDashboardPanel
+          v-if="node"
+          id="graph-node"
+          :ui="{ body: 'sm:p-5' }"
+        >
+          <template #header>
+            <UDashboardNavbar
+              title="Selected node"
+              :toggle="false"
+            >
+              <template #right>
+                <UButton
+                  label="Open full page"
+                  trailing-icon="i-lucide-arrow-right"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="view = 'tree'"
+                />
+              </template>
+            </UDashboardNavbar>
+          </template>
+          <template #body>
+            <NodePage
+              :node="node"
+              compact
+            />
+          </template>
+        </UDashboardPanel>
+      </template>
+
+      <template #side-chat>
+        <UDashboardPanel id="chat">
+          <template #header>
+            <UDashboardNavbar
+              title="Ask the paper"
               icon="i-lucide-message-square"
-              color="neutral"
-              :variant="chatOpen ? 'soft' : 'ghost'"
-              size="sm"
-              aria-label="Toggle chat"
-              @click="toggleChat"
+              :toggle="false"
             >
-              <span class="hidden sm:inline">Chat</span>
-            </UButton>
+              <template #right>
+                <UTooltip
+                  v-if="chatMessages.length"
+                  text="New conversation"
+                >
+                  <UButton
+                    icon="i-lucide-rotate-ccw"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="New conversation"
+                    @click="clearChat"
+                  />
+                </UTooltip>
+                <UButton
+                  icon="i-lucide-x"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  aria-label="Close chat"
+                  @click="toggleChat"
+                />
+              </template>
+            </UDashboardNavbar>
           </template>
-        </UDashboardNavbar>
-        <!-- Graph controls get their own row so they can wrap on narrow screens. -->
-        <UDashboardToolbar
-          v-if="view === 'graph'"
-          :ui="{ root: 'flex-wrap overflow-visible py-1.5 gap-y-1.5', left: 'flex-wrap gap-x-3 gap-y-1.5', right: 'ms-auto' }"
-        >
-          <template #left>
-            <UTabs
-              v-model="graphMode"
-              :items="modeTabs"
-              :content="false"
-              size="xs"
-              color="neutral"
-            />
-            <UCheckbox
-              v-model="showClaims"
-              label="claims"
-              size="sm"
-            />
-            <UTabs
-              v-model="colorBy"
-              :items="colorTabs"
-              :content="false"
-              size="xs"
-              color="neutral"
-            />
+          <template #body>
+            <ChatPanel />
           </template>
-        </UDashboardToolbar>
+        </UDashboardPanel>
       </template>
-
-      <template #body>
-        <div
-          v-if="view === 'graph' && digest"
-          class="flex h-full min-h-0 flex-col"
-        >
-          <UAlert
-            v-if="graphTooBig && graphMode === 'focus'"
-            color="warning"
-            variant="subtle"
-            icon="i-lucide-gauge"
-            :title="`${graphSize} statements: showing the selection's focus`"
-            description="The whole-paper layout may be slow at this size."
-            :actions="[{ label: 'Whole paper', color: 'warning', variant: 'outline', onClick: () => { graphMode = 'all' } }]"
-            orientation="horizontal"
-            class="m-2 w-auto shrink-0"
-          />
-          <GraphProofGraph
-            :nodes="digest.nodes"
-            :selected-id="selectedId"
-            :mode="graphMode"
-            :show-claims="showClaims"
-            :color-by="colorBy"
-            :view-key="paperSlug"
-            class="min-h-0 flex-1"
-            @select="select"
-          />
-          <!-- Below lg the node card panel is hidden; a strip names the selection and opens it. -->
-          <div
-            v-if="node"
-            class="flex shrink-0 items-center gap-2 border-t border-default px-4 py-2 lg:hidden"
-          >
-            <UIcon
-              :name="KIND_ICON[node.kind]"
-              class="size-4 shrink-0 text-muted"
-            />
-            <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ node.name }}</span>
-            <UButton
-              label="Open"
-              trailing-icon="i-lucide-arrow-right"
-              color="neutral"
-              variant="outline"
-              size="xs"
-              @click="view = 'tree'"
-            />
-          </div>
-        </div>
-        <!-- Paper view: the typeset paper (PDF.js), statements linked to nodes via SyncTeX. -->
-        <div
-          v-else-if="view === 'paper' && digest"
-          class="flex h-full min-h-0 flex-col"
-        >
-          <ReaderPaperReader class="min-h-0 flex-1" />
-          <div
-            v-if="node"
-            class="flex shrink-0 items-center gap-2 border-t border-default px-4 py-2 lg:hidden"
-          >
-            <UIcon
-              :name="KIND_ICON[node.kind]"
-              class="size-4 shrink-0 text-muted"
-            />
-            <span class="min-w-0 flex-1 truncate text-sm font-medium text-highlighted">{{ node.name }}</span>
-            <UButton
-              label="Open"
-              trailing-icon="i-lucide-arrow-right"
-              color="neutral"
-              variant="outline"
-              size="xs"
-              @click="view = 'tree'"
-            />
-          </div>
-        </div>
-        <div
-          v-else-if="node"
-          class="mx-auto w-full max-w-3xl"
-        >
-          <NodePage :node="node" />
-        </div>
-      </template>
-    </UDashboardPanel>
-
-    <!-- Graph and paper views: the selected node's compact card on the right (chat replaces it when opened). -->
-    <UDashboardPanel
-      v-if="view !== 'tree' && node && !(chatPref === true && mounted && isXl)"
-      id="graph-node"
-      :ui="{ root: 'hidden lg:flex', handle: 'hidden lg:block', body: 'sm:p-5' }"
-      resizable
-      :default-size="22"
-      :min-size="16"
-      :max-size="36"
-    >
-      <template #header>
-        <UDashboardNavbar
-          title="Selected node"
-          :toggle="false"
-        >
-          <template #right>
-            <UButton
-              label="Open full page"
-              trailing-icon="i-lucide-arrow-right"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="view = 'tree'"
-            />
-          </template>
-        </UDashboardNavbar>
-      </template>
-      <template #body>
-        <NodePage
-          :node="node"
-          compact
-        />
-      </template>
-    </UDashboardPanel>
-
-    <UDashboardPanel
-      v-if="(view !== 'tree' ? chatPref === true : chatPref !== false) && !(mounted && !isXl)"
-      id="chat"
-      :ui="{ root: 'hidden xl:flex', handle: 'hidden xl:block' }"
-      resizable
-      :default-size="24"
-      :min-size="18"
-      :max-size="36"
-    >
-      <template #header>
-        <UDashboardNavbar
-          title="Ask the paper"
-          icon="i-lucide-message-square"
-          :toggle="false"
-        >
-          <template #right>
-            <UTooltip
-              v-if="chatMessages.length"
-              text="New conversation"
-            >
-              <UButton
-                icon="i-lucide-rotate-ccw"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                aria-label="New conversation"
-                @click="clearChat"
-              />
-            </UTooltip>
-            <UButton
-              icon="i-lucide-x"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              aria-label="Close chat"
-              @click="toggleChat"
-            />
-          </template>
-        </UDashboardNavbar>
-      </template>
-      <template #body>
-        <ChatPanel />
-      </template>
-    </UDashboardPanel>
+    </USplitter>
 
     <!-- Below xl the chat lives here instead of the panel (the panel unmounts once the width is known). -->
     <USlideover
