@@ -9,19 +9,14 @@
  */
 import type { UIMessage } from 'ai'
 import { convertToModelMessages, createUIMessageStreamResponse, isStepCount, pruneMessages, streamText, toUIMessageStream } from 'ai'
-import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { ChatTurnMetadata } from '#shared/api'
-import type { PaperDigest } from '#shared/types'
-import { useDb } from '../../../db'
-import { papers } from '../../../db/schema'
-import { toyDigest } from '../../../fixtures/toy-digest'
 import { estimateCost, MODELS } from '../../../utils/aiModels'
-import { blobStore } from '../../../utils/blobs'
 import { CHAT_UNAVAILABLE, chatInstructions, citedIds, trimHistory } from '../../../utils/chat'
 import { loadChatSources } from '../../../utils/chatSources'
-import type { ChatSources, FigureImageLoader } from '../../../utils/chatTools'
+import type { ChatSources } from '../../../utils/chatTools'
 import { chatTools } from '../../../utils/chatTools'
+import { loadDigest, loadFigureImage } from '../../../utils/digests'
 
 /** isStepCount(CHAT_STEPS): at most CHAT_STEPS - 1 tool rounds, and the last step must answer. */
 const CHAT_STEPS = 5
@@ -32,26 +27,6 @@ const bodySchema = z.object({
   trigger: z.string().optional(),
   messageId: z.string().optional()
 })
-
-async function loadDigest(slug: string): Promise<PaperDigest | null> {
-  const db = await useDb()
-  const [row] = await db.select({ digest: papers.digest }).from(papers).where(eq(papers.slug, slug))
-  if (row) {
-    return row.digest ?? null
-  }
-  // Same fallback as GET /api/papers/toy.
-  return import.meta.dev && slug === 'toy' ? toyDigest : null
-}
-
-/** Figure PNGs live in the blob table (`/api/blobs/<sha>`); anything else, or anything large, stays text-only. */
-const FIGURE_IMAGE_BYTES = 3_000_000
-const loadFigureImage: FigureImageLoader = async (figure) => {
-  const sha = /^\/api\/blobs\/([0-9a-f]{64})$/.exec(figure.image_url ?? '')?.[1]
-  const blob = sha ? await blobStore.get(sha) : null
-  return blob && blob.contentType.startsWith('image/') && blob.data.byteLength <= FIGURE_IMAGE_BYTES
-    ? { data: blob.data, mediaType: blob.contentType }
-    : null
-}
 
 function gatewayCost(meta: unknown): number | null {
   const raw = (meta as { gateway?: { cost?: unknown } } | undefined)?.gateway?.cost
