@@ -226,33 +226,48 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
           class="w-full font-semibold"
           :ui="{ content: 'min-w-64' }"
         />
-        <UIcon
+        <!-- Collapsed rail: every icon is the same square ghost button on one centered column. -->
+        <div
           v-else
-          name="i-lucide-book-open"
-          class="mx-auto size-5 text-muted"
-        />
+          class="flex w-full justify-center"
+        >
+          <UTooltip text="Show the tree">
+            <UButton
+              icon="i-lucide-book-open"
+              color="neutral"
+              variant="ghost"
+              square
+              aria-label="Show the tree"
+              @click="sidebarCollapsed = false"
+            />
+          </UTooltip>
+        </div>
       </template>
 
       <template #default="{ collapsed }">
-        <UTooltip
+        <div
           v-if="collapsed"
-          text="Show the tree"
+          class="flex w-full justify-center"
         >
-          <UButton
-            icon="i-lucide-panel-left-open"
-            color="neutral"
-            variant="ghost"
-            square
-            class="mx-auto"
-            aria-label="Expand sidebar"
-            @click="sidebarCollapsed = false"
-          />
-        </UTooltip>
-        <div class="flex items-center gap-1">
+          <UTooltip text="Show the tree">
+            <UButton
+              icon="i-lucide-panel-left-open"
+              color="neutral"
+              variant="ghost"
+              square
+              aria-label="Expand sidebar"
+              @click="sidebarCollapsed = false"
+            />
+          </UTooltip>
+        </div>
+        <div
+          class="flex items-center gap-1"
+          :class="collapsed && 'justify-center'"
+        >
           <UDashboardSearchButton
             :collapsed="collapsed"
             label="Find a node…"
-            class="flex-1"
+            :class="!collapsed && 'flex-1'"
           />
           <template v-if="!collapsed">
             <UTooltip text="Expand all">
