@@ -1,9 +1,11 @@
 /**
  * POST /api/papers/:slug/chat — the `useChat` transport for one paper (Sprint 7).
  *
- * Single step, no tools, no persistence: the whole digest rides in the instructions (gateway caching makes
- * every turn after the first a cache read), history is pruned once and capped at CHAT_HISTORY_CHARS, and
- * provider errors reach the reader as one calm sentence. Closing the request (Stop, tab close) aborts upstream.
+ * No persistence: the whole digest rides in the instructions (gateway caching makes every turn after the first,
+ * and every tool step, a cache read). Up to 4 tool rounds (read_node, search_paper, trace, ancestors; the paper's
+ * sources load lazily, once, only when a tool needs them), then a forced answer. History is pruned once (old tool
+ * calls dropped) and capped at CHAT_HISTORY_CHARS; provider errors reach the reader as one calm sentence.
+ * Closing the request (Stop, tab close) aborts upstream.
  */
 import type { UIMessage } from 'ai'
 import { convertToModelMessages, createUIMessageStreamResponse, isStepCount, pruneMessages, streamText, toUIMessageStream } from 'ai'
@@ -16,6 +18,12 @@ import { papers } from '../../../db/schema'
 import { toyDigest } from '../../../fixtures/toy-digest'
 import { estimateCost, MODELS } from '../../../utils/aiModels'
 import { CHAT_UNAVAILABLE, chatInstructions, citedIds, trimHistory } from '../../../utils/chat'
+import { loadChatSources } from '../../../utils/chatSources'
+import type { ChatSources } from '../../../utils/chatTools'
+import { chatTools } from '../../../utils/chatTools'
+
+/** isStepCount(CHAT_STEPS): at most CHAT_STEPS - 1 tool rounds, and the last step must answer. */
+const CHAT_STEPS = 5
 
 const bodySchema = z.object({
   id: z.string().optional(),
@@ -52,6 +60,8 @@ export default defineEventHandler(async (event) => {
   const modelMessages = trimHistory(pruneMessages({
     messages: await convertToModelMessages(body.messages.map(({ id: _id, ...m }) => m)),
     reasoning: 'before-last-message',
+    // Earlier turns' tool calls/results are spent; their answers stay. Keeps history (and cost) flat.
+    toolCalls: 'before-last-message',
     emptyMessages: 'remove'
   }))
 
@@ -61,18 +71,32 @@ export default defineEventHandler(async (event) => {
 
   const known = new Set(digest.nodes.map(n => n.id))
   const t0 = Date.now()
-  let reportedCost: number | null = null
+  // Summed over steps: each tool round is its own gateway call.
+  const stepCosts: (number | null)[] = []
+
+  let sources: Promise<ChatSources | null> | null = null
+  const getSources = () => sources ??= loadChatSources(slug, digest).catch((err) => {
+    console.warn(`[chat ${slug}] sources unavailable:`, (err as Error).message)
+    return null
+  })
 
   const result = streamText({
     model,
     instructions: chatInstructions(digest),
     messages: modelMessages,
-    stopWhen: isStepCount(1),
+    tools: chatTools(digest, getSources),
+    stopWhen: isStepCount(CHAT_STEPS),
+    // Last step answers. toolChoice (not activeTools) so the tool list, and with it the cached prefix, stays the same.
+    prepareStep: ({ stepNumber }) => stepNumber >= CHAT_STEPS - 1 ? { toolChoice: 'none' } : undefined,
     abortSignal: abortController.signal,
     providerOptions: { gateway: { caching: 'auto' } },
-    onFinish: ({ text, totalUsage }) => {
+    onFinish: ({ steps, totalUsage }) => {
+      const text = steps.map(s => s.text).join('\n')
       const unknown = citedIds(text).filter(id => !known.has(id))
-      console.info(`[chat ${slug}] ${totalUsage.inputTokens ?? 0} in (${totalUsage.inputTokenDetails?.cacheReadTokens ?? 0} cached) · ${totalUsage.outputTokens ?? 0} out · ${Date.now() - t0} ms${unknown.length ? ` · unknown ids: ${unknown.join(', ')}` : ''}`)
+      const tools = steps.flatMap(s => s.toolCalls.map(c => c.toolName))
+      const costs = steps.map(s => gatewayCost(s.providerMetadata))
+      const cost = costs.every(c => c !== null) ? `$${costs.reduce((a, c) => a + c!, 0).toFixed(4)} gateway` : 'cost n/a'
+      console.info(`[chat ${slug}] ${steps.length} steps${tools.length ? ` (${tools.join(', ')})` : ''} · ${totalUsage.inputTokens ?? 0} in (${totalUsage.inputTokenDetails?.cacheReadTokens ?? 0} cached) · ${totalUsage.outputTokens ?? 0} out · ${cost} · ${Date.now() - t0} ms${unknown.length ? ` · unknown ids: ${unknown.join(', ')}` : ''}`)
     },
     onAbort: () => console.info(`[chat ${slug}] aborted by client`)
   })
@@ -84,11 +108,12 @@ export default defineEventHandler(async (event) => {
     // Per-turn usage rides on the finish part so the operator can see what a turn cost.
     messageMetadata: ({ part }): ChatTurnMetadata | undefined => {
       if (part.type === 'finish-step') {
-        reportedCost = gatewayCost(part.providerMetadata)
+        stepCosts.push(gatewayCost(part.providerMetadata))
       }
       if (part.type !== 'finish') {
         return undefined
       }
+      const reportedCost = stepCosts.length && stepCosts.every(c => c !== null) ? stepCosts.reduce<number>((a, c) => a + c!, 0) : null
       const tokens = {
         input: part.totalUsage.inputTokens ?? 0,
         output: part.totalUsage.outputTokens ?? 0,

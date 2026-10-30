@@ -45,7 +45,7 @@ function send(text: string) {
       v-if="!messages.length"
       icon="i-lucide-messages-square"
       title="Ask about the proof"
-      description="Answers come from this paper's digest and cite nodes as chips that open them."
+      description="Answers come from this paper's digest and source, and cite nodes as chips that open them."
       variant="naked"
       class="flex-1"
     >
@@ -98,7 +98,7 @@ function send(text: string) {
       @submit="send(input)"
     >
       <template #footer>
-        <span class="text-xs text-dimmed">Answers come only from the digest</span>
+        <span class="text-xs text-dimmed">Answers come only from the paper</span>
         <UChatPromptSubmit
           :status="status"
           color="neutral"

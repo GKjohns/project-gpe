@@ -57,3 +57,67 @@ export interface PaperListItem {
   /** True for the dev-only toy fixture entry (no DB row). */
   fixture?: boolean
 }
+
+// --- Chat tools (post-sprint): outputs of the tools `POST /api/papers/:slug/chat` exposes to the model. ---
+
+/** A node as the chat tools name it. */
+export interface ChatToolNode { id: string, kind: string, name: string, headline?: string }
+
+/** `read_node`: the verbatim statement, the proof text from the stored sources, and the node's neighbourhood. */
+export interface ReadNodeOutput {
+  id: string
+  kind: string
+  name: string
+  label?: string
+  headline?: string
+  role?: string
+  section: string
+  location?: string // 'file:start-end' of the statement
+  parent?: ChatToolNode
+  claims?: ChatToolNode[]
+  uses: (ChatToolNode & { inferred?: boolean })[]
+  used_by: ChatToolNode[]
+  statement: string
+  proof: { location: string, text: string, source: 'chunk' | 'outline' | 'scan' } | null
+  proof_note?: string
+  equations: { label: string, number?: string, latex: string }[]
+  truncated?: string
+}
+
+export interface SearchPaperHit {
+  file: string
+  line: number
+  section?: string // '§6.2 Title'
+  node?: string // node id whose statement / proof / claim span contains the line
+  part?: 'statement' | 'proof' | 'claim'
+  context: string // ±2 lines, numbered, comments stripped
+}
+
+/** `search_paper`: case-insensitive search over the stored LaTeX (or the digest's statements when there is none). */
+export interface SearchPaperOutput {
+  query: string
+  scope: 'sources' | 'digest'
+  total: number
+  hits: SearchPaperHit[]
+  note?: string
+}
+
+/** `trace`: shortest "feeds into" paths from a supporting node to a result. */
+export interface TraceOutput {
+  from: string
+  to: string
+  found: boolean
+  steps: number
+  paths: { nodes: ChatToolNode[], links: ('cited' | 'inferred' | 'claim of')[] }[]
+  note?: string
+}
+
+/** `ancestors`: the transitive closure in one direction, by distance. */
+export interface AncestorsOutput {
+  id: string
+  direction: 'supports' | 'supported_by'
+  depth: number
+  total: number
+  levels: { depth: number, nodes: ChatToolNode[] }[]
+  truncated?: boolean
+}
