@@ -26,7 +26,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
-    // Each file gets its own module graph, so each file's in-memory PGlite (via setDb) is isolated.
+    // Each file gets its own module graph; tests build a fresh fake Supabase per test.
     isolate: true,
     testTimeout: 20_000
   }

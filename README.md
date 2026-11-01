@@ -50,8 +50,9 @@ own links, find, zoom, page nav, an invert option for dark mode). Each statement
 overlay with a margin marker; clicking inside a statement or proof selects its node (node card on the right), and
 selecting a node in the tree, graph or chat scrolls the PDF to it. Figures get a badge in the PDF; `\ref{fig:…}` in
 any rendered text is a "Figure 3" chip whose popover shows the image, caption and the vision description; node pages
-list their figures. PDFs, SyncTeX files, figure PNGs and figure source files are content-addressed blobs in Postgres
-(`blobs`, `source_assets`), served by `GET /api/blobs/:sha` with Range support. Design notes:
+list their figures. PDFs, SyncTeX files, figure PNGs and figure source files are content-addressed blobs: the bytes in
+the private Supabase Storage bucket `blobs` (object key = sha), metadata in the `blobs` table (`source_assets` points at
+it), served by `GET /api/blobs/:sha` with Range support. Design notes:
 [docs/20261029_paper_reader/design.md](docs/20261029_paper_reader/design.md).
 
 **Chat** answers from the digest (in the instructions, cached) and, when that isn't enough, calls tools over the stored
@@ -68,7 +69,8 @@ meant to be a Vercel Firewall rule on `/api/mcp` and `/api/v1`.
 
 **Catalog** (`server/catalog/`): every openai/math result family (373) and manuscript (721), built from the repo's own
 index (`CONTENTS.md`, `overview.tex`, `lean/formalization.yaml`, `README.md`) at a pinned commit, with zero model calls.
-`npm run catalog:sync` (server stopped; `-- --force` writes even when the index fails validation, `-- --json`) or
+`npm run catalog:sync` (dev server up; `-- --payload.force=true` writes even when the index fails validation,
+`-- --payload.json=true`) or
 `POST /api/admin/catalog/sync` (operator) upserts `families`, `manuscripts` and `catalog_meta`, never deletes, and links
 papers to their manuscript (`papers.manuscript_dir`, from `source_ref`). It is served at `GET /api/v1/families`
 (`q`, `discipline`, `digested`, `lean`, `sort`, `limit`, `offset`), `/api/v1/families/<code>` (`49` = `049`) and
@@ -78,11 +80,8 @@ papers to their manuscript (`papers.manuscript_dir`, from `source_ref`). It is s
 public list (public digests, no runs); the operator library reads `GET /api/admin/papers`.
 
 Only papers with `papers.public` set are listed or queryable there; a private slug is the same 404 as a missing one.
-New papers start private. Migration `0003` made the canonical maps public (eth, sensitivity, pfr, sunflowers-rao,
-sunflower-alwz, noncoordinate, unit-distance, intmult, logspace), not their `-agent`/`-e2e`/`toy-inngest-*` copies; in
-dev the toy fixture counts as public. Since the openai/math pivot only the five OpenAI digests are public in dev (eth,
-logspace, intmult, unit-distance, noncoordinate); the fixtures and other corpus runs were turned off with
-`npm run paper:public -- --off …` and stay reachable from `/admin`. Every request is logged to `agent_requests` (`server/utils/agentLog.ts`): surface
+New papers start private. Supabase holds the five public OpenAI digests (eth, logspace, intmult, unit-distance,
+noncoordinate), imported from the pre-Supabase archive; in dev the toy fixture also counts as public. Every request is logged to `agent_requests` (`server/utils/agentLog.ts`): surface
 (`llms`, `v1`, `mcp`), tool, paper, status, ms, a client family read off the user-agent (Claude-User, ChatGPT-User,
 OAI-SearchBot, PerplexityBot, curl, python-requests, node, browser, …), the truncated user-agent, a salted sha256 of the
 IP (never the IP itself) and the `?ref=` param, so links like `/llms.txt?ref=blog` can be attributed (view_figure's own
@@ -91,16 +90,25 @@ client's own name/version when the message carries it (always on `initialize`, a
 protocol's `_meta`), otherwise the user-agent family. The site's own fetches of `/api/v1` are not logged: browser requests that say
 `sec-fetch-site: same-origin`, and requests carrying `x-gpe-site` (pages send it, since SSR fetches run in-process with
 no `sec-fetch-*` headers). The write is fire-and-forget behind `event.waitUntil`, and a failed
-one is only a warning. Operator commands (they load `.env`, so they hit Postgres when
-`DATABASE_URL` is set, else `.data/pg`, and refuse while the dev server holds PGlite):
+one is only a warning. **Dev skips the write** (dev shares production's table, so local curls would pollute the stats);
+set `AGENT_LOG_DEV=1` to log from dev anyway.
+
+**Operator commands** are Nitro tasks (`server/tasks/`) wrapped by npm scripts around `nuxt task run`. They run inside
+the **running dev server** (start `npm run dev` first; the CLI finds it from its lock file, `--url` overrides), with the
+Supabase module and `.env`. Arguments are task payload fields: `--payload.<key>=<value>`, lists comma-separated. Task
+routes exist only in dev; a production build serves none of them.
 
 ```bash
-npm run paper:public                      # every paper and its flag
-npm run paper:public -- eth pfr           # make public (or --off to make private); live within a minute
-curl -X POST localhost:3120/api/papers/eth/public -H 'content-type: application/json' -d '{"public":true}'  # same, over HTTP (operator-only); works while the dev server runs
-npm run catalog:sync                      # openai/math index → families / manuscripts (server stopped)
-npm run agent:stats -- --days 7           # requests, unique callers and errors by day, surface, client, tool, paper, ref
+npm run paper:public                                  # every paper and its flag
+npm run paper:public -- --payload.on=eth,logspace     # make public (--payload.off=… to make private); live within a minute
+curl -X POST localhost:3120/api/papers/eth/public -H 'content-type: application/json' -d '{"public":true}'  # same, over HTTP (operator-only)
+npm run catalog:sync                                  # openai/math index → families / manuscripts
+npm run agent:stats -- --payload.days=7               # requests, unique callers and errors by day, surface, client, tool, paper, ref
+npm run papers:import -- --payload.slugs=eth,logspace # load .data/export/<slug>.json (+ blobs) into Supabase; re-runs are no-ops
 ```
+
+`papers:import` reads the JSON archive of the pre-Supabase local database in `.data/export/` (39 papers with digests; gitignored, local
+only). `--payload.all=true` imports every file; a slug that exists under a different id is skipped.
 
 **Operator auth** (`server/utils/operator.ts`, `server/middleware/operator.ts`): `/admin` and anything that spends money or
 changes state is operator-only. That covers new papers and previews, retry/cancel/review, Render paper, graph labels, the public flag
@@ -128,26 +136,33 @@ agent; Sonnet 5.5 for the fan-out), `standard` (GPT-6 Sol for the strong steps, 
 The form defaults to `careful` over 30 pages or 100k tokens, else `standard`. All calls go through the Vercel AI
 Gateway with one key.
 
-**Runners.** Dev runs ingest in-process (LocalRunner, one run at a time). Production runs the same `ingestPaper` under
-Inngest (one step per stage). Storage is Postgres through Drizzle: a PGlite file in `.data/pg/` locally, `DATABASE_URL`
-in prod.
+**Runners.** Dev runs ingest in-process (LocalRunner, one run at a time per process). Production runs the same
+`ingestPaper` under Inngest (one step per stage).
+
+**Data.** Supabase, through the `@nuxtjs/supabase` module only (no direct `@supabase/supabase-js` import). Every server
+read and write goes through `useSupabase()` (`server/utils/supabase.ts`): one process-wide service-role client, so it
+also works where there is no request (Inngest steps, LocalRunner, tasks). Tables have RLS on with no policies; the
+browser never talks to Supabase. Row types and snake→camel mappers are in `server/utils/rows.ts`; atomic run counters,
+the agent-trace claim and the stats readout are RPCs, list pages read the `paper_digest_stats` view.
 
 ## Stack
 
 - Nuxt 4, Nuxt UI 4, Tailwind 4
 - Node ≥ 22.19, npm
-- Drizzle (PGlite / Postgres), Vercel AI SDK 7 through the AI Gateway, Inngest, Vercel Sandbox + Claude Agent SDK
+- Supabase (Postgres + Storage via `@nuxtjs/supabase`), Vercel AI SDK 7 through the AI Gateway, Inngest, Vercel Sandbox + Claude Agent SDK
 - TeX Live 2025 (in the render sandbox), PDF.js (`pdfjs-dist`) for the reader
 
 ## Dev
 
 ```bash
 npm ci
-cp .env.example .env        # set AI_GATEWAY_API_KEY; VERCEL_OIDC_TOKEN for rendering and the agent method (below)
+cp .env.example .env        # set SUPABASE_URL / SUPABASE_KEY / SUPABASE_SECRET_KEY and AI_GATEWAY_API_KEY;
+                            # VERCEL_OIDC_TOKEN for rendering and the agent method (below)
 npm run dev                 # http://localhost:3120
 ```
 
-No database to install: the first boot creates `.data/pg/` and runs the migrations. `npm run lint`,
+Nothing to install locally: there is no local database. Tests never touch Supabase (`#supabase/server` is aliased to a
+stub that throws; tests inject `tests/helpers/fakeSupabase.ts` with `setSupabase()`). `npm run lint`,
 `npm run typecheck` and `npm test` (vitest) should be clean; CI runs lint and typecheck on every push. Some tests
 download their LaTeX fixtures (ETH from GitHub, the sensitivity paper from arXiv) on first run into gitignored folders.
 
@@ -155,10 +170,32 @@ To try it: open `/admin/papers/new`, paste
 `https://github.com/openai/math/tree/main/preprints/The-Exponential-Time-Hypothesis-is-False-October-25-2026/build`,
 and start the run; or open `/admin/corpus` and press Ingest on any row.
 
+### Dev is prod: one database
+
+`npm run dev` reads and writes the production Supabase project (ref `qnsjllrorhxmtfcoqlks`); there is no dev copy.
+
+- A paper ingested from dev is a real row. New papers start private, so scratch papers stay off the public site; flip
+  only what should be listed.
+- The dev server never sweeps or drains runs it didn't start. A run orphaned by a dev restart stays `running`/`queued`:
+  cancel it (or retry from a stage) from its run page.
+- Agent requests made against dev aren't logged (`AGENT_LOG_DEV=1` overrides).
+- Catalog and public-flag changes reach production instances within their 60-s cache TTL.
+
+### Schema, types and Storage
+
+Schema changes are numbered, forward-only, idempotent SQL files in `db_migrations/NNNN_snake_case.sql` (see
+`db_migrations/README.md`), applied in order with the Supabase MCP `apply_migration` on project `qnsjllrorhxmtfcoqlks`,
+never by the app. After each one: run MCP `get_advisors` (security and performance; INFO `rls_enabled_no_policy` is the
+intended state), regenerate types with MCP `generate_typescript_types` into `app/types/database.types.ts` (imported as
+`#supabase/database`), and update `server/utils/rows.ts` if a column changed. `/api/health` reports
+`{ db: 'supabase', migrations: <applied count> }`. Blob bytes live in the private Storage bucket `blobs` (created by
+`0002_storage_blobs.sql`, 50 MB per object, no policies); `/api/blobs/:sha` streams them through a 60-s signed URL and
+passes `Range` through, so PDF.js gets 206s.
+
 ### Runs in dev: LocalRunner by default, Inngest optionally
 
-`npm run dev` runs ingest jobs in-process (LocalRunner, one at a time; a server restart fails whatever was running, and
-"retry from stage" picks it up cheaply). The boot log says which runner is active:
+`npm run dev` runs ingest jobs in-process (LocalRunner, one at a time per process; a server restart leaves whatever was
+running orphaned, see above, and "retry from stage" picks it up cheaply). The boot log says which runner is active:
 `[gpe] runner: LocalRunner (dev, no INNGEST_EVENT_KEY)`.
 
 To exercise the production path locally:
@@ -206,7 +243,7 @@ The agent's progress reaches the run page by two transports, both feeding the sa
 
 The run waits up to 90 min (200 turns, ≤ 60% of the run budget), then `outline:collect` reads `outline.json`, stops the
 sandbox and continues; an agent that ran out of turns, budget or time leaves the run `structure_partial` with whatever
-claims it had written. Failed, cancelled and dev-restart-swept runs stop their sandbox too.
+claims it had written. Failed and cancelled runs stop their sandbox too.
 
 ## Deploy (Vercel)
 
@@ -220,7 +257,10 @@ which syncs on every deploy) at `https://<host>/api/inngest`.
 | Variable | Required | What |
 |---|---|---|
 | `AI_GATEWAY_API_KEY` | yes | Vercel AI Gateway key (every model call). |
-| `DATABASE_URL` | yes in prod | Postgres connection string (the Supabase transaction pooler once it exists). Unset means PGlite, which does not persist on Vercel. |
+| `SUPABASE_URL` | yes | Supabase project URL (`https://qnsjllrorhxmtfcoqlks.supabase.co`). |
+| `SUPABASE_KEY` | yes | Publishable key (`sb_publishable_…`). The module requires it; with RLS on and no policies it grants nothing. |
+| `SUPABASE_SECRET_KEY` | yes | Secret key (`sb_secret_…`), server-only; every read and write uses it. Never commit it. |
+| `OPERATOR_TOKEN` | yes in prod | Unlocks `/admin` and operator routes; unset in production = denied. |
 | `INNGEST_EVENT_KEY` | yes | Lets the app send events. Its presence also switches dev to the Inngest runner. |
 | `INNGEST_SIGNING_KEY` | yes | Lets Inngest call `/api/inngest` (the Vercel integration sets both keys). |
 | `NUXT_PUBLIC_APP_URL` | agent method | Public URL the structure agent's sandbox posts progress to. |
@@ -230,8 +270,11 @@ which syncs on every deploy) at `https://<host>/api/inngest`.
 | `SANDBOX_TEX_SNAPSHOT_ID` | recommended | The TeX snapshot for the render stage (build it once locally and copy the id from `.data/sandbox-tex-snapshot.json`); without it the first render on each instance rebuilds it. |
 
 Sandbox auth (render stage, agent method) is automatic on Vercel. Uploads are capped at 4.4 MB on Vercel (the
-platform's request body limit) and 32 MB elsewhere. Migrations do not run on boot against a real Postgres outside dev;
-apply them before deploying a schema change with `DATABASE_URL=… npm run db:migrate`.
+platform's request body limit) and 32 MB elsewhere. Migrations never run on boot: apply a schema change through MCP
+`apply_migration` (above) before deploying code that needs it. Set the `SUPABASE_*` variables by hand rather than
+through the Vercel↔Supabase integration (it injects different names). The boot log names any missing required
+variable (never its value). A local `npm run build` with `.env` present bakes `SUPABASE_SECRET_KEY` into `.output/`
+(gitignored); delete `.output/` after a local build check.
 
 ## Layout
 
@@ -242,16 +285,18 @@ app/
   layouts/          default (public), dashboard (explorer), admin (operator sidebar)
   components/       tree/, node/, graph/ (custom dagre DAG), reader/ (PDF.js + SyncTeX overlays), figure/, chat/, run/
   composables/      useDigest, useSelection, usePaperChat
+  types/            database.types.ts (generated from Supabase)
 server/
   api/              papers, runs (retry/cancel/review/agent events), corpus, chat, inngest, v1/ (agent API + catalog),
                     admin/ (operator reads, catalog sync)
   catalog/          openai/math index: parse (pure), sync, query (pure filters over the cached catalog)
   pipeline/         ingest.ts, runner.ts, stages/, latex/ (chunk, equations, figures, synctex), sources/, prompts/,
                     sandbox/ (agent scripts, TeX snapshot, figure rasterizer), llm.ts
-  db/               Drizzle schema + migrations
-  utils/            aiModels (profiles, prices, defaults), dispatch (LocalRunner vs Inngest), runs, corpus,
+  tasks/            operator commands (Nitro tasks, dev only): papers:import, catalog:sync, paper:public, agent:stats
+  utils/            supabase (service client), rows (row types + mappers), aiModels (profiles, prices, defaults),
+                    dispatch (LocalRunner vs Inngest), runs, blobs (Storage), corpus,
                     mcpTools/agentApi/agentLog/agentStats (the public agent API)
-scripts/            operator CLIs (tsx): set-public.ts, agent-stats.ts, sync-catalog.ts
+db_migrations/      numbered SQL migrations, applied with Supabase MCP apply_migration
 shared/             types and zod schemas shared by app and server (types, pipeline, api, runs, corpus, catalog, flagship)
 corpus/             manifest.json (tiered test set) and golden/ (hand-written statement lists)
 tests/              vitest; tests/fixtures/latex/ holds the toy and downloaded sources

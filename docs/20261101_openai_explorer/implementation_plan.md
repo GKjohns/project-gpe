@@ -4,6 +4,8 @@
 
 **Created:** November 1, 2026
 **Status:** Sprints 1–4 complete locally (Nov 1); Sprint 5.1–5.2 (export/import scripts) done locally; Sprint 0 infra + Sprint 5.3–5.8 pending
+
+> **Superseded data layer (Nov 1):** the Drizzle/PGlite/`DATABASE_URL`/pooler items in Sprint 0 and Sprint 5 (0.1, 0.2, 0.5, 0.6, 5.2, 5.4, 5.8's pooler text, the Environment table's `DATABASE_URL` / `ALLOW_REMOTE_DEV_DB` rows) are superseded by the Supabase-native plan, [../20261101_supabase_native/implementation_plan.md](../20261101_supabase_native/implementation_plan.md) (see its "Mapping of the openai_explorer plan's remaining items"). The app now runs on Supabase via `@nuxtjs/supabase`; `DATABASE_URL` and the poolers are gone. Text below is kept as history.
 **Context:** GPE v1 ([docs/20261029_digest_v1/implementation_plan.md](../20261029_digest_v1/implementation_plan.md)) is built and undeployed: ingest from the browser, run page, tree + node pages, DAG, reader, chat, agent API, operator auth. Its home page is an operator library. openai/math holds 721 machine-written manuscripts in 373 result families across 17 disciplines, released as "raw research data". Five of them (eth, logspace, intmult, unit-distance, noncoordinate) already have full digests in the dev DB. Kyle approved the storyboard ([storyboard.html](storyboard.html), frames 01–09) and picked the hero ([hero/gpt-image-2-a.webp](hero/gpt-image-2-a.webp); critique in [hero/README.md](hero/README.md)).
 
 **Goal:** A public site at `project-gpe.vercel.app` (Vercel project `project-gpe`, Supabase Postgres) where a reader lands on a painted hero, browses all 373 families with abstracts and PDF links (built from the repo index, zero model calls), opens a family, and for the five digested papers lands on a new overview page ("what this paper proves", main theorem, novel steps, proof shape) before entering the unchanged explorer. Ingest, runs, review, corpus and cost move under `/admin` behind the existing operator login, along with the read APIs those pages use.
@@ -492,6 +494,8 @@ Samples: [verification/samples/summaries.json](verification/samples/summaries.js
 ---
 
 ### Sprint 5: Data import, firewall, promote & smoke [In Progress] — 5.1–5.2 done locally; 5.3–5.8 pending Kyle
+> **Note (Nov 1):** 5.2 and 5.4 were done on Supabase by the Supabase-native plan ([../20261101_supabase_native/implementation_plan.md](../20261101_supabase_native/implementation_plan.md), Sprints 1 and 4: MCP `apply_migration`, `catalog:sync` / `papers:import` / `paper:public` as Nitro tasks with the dev server up). No inline `DATABASE_URL` or session pooler anywhere; 5.7's `agent:stats` runs as `npm run agent:stats -- --payload.days=1`; 5.8's pooler text is obsolete (README rewritten there).
+
 **Goal:** `https://project-gpe.vercel.app` serves the public site from Supabase with the catalog synced and the five digests imported and public; admin works behind the token.
 **Estimated effort:** 3 hours
 
@@ -530,6 +534,8 @@ Samples: [verification/samples/summaries.json](verification/samples/summaries.js
 ---
 
 ## Environment / Config Changes
+
+> **Superseded (Nov 1):** the `DATABASE_URL` and `ALLOW_REMOTE_DEV_DB` rows below no longer apply; never set `DATABASE_URL`. Set `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SECRET_KEY` instead (Vercel and `.env`), per [../20261101_supabase_native/implementation_plan.md](../20261101_supabase_native/implementation_plan.md). `papers:export` was removed after the archive export.
 
 | Variable | Where | Required | Description |
 |---|---|---|---|

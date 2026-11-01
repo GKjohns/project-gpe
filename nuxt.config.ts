@@ -16,7 +16,6 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   // AI_GATEWAY_API_KEY is read from process.env directly (gateway). SUPABASE_* go through the supabase block below.
-  // DATABASE_URL (server/db/index.ts) only feeds the Drizzle path until the Supabase port removes it.
   runtimeConfig: {
     public: {
       appUrl: 'http://localhost:3120'

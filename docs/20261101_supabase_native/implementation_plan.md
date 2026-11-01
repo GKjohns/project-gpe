@@ -3,7 +3,7 @@
 > Swap GPE's data layer from Drizzle + postgres-js/PGlite to vanilla Supabase through `@nuxtjs/supabase`, the way Camera Shy and Daylight do it. Routes, pages, API shapes and behaviour do not change.
 
 **Created:** November 1, 2026
-**Status:** In Progress (Sprints 1–4 complete Nov 1; Sprint 5 next)
+**Status:** Complete (Sprints 1–5 complete Nov 1). Vercel env and deploys stay pending Kyle in the openai_explorer plan.
 **Context:** GPE (branch `openai-explorer`, large uncommitted tree) finished Sprints 1–4 of [../20261101_openai_explorer/implementation_plan.md](../20261101_openai_explorer/implementation_plan.md) locally on Drizzle with PGlite in dev and a planned Supabase Postgres (`DATABASE_URL`, poolers) in prod. Kyle decided (final) that consistency with his other codebases beats the rewrite cost: Supabase used idiomatically, one database (dev talks to the production project directly), no PGlite, no local Docker stack. The Supabase project exists and is empty: ref `qnsjllrorhxmtfcoqlks` (name `gpe`, us-east-1), URL `https://qnsjllrorhxmtfcoqlks.supabase.co`, no tables, no migrations (checked Nov 1 via MCP `list_tables` / `list_migrations`).
 
 **Goal:** Every server read and write goes through `serverSupabaseServiceRole` from `#supabase/server`; schema lives in numbered SQL migrations applied through the Supabase MCP; database types are generated; blob bytes live in a private Supabase Storage bucket and `/api/blobs/:sha` still serves PDFs with HTTP Range 206; the five public digests (eth, logspace, intmult, unit-distance, noncoordinate) and the openai/math catalog are in Supabase; Drizzle, PGlite, postgres-js and drizzle-kit are gone.
@@ -274,7 +274,7 @@ Read-side SQL that PostgREST can't express (aggregates are off by default, and a
 
 ---
 
-### Sprint 5: Cleanup, README, env example [Not Started]
+### Sprint 5: Cleanup, README, env example [Complete]
 **Goal:** No Drizzle, PGlite or postgres-js code or dependency remains; docs describe the Supabase setup.
 **Estimated effort:** 2 hours
 
@@ -288,10 +288,19 @@ Read-side SQL that PostgREST can't express (aggregates are off by default, and a
 - 5.7 `npm ci` from a clean `node_modules` to prove the lockfile.
 
 #### Verification
-- [ ] `grep -rniE "drizzle|pglite|postgres-js|DATABASE_URL|useDb|createDb|setDb" --exclude-dir=node_modules --exclude-dir=.nuxt --exclude-dir=.output --exclude-dir=docs .` is empty (docs keep history)
-- [ ] Every `npm run` command quoted in README exists in `package.json`
-- [ ] Fresh `npm run dev` → 4.5's checks still pass (spot-check `/`, `/eth?view=paper`, `/admin`)
-- [ ] lint, typecheck, tests green; `npm run build` succeeds
+- [x] `grep -rnE "drizzle|pglite|PGlite|DATABASE_URL|useDb\(|openDb\(" --exclude-dir=node_modules --exclude-dir=.data --exclude-dir=docs .` → only `db_migrations/0001_initial_schema.sql:4` (a historical comment in an applied migration; left as is) and `package-lock.json` (see Deviations). No `createDb` / `setDb` anywhere outside docs.
+- [x] Every `npm run` command quoted in README exists in `package.json` (`dev`, `dev:inngest`, `build`, `lint`, `typecheck`, `paper:public`, `catalog:sync`, `agent:stats`, `papers:import`; plus `npm test`)
+- [x] Fresh `npm run dev -- --port 3120` → `/api/health` `{ db: 'supabase', migrations: 4, gateway: true }`; `/`, `/papers`, `/eth`, `/eth/thm-main?view=paper`, `/admin`, `/api/v1/families?digested=1` (total 5), `/api/papers` (the five + dev `toy`) all 200
+- [x] lint, typecheck, tests green (288 in 27 files); `npm run build` succeeds; `.output/` deleted after (and the key was checked absent from `.nuxt` / `node_modules/.cache`)
+
+#### Deviations (Sprint 5)
+- **Removed:** deps `drizzle-orm`, `@electric-sql/pglite`, `postgres`, `drizzle-kit`, **`tsx`** (nothing uses it now); scripts `db:generate`, `db:migrate`, `papers:export`. Deleted `server/db/**` (index, schema, migrations + meta), `drizzle.config.ts`, `scripts/db.ts`, `scripts/export-papers.ts` (so `scripts/` is gone). The Sprint 0 guards (`ALLOW_REMOTE_DEV_DB`, `assertDevDbIsLocal`, the Vercel-without-`DATABASE_URL` throw, `SCRIPT_PGLITE_DIR`) lived only in those files; `dbDriver` was already gone from `server/plugins/runner.ts` (2.7) and `server/plugins/operator.ts` already required the three `SUPABASE_*` names (3.8). Kept `server/utils/appUrl.ts` and the boot env report.
+- **Lockfile.** `npm uninstall` left `@electric-sql/pglite`, `drizzle-orm`, `postgres` and `tsx` in `package-lock.json` as `optional` + `peer` entries (db0 ← unstorage ← `@nuxt/fonts` ← `@nuxt/ui` lists pglite/drizzle as optional peers; vite lists tsx), and `npm ci` then still installed them. Those four entries and their nested `tsx/node_modules/*` were pruned by hand and the lock re-resolved with `npm install --package-lock-only` (a first attempt that kept the nested esbuild entries produced an `EBADPLATFORM` `npm ci`; fixed by pruning the subtree). Result: `rm -rf node_modules && npm ci` green, none of the four installed, `npm ls` clean. db0's `peerDependencies` block still names `@electric-sql/pglite` / `drizzle-orm` (third-party metadata, intentional). npm also normalised six bundled `@tailwindcss/oxide-wasm32-wasi` entries (wasm-only, not installed on darwin).
+- **Configs:** removed the `DATABASE_URL` runtimeConfig comment from `nuxt.config.ts`; `vitest.config.ts` comment now says each test builds a fresh fake. `.env.example` lost the `DATABASE_URL` / `ALLOW_REMOTE_DEV_DB` block and gained `AGENT_LOG_DEV=1`.
+- **README:** reader blobs paragraph (Storage bucket), catalog sync syntax, the public-papers paragraph (Supabase holds the five), `AGENT_LOG_DEV`, an operator-commands block for the Nitro tasks (dev server up, `--payload.<key>=<value>`, `papers:import` and the `.data/export` archive), a **Data** paragraph (module-only, `useSupabase()`, RLS, rows/RPCs/view), Stack, Dev setup (no local DB; tests use the fake), new "Dev is prod" and "Schema, types and Storage" subsections (`db_migrations/` + MCP `apply_migration`, `get_advisors`, `generate_typescript_types`, bucket and Range), env table (`SUPABASE_URL` / `SUPABASE_KEY` / `SUPABASE_SECRET_KEY`, `OPERATOR_TOKEN`; no `DATABASE_URL`), deploy notes (migrations never on boot, no Vercel↔Supabase integration, local build bakes the secret into `.output/`), layout tree (`server/tasks/`, `db_migrations/`, `app/types/`, no `db/` or `scripts/`). Removed "dev-restart-swept" wording (there is no sweep).
+- **`papers:import` task description** no longer names the deleted `papers:export` script.
+- **openai_explorer plan:** short "superseded" notes (with a link here) under its Status, at the top of its Sprint 5 and above its Environment table; history otherwise untouched.
+- **Dev-server note:** a pre-existing esbuild warning (`agentApi.ts:51`, `!!import.meta.dev && …` is constant in dev) shows at boot; harmless, not changed.
 
 ---
 

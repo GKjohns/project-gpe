@@ -12,7 +12,7 @@ import { payloadFlag, payloadList } from '../../utils/taskPayload'
 const DIR = '.data/export'
 
 export default defineTask({
-  meta: { name: 'papers:import', description: 'Import papers:export JSON files from .data/export into Supabase' },
+  meta: { name: 'papers:import', description: 'Import exported paper JSON files (the pre-Supabase archive in .data/export) into Supabase' },
   async run({ payload }) {
     const slugs = payloadFlag(payload.all)
       ? (await readdir(DIR)).filter(f => f.endsWith('.json')).map(f => f.slice(0, -5)).sort()
