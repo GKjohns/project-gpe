@@ -1,0 +1,60 @@
+{
+  "total": 373,
+  "offset": 0,
+  "limit": 2,
+  "families": [
+    {
+      "number": 378,
+      "code": "378",
+      "title": "Disproof of the Exponential Time Hypothesis",
+      "description": "For every fixed $k\\ge2$, a deterministic algorithm counts the satisfying assignments of a $k$-CNF with $n$ variables and $m$ clauses in time $(n+m)^{O_k(1)}2^{n",
+      "discipline": "Theoretical computer science",
+      "disciplineSlug": "theoretical-computer-science",
+      "members": 1,
+      "hasLean": true,
+      "digested": [
+        {
+          "slug": "eth",
+          "dir": "The-Exponential-Time-Hypothesis-is-False-October-25-2026",
+          "counts": {
+            "nodes": 89,
+            "sections": 68,
+            "novel": 5,
+            "friction": 71
+          },
+          "pages": 67
+        }
+      ],
+      "flagship": {
+        "rank": 1,
+        "reason": "Digested. Headline TCS result; Lean."
+      }
+    },
+    {
+      "number": 103,
+      "code": "103",
+      "title": "Exact derandomization of logarithmic space: $\\mathsf L=\\mathsf{RL}=\\mathsf{BPL}$",
+      "description": "Proves $\\mathsf L=\\mathsf{RL}=\\mathsf{BPL}$, resolving derandomization for bounded-error logarithmic-space computation. An effective compiler converts each rand",
+      "discipline": "Theoretical computer science",
+      "disciplineSlug": "theoretical-computer-science",
+      "members": 1,
+      "hasLean": true,
+      "digested": [
+        {
+          "slug": "logspace",
+          "dir": "Exact-Derandomization-of-Logarithmic-Space-L-equals-RL-equals-BPL-September-23-2026",
+          "counts": {
+            "nodes": 164,
+            "sections": 66,
+            "novel": 4,
+            "friction": 97
+          }
+        }
+      ],
+      "flagship": {
+        "rank": 2,
+        "reason": "Digested. Decades-old complexity question; Lean."
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "eth": {
+    "headline": "For fixed $k$, counts $k$-CNF solutions deterministically in $2^{O_k(n\\log\\log n/\\sqrt{\\log n})}$ time, refuting ETH",
+    "proves": "For each fixed $k\\ge2$, a deterministic algorithm counts the satisfying assignments of a $k$-CNF with $n$ variables and $m$ clauses in $(n+m)^{O_k(1)}2^{O_k(n\\log\\log n/\\sqrt{\\log n})}$ time and polynomial space, and in $2^{O_{k,D}(n/\\sqrt{\\log n})}$ times a polynomial when $m\\le Dn$. The core is a subexponential contraction of bipartite tensor networks, built from a measurement design that splits the variables into groups so each clause depends freely only on its own group and on the others only through a few linear measurements. Since counting decides 3-SAT in $2^{o(n)}$ time, this refutes ETH, which asserts 3-SAT needs $2^{\\Omega(n)}$ time.",
+    "model": "anthropic/claude-opus-5.5",
+    "generated_at": "2026-11-01T18:14:49.037Z",
+    "cost_usd": 0.042716
+  },
+  "logspace": {
+    "headline": "Deterministic logarithmic space equals randomized logarithmic space: $\\mathsf{L}=\\mathsf{RL}=\\mathsf{BPL}$",
+    "proves": "Every language decided by a polynomial-time randomized logarithmic-space machine with one-sided or two-sided bounded error is decided by a deterministic logarithmic-space machine, so $\\mathsf{L}=\\mathsf{RL}=\\mathsf{BPL}$. The key step is a deterministic polynomial-time logspace algorithm that approximates the machine's acceptance probability to within $(n+2)^{-d}$ for any fixed $d$, using a compression of additive row estimates whose total error stays within a fixed precision budget. This settles the derandomization problem for bounded-error logarithmic space: randomness gives no extra power there.",
+    "model": "anthropic/claude-opus-5.5",
+    "generated_at": "2026-11-01T18:15:02.288Z",
+    "cost_usd": 0.026044
+  },
+  "intmult": {
+    "headline": "Multiplies $n$-bit integers in deterministic time $O(n(\\lg n)^{1-\\kappa})$, $\\kappa=2^{-182}$, on a multitape Turing machine",
+    "proves": "A single deterministic Turing machine with a fixed finite alphabet and a fixed number of one-dimensional tapes multiplies any two $n$-bit integers exactly, for every $n\\ge1$, in worst-case time $O(n(\\lg n)^{1-\\kappa})$ with $\\kappa=2^{-182}$. The key ingredient is a faster interchange of address chunks on tape, which lets a whole layer of Hadamard butterflies in the transform be applied at once in near-linear time with a single final truncation, keeping the error below 1/2 so rounding and carries are exact. This disproves the Schönhage–Strassen conjecture that $n\\log n$ is optimal for integer multiplication in the multitape bit model.",
+    "model": "anthropic/claude-opus-5.5",
+    "generated_at": "2026-11-01T18:15:13.645Z",
+    "cost_usd": 0.029256
+  },
+  "unit-distance": {
+    "headline": "Any $n$ points in the plane determine $O(n^{\\beta})$ unit distances for an absolute exponent $\\beta<4/3$",
+    "proves": "There are absolute constants $C$ and $1\\le\\beta<4/3$ such that every set of $n$ points in the Euclidean plane determines at most $Cn^{\\beta}$ pairs at unit distance. The proof argues by contradiction: a configuration with $n^{4/3-o(1)}$ unit distances yields a degree-regular, expanding point-circle incidence piece, from which the paper extracts a large graph of multiplicatively organized pairs whose algebraic numbers have large heights, and an algebraic obstruction rules such a graph out. This improves the classical Spencer–Szemerédi–Trotter exponent $4/3$ for the unit-distance problem by a power.",
+    "model": "anthropic/claude-opus-5.5",
+    "generated_at": "2026-11-01T18:15:18.381Z",
+    "cost_usd": 0.017296
+  },
+  "noncoordinate": {
+    "headline": "An explicit polynomial in four complex variables has affine three-space zero fibre but is not a coordinate",
+    "proves": "An explicit $F\\in\\mathbb{C}[h,u,v,w]$ satisfies $\\mathbb{C}[h,u,v,w]/(F)\\cong\\mathbb{C}^{[3]}$ and $\\nabla F(2,0,-1/2,1/2)=0$, so it is not a coordinate. An elementary lifting lemma converts cusp and translation identities into polynomial coordinates on the zero fibre. This disproves the Abhyankar–Sathaye conjecture for hypersurfaces in complex affine four-space.",
+    "model": "openai/gpt-6-sol",
+    "generated_at": "2026-11-01T18:07:17.006Z",
+    "cost_usd": 0.009251
+  }
+}

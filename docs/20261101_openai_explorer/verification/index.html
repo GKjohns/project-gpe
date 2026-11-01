@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPE OpenAI explorer verification</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #18181b; --muted: #5f5f6b; --line: #e4e4e7; --soft: #f4f4f5;
+    --accent: #4f46e5; --ok: #15803d; --warn: #b45309; --code-bg: #f6f6f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111114; --fg: #ececf0; --muted: #a1a1aa; --line: #2e2e35; --soft: #1b1b20;
+      --accent: #a5b4fc; --ok: #4ade80; --warn: #fbbf24; --code-bg: #1a1a1f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 56px 20px 120px; }
+  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.45rem; margin: 72px 0 12px; padding-top: 24px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.1rem; margin: 36px 0 8px; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  a { color: var(--accent); }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; overflow-x: auto; line-height: 1.45; }
+  pre code { background: none; padding: 0; }
+  figure { margin: 24px 0 32px; }
+  img { max-width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 8px; }
+  figcaption { color: var(--muted); font-size: 0.92rem; margin-top: 8px; }
+  figcaption b { color: var(--fg); font-weight: 600; }
+  .badge { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line); color: var(--ok); vertical-align: middle; margin-left: 6px; }
+  .badge.warn { color: var(--warn); }
+  .note { background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; font-size: 0.94rem; }
+  .status { border-left: 3px solid var(--warn); }
+  .gotchas { font-size: 0.94rem; }
+  .gotchas li { margin: 4px 0; }
+  ul.checks { list-style: none; padding-left: 0; }
+  ul.checks li { padding-left: 1.6em; text-indent: -1.6em; margin: 4px 0; }
+  ul.checks li::before { content: "\2610"; display: inline-block; width: 1.6em; text-indent: 0; color: var(--muted); }
+  ul.checks li.done::before { content: "\2611"; color: var(--ok); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; margin: 16px 0; }
+  .tablewrap { overflow-x: auto; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  nav.toc { columns: 2; font-size: 0.94rem; margin: 20px 0 0; }
+  nav.toc a { text-decoration: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .narrow { max-width: 360px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } nav.toc { columns: 1; } h1 { font-size: 1.7rem; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>GPE OpenAI explorer: verification</h1>
+<p class="sub">Pivot of Project GPE into a public reading site for <a href="https://github.com/openai/math">openai/math</a>. Implementation plan <a href="../implementation_plan.md">20261101_openai_explorer</a>, executed Nov 1, 2026. All checks below ran locally against <code>http://localhost:3120</code> (dev PGlite, <code>OPERATOR_TOKEN</code> set). Nothing is deployed.</p>
+
+<nav class="toc">
+  <a href="#built">What was built</a><br>
+  <a href="#s0">Sprint 0: prod guards</a><br>
+  <a href="#s1">Sprint 1: catalog data and APIs</a><br>
+  <a href="#s2">Sprint 2: admin move and API guarding</a><br>
+  <a href="#s3">Sprint 3: public shell</a><br>
+  <a href="#s4">Sprint 4: overview, summary, navbar</a><br>
+  <a href="#chat">Chat</a><br>
+  <a href="#s5">Sprint 5: import and deploy</a><br>
+  <a href="#e2e">End-to-end run-through</a><br>
+  <a href="#remaining">Remaining work</a>
+</nav>
+
+<h2 id="built" style="border-top:none;margin-top:40px;padding-top:0">What was built</h2>
+<p>A public site meant for <code>project-gpe.vercel.app</code> (Vercel project <code>project-gpe</code>, Supabase Postgres) where a reader lands on a painted hero, browses all 373 result families with abstracts and PDF links (built from the openai/math index with zero model calls), opens a family, and for the five digested papers (eth, logspace, intmult, unit-distance, noncoordinate) lands on a new overview page ("what this paper proves", main theorem, novel steps, proof shape) before entering the unchanged explorer. Ingest, runs, review, corpus and cost moved under <code>/admin</code> behind the existing operator login, along with the read APIs those pages use.</p>
+<p class="note status"><b>Status:</b> Sprints 1–4 complete locally. Sprint 0 local guards (0.1–0.5) done. Sprint 0 infra (0.6–0.8: Supabase migrate, Vercel env, preview deploy) and Sprint 5 beyond the local export/import scripts (prod migrate and catalog sync, firewall rule, deploy, prod smoke) are <b>not done</b>, pending Kyle's confirmation and the Supabase pooler URIs. Lint, typecheck and tests green at 274 tests.</p>
+
+<!-- ───────────────────────────── Sprint 0 -->
+<h2 id="s0">Sprint 0: infra preview + prod guards <span class="badge warn">partial</span></h2>
+<p><b>Landed (0.1–0.5, local code):</b></p>
+<ul>
+  <li><code>server/db/index.ts</code>: <code>prepare: false</code> on the postgres driver; dev refuses a non-localhost <code>DATABASE_URL</code> unless <code>ALLOW_REMOTE_DEV_DB=1</code>; on Vercel with no <code>DATABASE_URL</code> it throws instead of creating PGlite.</li>
+  <li><code>server/plugins/runner.ts</code>: no <code>sweep()</code>/<code>drain()</code> against Postgres, so a dev server can't fail prod runs.</li>
+  <li><code>server/utils/appUrl.ts</code>: in prod, a localhost app URL falls back to <code>VERCEL_PROJECT_PRODUCTION_URL</code>, else logs an error once.</li>
+  <li><code>server/plugins/operator.ts</code>: boot env report naming each missing prod variable (names only).</li>
+  <li><code>.env.example</code>: "never set <code>DATABASE_URL</code> in .env" note and <code>ALLOW_REMOTE_DEV_DB</code>.</li>
+</ul>
+<p><b>Verification:</b> lint, typecheck and tests green with the Sprint 1 tree. Not run: preview <code>/api/health</code> (needs 0.6–0.8), and the remote-URL refusal / no-sweep check (needs the Supabase strings).</p>
+<p><b>Deviation:</b> <code>appUrl.ts</code> decides "in prod" with <code>NODE_ENV === 'production'</code> rather than <code>import.meta.dev</code>, so scripts and tests that load it outside Nuxt behave like dev.</p>
+
+<!-- ───────────────────────────── Sprint 1 -->
+<h2 id="s1">Sprint 1: catalog data, APIs, public list, agent surface <span class="badge">complete</span></h2>
+<p><b>Landed:</b> tables <code>families</code>, <code>manuscripts</code>, <code>catalog_meta</code> and <code>papers.manuscript_dir</code> (migration 0004) plus RLS on every table (0005); <code>server/catalog/</code> parse, sync and query; <code>npm run catalog:sync</code> pinned to a commit sha; <code>/api/v1/families</code>, <code>/api/v1/families/:code</code>, <code>/api/v1/disciplines</code>; <code>/api/papers</code> now returns public digests only (the full list moved to <code>/api/admin/papers</code>); agent rows and <code>/llms.txt</code> rewritten for the new positioning; same-site page fetches skip the agent request log via <code>x-gpe-site</code>.</p>
+
+<h3>Verification</h3>
+<ul>
+  <li><code>catalog:sync</code>: 373 families, 721 manuscripts, 17 disciplines, 138 Lean families at <code>openai/math@4eaee87</code>. Second run writes 0/0. Every <code>FLAGSHIP</code> number resolves.</li>
+  <li><code>/api/v1/families?digested=1</code> total 5; <code>?discipline=combinatorics</code> 37; <code>/api/v1/families/49</code> = <code>/049</code> with 2 manuscripts, one digested; <code>/api/v1/disciplines</code> stats 373 / 721 / 17 / 5.</li>
+  <li>A plain <code>curl</code> to <code>/api/v1/families</code> adds an <code>agent_requests</code> row; the same request with <code>sec-fetch-site: same-origin</code> doesn't.</li>
+  <li><code>/api/papers</code> has only public digests and no <code>run</code> key; the admin library still shows runs from <code>/api/admin/papers</code>.</li>
+  <li><code>/llms.txt</code> has the new intro and catalog endpoints; <code>/api/v1/papers</code> rows carry <code>family</code>.</li>
+</ul>
+
+<p>Sync report (<a href="samples/catalog_sync_report.txt">catalog_sync_report.txt</a>, second run <a href="samples/catalog_sync_second_run.json">catalog_sync_second_run.json</a>):</p>
+<pre>openai/math @ 4eaee87548250b2682affda7d05d947c05554bae
+373 families, 721 manuscripts, 17 disciplines; Lean: 138 families, 175 manuscripts
+written: 245 families, 0 manuscripts
+   41  Theoretical computer science
+   37  Combinatorics
+   36  Algebraic and complex geometry
+   ...  (17 disciplines, summing to 373)
+stale (kept): 0 families, 0 manuscripts
+warning: lean/formalization.yaml names Taming-implies-compatibility-on-four-manifolds-September-23-2026,
+         which CONTENTS.md does not list
+
+# second run (--json): written 0/0, linked [], stale []</pre>
+
+<p><code>GET /api/v1/families/049</code>, trimmed (<a href="samples/v1_family_049.json">v1_family_049.json</a>):</p>
+<pre>{
+  "number": 49,
+  "code": "049",
+  "title": "A stable-coordinate counterexample in four variables",
+  "discipline": "Algebraic and complex geometry",
+  "members": 2,
+  "hasLean": true,
+  "digested": [
+    { "slug": "noncoordinate",
+      "dir": "An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026",
+      "counts": { "nodes": 12, "sections": 4, "novel": 1, "friction": 12 } }
+  ],
+  "flagship": { "rank": 5, "reason": "Digested. Short counterexample; Lean." },
+  "manuscripts": [
+    { "dir": "A-stable-coordinate-that-is-not-a-coordinate-in-four-variables-October-5-2026",
+      "publishedOn": "2026-10-05", "hasLean": true, "pdfUrl": "https://github.com/openai/math/blob/main/preprints/…" },
+    { "dir": "An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026", … }
+  ]
+}</pre>
+
+<p><code>/llms.txt</code>, first lines (<a href="samples/llms_txt_head.md">llms_txt_head.md</a>):</p>
+<pre># Project GPE: proof maps of OpenAI's openai/math papers (373 families catalogued, 5 digested)
+
+[openai/math](https://github.com/openai/math) is a collection of 721 machine-written math manuscripts in 373 result
+families. Project GPE catalogues all of them (title, abstract, discipline, PDF, Lean status) and turns some into
+browsable proof maps: …</pre>
+<p>Other samples: <a href="samples/v1_families_limit2.json">v1_families_limit2.json</a>, <a href="samples/v1_disciplines.json">v1_disciplines.json</a>, <a href="samples/api_papers_first2.json">api_papers_first2.json</a>.</p>
+
+<h3>Deviations worth flagging</h3>
+<ul class="gotchas">
+  <li>Lean manuscripts are <b>175</b>, not the plan's 176: <code>lean/formalization.yaml</code> names one dir CONTENTS.md doesn't list. The sync reports it as a warning; Lean families stay 138.</li>
+  <li>The sampled report shows <code>linked: (none)</code> because the five had already been linked by an earlier sync on this DB; linking is covered by the unit test and visible in the admin Family column (Sprint 2).</li>
+  <li><code>normalizeIndexText</code> also rewrites repo-relative markdown links (<code>lean/docs/378.md</code>) to absolute GitHub URLs.</li>
+  <li>Upserts only write rows that differ, so a re-sync of the same commit touches nothing (that is the idempotency check).</li>
+  <li><code>has_lean</code> on paper rows is the manuscript's Lean status: unit-distance's own manuscript has none, though family 167 does.</li>
+</ul>
+
+<!-- ───────────────────────────── Sprint 2 -->
+<h2 id="s2">Sprint 2: admin move + API guarding <span class="badge">complete</span></h2>
+<p><b>Landed:</b> operator pages moved to <code>/admin</code>, <code>/admin/papers/new</code>, <code>/admin/papers/&lt;slug&gt;/run</code>, <code>/admin/corpus</code> with a sidebar layout and a parent route carrying the operator middleware; admin papers table with Family column and Public switch; <code>OPERATOR_READS</code> guards <code>/api/admin</code>, <code>/api/corpus</code>, <code>/api/runs</code>; <code>canSeePaper</code> makes private papers 404 for the public (page, API and chat); README rewritten; dev fixtures hidden.</p>
+
+<h3>Verification</h3>
+<ul>
+  <li>Signed out: <code>/admin</code>, <code>/admin/corpus</code> → <code>/login?next=…</code>; <code>/papers/new</code>, <code>/papers/eth/run</code>, <code>/corpus</code> → 404; <code>/pfr</code> → 404; <code>curl</code> to <code>/api/admin/papers</code>, <code>/api/corpus</code>, <code>/api/runs/&lt;id&gt;</code> → 401; <code>/api/papers/pfr</code> → 404; <code>/api/papers/eth</code> → 200.</li>
+  <li>Signed in: Family 378 / 103 / 109 / 167 / 049 for the five, "—" for fixtures; Public switch round-trips on a scratch copy; Sync catalog toasts 373/721; <code>/pfr</code> opens; a hard reload of <code>/pfr/&lt;node&gt;</code> renders server-side (cookie forwarded).</li>
+  <li>Run page, review queue and corpus page work under <code>/admin</code>. Tests: 268 green.</li>
+</ul>
+
+<figure><img src="screenshots/s2_admin_table.webp" style="max-width:100%" alt="Admin papers table, light">
+<figcaption><b>Admin table (frame 08).</b> Sidebar Papers / New paper / Corpus / Sync catalog / View site. "42 papers · 6 public": the five digests plus the dev toy sit on top with Public on and family codes 109, 103, 167, 049, 378; everything else is off with "—" for Family. The toast proves Sync catalog: "373 families, 721 manuscripts · openai/math @ 4eaee87 · 0 rows changed".</figcaption></figure>
+<figure><img src="screenshots/s2_admin_table_dark.webp" style="max-width:100%" alt="Admin papers table, dark">
+<figcaption><b>Same table in dark mode.</b></figcaption></figure>
+<figure><img src="screenshots/s2_login_redirect.webp" style="max-width:100%" alt="Operator sign-in">
+<figcaption><b>Signed out, <code>/admin</code> lands on the operator sign-in.</b> The public header (no sign-out) and the unchanged login card.</figcaption></figure>
+
+<h3>Deviations worth flagging</h3>
+<ul class="gotchas">
+  <li>The dev DB had 27 public papers, not nine; 22 were turned off so exactly the five stay public (the list and the reverse command are in the plan). The dev toy still counts as public in dev.</li>
+  <li><code>useOperator()</code> gained an awaitable <code>ready</code> so the "undigested → run page or 404" decision happens during SSR; <code>[paper]/index.vue</code> got the same rule.</li>
+  <li>A <code>UTable</code> column with <code>header: ''</code> causes a hydration mismatch; the actions column has no header.</li>
+</ul>
+
+<!-- ───────────────────────────── Sprint 3 -->
+<h2 id="s3">Sprint 3: public shell, landing, catalog, family pages <span class="badge">complete</span></h2>
+<p><b>Landed:</b> hero assets (1536w + 960w WebP); Cormorant Garamond display serif; overlay header that is transparent over the painting and turns into a blurred bar on scroll; landing (hero, featured digests, "how a paper reads here", discipline grid); <code>/papers</code> catalog with search, discipline, Digested, Has Lean and sort in the query string; family pages with manuscripts, PDF and source links, digest rail with Ask box, and a "not yet mapped" rail with Request a map; footer, SEO meta, <code>robots.txt</code>, <code>sitemap.xml</code>.</p>
+
+<h3>Verification</h3>
+<ul>
+  <li>Landing at 1440×900: transparent header with white text over the painting; after 100 px scroll a translucent blurred bar (<code>blur(8px)</code>, <code>bg-default/75</code>); back to top restores it. Same in dark. At 390 px, <code>scrollWidth</code> is 390 on <code>/</code>, <code>/papers</code>, <code>/papers/378</code>, <code>/papers/185</code>.</li>
+  <li>Featured cards show real numbers (eth 89 nodes, 5 novel, 67 pp); discipline cards sum to 373.</li>
+  <li><code>/papers</code>: "kakeya" → 074 (+079); Digested → 378/103/109/167/049; Has Lean → 138, plus Combinatorics → 18; sort by number starts at 001; Load more 50 → 100; <code>?focus=1</code> focuses search. Every browser <code>/api/v1/*</code> call carried <code>x-gpe-site: 1</code>, so page fetches log nothing.</li>
+  <li><code>/papers/49</code> → 301 <code>/papers/049</code>; <code>/papers/185</code> shows the not-yet rail and the mailto; <code>/papers/999</code> 404; Ask on <code>/papers/378</code> → <code>/eth/thm-main?ask=…</code>.</li>
+  <li><code>/sitemap.xml</code> 200 with 380 URLs; <code>/robots.txt</code> 200; og:image is absolute <code>${appUrl}/landing/hero.webp</code>. Tests: 268 green.</li>
+</ul>
+
+<figure><img src="screenshots/s3_landing_top.webp" style="max-width:100%" alt="Landing hero, light">
+<figcaption><b>Landing, top (frame 01).</b> The header sits transparently over the painting with white logo, nav and icons; live headline "openai/math · 373 results · 17 disciplines"; serif title and the two CTAs.</figcaption></figure>
+<figure><img src="screenshots/s3_landing_top_dark.webp" style="max-width:100%" alt="Landing hero, dark">
+<figcaption><b>Dark mode.</b> Hero is identical (the color-mode icon is the moon); the page below the hero switches to the dark surface.</figcaption></figure>
+<figure><img src="screenshots/s3_landing_scrolled.webp" style="max-width:100%" alt="Landing scrolled">
+<figcaption><b>Scrolled.</b> The header turns into a translucent blurred bar with normal text colors. Featured digests show eth, logspace, intmult with discipline and Lean badges, family code, pages and real counts (89/5/68, 164/4/66, 95/3/55). Card headlines here predate the final summary prompt (Sprint 4 tightened it), so their wording differs from the headlines listed below.</figcaption></figure>
+<figure class="narrow"><img src="screenshots/s3_landing_mobile.webp" style="max-width:100%" alt="Landing at 390px">
+<figcaption><b>390 px.</b> Hero fits, menu button appears, CTAs stack, no horizontal scroll.</figcaption></figure>
+<figure><img src="screenshots/s3_catalog.webp" style="max-width:100%" alt="Catalog">
+<figcaption><b>Catalog <code>/papers</code> (frame 02).</b> Live stats "373 results · 721 papers · 17 disciplines · 5 digested"; featured-first sort puts the five digested (with Open map) on top, then ranked not-yet families with "featured" badges (017, 159, 197, 287). "Showing 100 of 373" is after one Load more.</figcaption></figure>
+<figure><img src="screenshots/s3_family_digested.webp" style="max-width:100%" alt="Family 378">
+<figcaption><b>Family 378, digested (frame 03).</b> Breadcrumb Papers › Theoretical computer science › 378, badges, description with rendered math; one manuscript card with date, pages, Read the map / PDF on GitHub / LaTeX source. The rail shows the digest stats (89 / 68 / 5 / 71 / 67 pp), Open the overview, the Ask box, and the Lean card linking <code>lean/docs/378.md</code>.</figcaption></figure>
+<figure><img src="screenshots/s3_family_notyet.webp" style="max-width:100%" alt="Family 185">
+<figcaption><b>Family 185, not yet digested (frame 07).</b> Dashed rail card "This paper hasn't been mapped yet · 5 of 373 families have a full digest so far" with Request a map; the manuscript has PDF and source links but no map button.</figcaption></figure>
+
+<h3>Deviations worth flagging</h3>
+<ul class="gotchas">
+  <li>The family rail is a plain sticky <code>&lt;aside&gt;</code> (<code>UPageAside</code> hides below <code>lg</code>) so it shows on phones.</li>
+  <li>The Ask box fetches <code>/api/papers/&lt;slug&gt;</code> on submit to find the root node, then navigates.</li>
+  <li>New <code>app/utils/catalogText.ts</code> strips markdown links from index prose and moves the Lean link into the Lean card.</li>
+  <li>Headline copy and the request address use the defaults pending Open Questions 1–2.</li>
+  <li>Playwright ran in fresh contexts at <code>http://[::1]:3120</code> because the shared profile has 80% zoom saved for <code>localhost:3120</code>.</li>
+</ul>
+
+<!-- ───────────────────────────── Sprint 4 -->
+<h2 id="s4">Sprint 4: paper overview, summary, explorer navbar <span class="badge">complete</span></h2>
+<p><b>Landed:</b> a <code>summary</code> step in each model profile and <code>prompts/summary.md</code>; finalize writes <code>digest.summary</code> (skips with a warning on failure, never fails the run); backfill endpoint <code>POST /api/papers/:slug/summary</code> with "Write / Rewrite summary" on the run page; <code>ProofShape.vue</code> static thumbnail; <code>PaperNavbar.vue</code> with Papers › family › paper crumbs and Overview · Tree · Graph · Paper tabs; the overview page at <code>/&lt;slug&gt;</code>; <code>?ask=</code> opens the chat with the question prefilled, never sent.</p>
+
+<h3>Verification</h3>
+<ul>
+  <li><code>/eth</code> overview: three-sentence summary, main theorem, 5 novel steps, shape thumbnail, stats, three doors into the right views. <code>/logspace</code>, <code>/intmult</code>, <code>/unit-distance</code>, <code>/noncoordinate</code> render cleanly (164 / 95 / 96 / 12 nodes).</li>
+  <li>The toy fixture (no <code>summary</code>) shows the fallback with no errors.</li>
+  <li>Explorer crumbs Papers › 378 … › ETH › Main theorem navigate; tabs switch and Overview returns to <code>/eth</code>; legacy <code>/eth/thm-main?view=graph</code> works; Ask from <code>/papers/378</code> opens the chat prefilled and unsent.</li>
+  <li>Tests: 274 green.</li>
+</ul>
+
+<p>The five backfilled headlines (<a href="samples/summaries.json">summaries.json</a>; each <code>proves</code> was read against the main theorem, none overclaims):</p>
+<div class="tablewrap"><table>
+  <tr><th>Paper</th><th>Headline</th><th>Model</th><th>Cost</th></tr>
+  <tr><td>eth</td><td>For fixed $k$, counts $k$-CNF solutions deterministically in $2^{O_k(n\log\log n/\sqrt{\log n})}$ time, refuting ETH</td><td>Opus 5.5</td><td>$0.043</td></tr>
+  <tr><td>logspace</td><td>Deterministic logarithmic space equals randomized logarithmic space: $\mathsf{L}=\mathsf{RL}=\mathsf{BPL}$</td><td>Opus 5.5</td><td>$0.026</td></tr>
+  <tr><td>intmult</td><td>Multiplies $n$-bit integers in deterministic time $O(n(\lg n)^{1-\kappa})$, $\kappa=2^{-182}$, on a multitape Turing machine</td><td>Opus 5.5</td><td>$0.029</td></tr>
+  <tr><td>unit-distance</td><td>Any $n$ points in the plane determine $O(n^{\beta})$ unit distances for an absolute exponent $\beta&lt;4/3$</td><td>Opus 5.5</td><td>$0.017</td></tr>
+  <tr><td>noncoordinate</td><td>An explicit polynomial in four complex variables has affine three-space zero fibre but is not a coordinate</td><td>GPT-6 Sol</td><td>$0.009</td></tr>
+</table></div>
+<p>Final pass ≈ $0.12; summary spend for the sprint ≈ $0.35 across three passes. Headlines shown as raw LaTeX here; the site renders them.</p>
+
+<figure><img src="screenshots/s4_overview_eth.webp" style="max-width:100%" alt="ETH overview">
+<figcaption><b>Overview <code>/eth</code> (frame 04).</b> Navbar crumbs Papers › 378 · Disproof of the Exponential… › The Exponential Time Hypothe… with Overview active; badges Family 378, TCS, Lean, "67 pp · Oct 25, 2026"; "What this paper proves" is the three-sentence summary; main theorem card with plain and as-stated versions; "5 novel steps (one is the main theorem)" with four cards; Shape of the proof thumbnail; stats 89 / 68 / 5 / 71; doors Map, Read the paper, Ask.</figcaption></figure>
+<figure><img src="screenshots/s4_overview_eth_dark.webp" style="max-width:100%" alt="ETH overview, dark">
+<figcaption><b>Dark mode.</b> Same content; math, the theorem card and the proof-shape dots stay legible.</figcaption></figure>
+<figure class="narrow"><img src="screenshots/s4_overview_mobile.webp" style="max-width:100%" alt="ETH overview at 390px">
+<figcaption><b>390 px.</b> The first two crumbs and tab labels collapse to icons; the summary and main theorem reflow without horizontal scroll.</figcaption></figure>
+<figure><img src="screenshots/s4_explorer_navbar.webp" style="max-width:100%" alt="Explorer navbar">
+<figcaption><b>Explorer <code>/eth/thm-main</code> (frame 05).</b> The only change is the navbar: Papers › 378 · Disproof of th… › The Exponential Ti… › Subexponential de… crumbs and the icon tabs (Tree active). Tree, node page and chat panel are unchanged.</figcaption></figure>
+<figure><img src="screenshots/s4_ask_prefill.webp" style="max-width:100%" alt="Ask prefill">
+<figcaption><b>Ask hand-off.</b> After Ask on <code>/papers/378</code>, the explorer opens with the chat panel showing "Where does the sqrt(log n) come from?" in the input, not sent (no messages in the thread).</figcaption></figure>
+
+<h3>Deviations worth flagging</h3>
+<ul class="gotchas">
+  <li>The summary prompt was tightened once: logspace's first headline ran 147 chars, eth's <code>proves</code> 722, noncoordinate used paper macros (<code>\CC</code>, <code>\grad</code>) that don't render outside the digest, and sentence 2 leaned on proof-internal symbols. The dev server didn't hot-reload the raw-imported <code>.md</code>; touching <code>summary.ts</code> did.</li>
+  <li>Finalize adds the summary call's cost to <code>metrics.cost_usd</code>, <code>per_stage.finalize</code> and <code>calls</code>. The prompt's catalog text comes from a direct <code>manuscripts ⋈ families</code> lookup so finalize works for private papers.</li>
+  <li>Novel-step cards exclude the main theorem (it has its own card); the heading says "(one is the main theorem)" so it matches the stats row. The five digests have no graph-label headlines yet, so cards show <code>statement_plain</code>.</li>
+  <li>Tab labels show from <code>md</code> on the overview and from <code>2xl</code> in the explorer (the explorer panel shares the row with tree and chat), which is why the explorer shot shows icon-only tabs.</li>
+  <li>The Playwright browser ran at devicePixelRatio 0.8, so 1440/390 CSS-px checks were taken at 1152/312 viewport px.</li>
+</ul>
+
+<!-- ───────────────────────────── Chat -->
+<h2 id="chat">Chat</h2>
+<p>Public chat stays on <b>Sonnet 5.5 with thinking on at <code>reasoning: 'low'</code></b> (<code>chat.post.ts</code>), never Haiku. One turn on <code>/eth</code> streamed with node chips rendered: <b>56.8k input / 0 cached / 917 output tokens, $0.151</b> gateway cost. That was a cold first turn; later turns read the digest from cache.</p>
+<p class="note"><b>Budget.</b> Kyle (Nov 1): a dedicated <code>AI_GATEWAY_API_KEY</code> with a ~$50 budget for public chat. With <code>CHAT_DAILY_USD=5</code> the $50 lasts at least 10 days at saturation. Open: prod runs share this key, so flagship runs either use a separate key or run locally and import.</p>
+<p class="meta" style="color:var(--muted);font-size:0.92rem">No screenshot of the streamed chat turn was kept; the result is recorded in the plan's Sprint 4 deviations.</p>
+
+<!-- ───────────────────────────── Sprint 5 -->
+<h2 id="s5">Sprint 5: data import, firewall, promote and smoke <span class="badge warn">partial</span></h2>
+<p>5.1 and 5.2 are written and verified locally. Nothing touched Supabase: prod isn't migrated, synced or imported, no firewall rule exists, nothing is deployed, and there are no <code>s5_prod_*</code> screenshots. 5.3–5.8 are outbound and wait on Kyle. See <a href="#remaining">Remaining work</a>.</p>
+
+<h3>Sprint 5 (local): export and import</h3>
+<p><code>npm run papers:export -- eth logspace intmult unit-distance noncoordinate</code> from the dev PGlite (server stopped), then <code>SCRIPT_PGLITE_DIR=&lt;scratch dir&gt; npm run papers:import -- .data/export/*.json</code> into a fresh, migrated PGlite directory in the session scratchpad. <code>SCRIPT_PGLITE_DIR</code> is new and read only by <code>scripts/db.ts</code>, so the import can be rehearsed without a second Postgres.</p>
+<div class="tablewrap"><table>
+  <tr><th>Paper</th><th>runs</th><th>stage_outputs</th><th>sources</th><th>source_assets</th><th>blobs</th><th>JSON MB</th><th>Blob MB</th><th>Import counts</th></tr>
+  <tr><td>eth</td><td>1</td><td>10</td><td>4</td><td>0</td><td>2</td><td>1.18</td><td>1.67</td><td>match</td></tr>
+  <tr><td>logspace</td><td>1</td><td>8</td><td>18</td><td>0</td><td>0</td><td>2.12</td><td>0.00</td><td>match</td></tr>
+  <tr><td>intmult</td><td>1</td><td>8</td><td>16</td><td>0</td><td>0</td><td>1.32</td><td>0.00</td><td>match</td></tr>
+  <tr><td>unit-distance</td><td>1</td><td>10</td><td>12</td><td>0</td><td>4</td><td>1.17</td><td>1.17</td><td>match</td></tr>
+  <tr><td>noncoordinate</td><td>1</td><td>8</td><td>1</td><td>0</td><td>0</td><td>0.11</td><td>0.00</td><td>match</td></tr>
+</table></div>
+<p>Each paper: 1 <code>papers</code> row. Total ≈ 8.7 MB (5.9 MB JSON + 2.8 MB blobs).</p>
+<ul class="gotchas">
+  <li><b>Round-trip.</b> Every exported row compared field by field against the dev DB after import (papers, runs with <code>agent_token</code> nulled, stage_outputs, sources, source_assets, blob bytes): identical. Timestamps come back as <code>Date</code>, <code>budget_usd</code>/<code>cost_usd</code> as numbers, jsonb and <code>text[]</code> unchanged.</li>
+  <li><b>Re-run.</b> A second import of the same five prints "skipped: slug already exists in the target" for each and writes nothing.</li>
+  <li><b>Tamper.</b> One blob in a scratch copy of the export got an extra byte. Importing eth, unit-distance, noncoordinate: eth committed, unit-distance stopped with "blobs/04764fa7… is corrupt … Nothing from this file was written", exit 1, and noncoordinate was never reached. The scratch DB held 1 paper and 2 blobs afterwards.</li>
+  <li><b>Linking.</b> The exported rows already carry <code>manuscript_dir</code>, so the import's link step finds nothing. With one manuscript row added to the scratch DB and eth's link cleared, <code>linkPapers</code> set it again.</li>
+  <li><b>Parent runs.</b> All five digest runs are retries (<code>parent_run_id</code> set), but the retry copies earlier stage outputs forward, so chunk and outline sit on the digest run itself and no parent was exported. The fallback is in the script but this data never reaches it.</li>
+  <li><b>No PDF for three.</b> logspace, intmult and noncoordinate have no <code>render</code> output and export no blobs, so their <code>?view=paper</code> has no compiled PDF in prod either, same as dev. eth and unit-distance carry their PDF, SyncTeX and figure PNGs.</li>
+</ul>
+
+<!-- ───────────────────────────── E2E -->
+<h2 id="e2e">End-to-end run-through (local)</h2>
+<p>The golden path a reader takes, in order. Full captions are in the sprint sections above.</p>
+<h3>1. Landing</h3>
+<figure><img src="screenshots/s3_landing_top.webp" style="max-width:100%" alt="Landing">
+<figcaption>Reader arrives on the painted hero and clicks <b>Browse the papers</b>.</figcaption></figure>
+<h3>2. Catalog</h3>
+<figure><img src="screenshots/s3_catalog.webp" style="max-width:100%" alt="Catalog">
+<figcaption>373 families, the five digested on top. Family 378 is the first row.</figcaption></figure>
+<h3>3. Family 378</h3>
+<figure><img src="screenshots/s3_family_digested.webp" style="max-width:100%" alt="Family 378">
+<figcaption>Description, the manuscript and its PDF, digest stats; <b>Open the overview</b>.</figcaption></figure>
+<h3>4. Overview</h3>
+<figure><img src="screenshots/s4_overview_eth.webp" style="max-width:100%" alt="Overview">
+<figcaption>What the paper proves, the main theorem, novel steps and the proof shape; the main theorem card leads into the explorer.</figcaption></figure>
+<h3>5. Explorer</h3>
+<figure><img src="screenshots/s4_explorer_navbar.webp" style="max-width:100%" alt="Explorer">
+<figcaption>The unchanged explorer under the new navbar, crumbs back to Papers and the family.</figcaption></figure>
+<h3>6. Ask prefill</h3>
+<figure><img src="screenshots/s4_ask_prefill.webp" style="max-width:100%" alt="Ask prefill">
+<figcaption>A question asked from the family page arrives in the chat input, ready to send.</figcaption></figure>
+<h3>7. Admin</h3>
+<figure><img src="screenshots/s2_admin_table.webp" style="max-width:100%" alt="Admin">
+<figcaption>The operator view, signed in: every paper, family links, Public switches, Sync catalog.</figcaption></figure>
+
+<!-- ───────────────────────────── Remaining -->
+<h2 id="remaining">Remaining work</h2>
+<h3>Sprint 0 infra (needs Supabase pooler URIs + Vercel auth)</h3>
+<ul class="checks">
+  <li>0.6 Supabase <code>qnsjllrorhxmtfcoqlks</code>: <code>DATABASE_URL='&lt;session pooler :5432&gt;' npm run db:migrate</code>; <code>.cursor/mcp.json</code> with the Supabase MCP entry, token from env.</li>
+  <li>0.7 Vercel env on Production and Preview: <code>DATABASE_URL</code> (transaction pooler :6543), <code>OPERATOR_TOKEN</code>, <code>SESSION_SECRET</code>, <code>AI_GATEWAY_API_KEY</code> (dedicated, ~$50 budget), <code>AGENT_LOG_SALT</code>, <code>CHAT_DAILY_USD=5</code>, <code>NUXT_PUBLIC_APP_URL</code>; Inngest Vercel integration; confirm Fluid compute.</li>
+  <li>0.8 Preview deploy; <code>/api/health</code> → postgres, gateway true; no missing-env errors; <code>/</code> renders.</li>
+  <li>Local guard check: a remote <code>DATABASE_URL</code> makes <code>npm run dev</code> refuse; <code>ALLOW_REMOTE_DEV_DB=1</code> lets it through with no sweep.</li>
+</ul>
+<h3>Sprint 5</h3>
+<ul class="checks">
+  <li class="done">5.1 <code>scripts/export-papers.ts</code> + <code>papers:export</code> for the five (rows + blobs, follows <code>parent_run_id</code> for chunk/outline).</li>
+  <li class="done">5.2 <code>scripts/import-papers.ts</code> + <code>papers:import</code> (one transaction per paper, sha-verified blobs, links <code>manuscript_dir</code>). Verified locally against a scratch PGlite; the prod run is 5.4.</li>
+  <li>5.3 Vercel Web Analytics if it stays one step, else skip and note.</li>
+  <li>5.4 Prod: migrate to 0005 → <code>catalog:sync</code> → <code>papers:import</code> → exactly five public; Supabase advisors clean on security.</li>
+  <li>5.5 Firewall rate-limit rule on <code>/api/papers/*/chat</code> and <code>/api/mcp</code>, confirmed with Kyle, before promoting.</li>
+  <li>5.6 Preview deploy + smoke, then (Kyle confirms) promote and smoke prod; update <code>~/claude-ops/monument/projects/gpe/STATE.md</code>.</li>
+  <li>5.7 Prod smoke list (health with 6 migrations, public pages, explorer and PDF range request, one chat turn, signed-out/in checks, agent API, sitemap/robots/og:image, README commands); <code>s5_prod_*.webp</code> added here.</li>
+  <li>5.8 README "Deploy (Vercel)" section.</li>
+  <li>Verification: import counts match export; advisors show no RLS-disabled tables; firewall rule active; <code>vercel env ls</code> complete; lint/typecheck/tests green on the deployed commit.</li>
+</ul>
+<h3>Open questions</h3>
+<ol>
+  <li><b>Hero headline copy.</b> "OpenAI wrote 721 math papers" vs the repo's own framing ("produced by an unnamed internal OpenAI model"). Keep the storyboard line? (Shipped locally with the storyboard line.)</li>
+  <li><b>Request-a-map address.</b> <code>kyle@monumentlabs.io</code> or a GPE-specific inbox? (Shipped locally with <code>kyle@monumentlabs.io</code>.)</li>
+  <li>From the env table: prod runs share the chat gateway key, so flagship runs need a separate key or run locally and import.</li>
+</ol>
+
+</main>
+</body>
+</html>

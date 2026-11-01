@@ -1,0 +1,58 @@
+{
+  "number": 49,
+  "code": "049",
+  "title": "A stable-coordinate counterexample in four variables",
+  "description": "Constructs a polynomial in four complex variables that is not a coordinate but becomes one after adjoining a single variable, disproving the Stable Coordinate c",
+  "discipline": "Algebraic and complex geometry",
+  "disciplineSlug": "algebraic-and-complex-geometry",
+  "members": 2,
+  "hasLean": true,
+  "digested": [
+    {
+      "slug": "noncoordinate",
+      "dir": "An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026",
+      "counts": {
+        "nodes": 12,
+        "sections": 4,
+        "novel": 1,
+        "friction": 12
+      }
+    }
+  ],
+  "flagship": {
+    "rank": 5,
+    "reason": "Digested. Short counterexample; Lean."
+  },
+  "manuscripts": [
+    {
+      "dir": "A-stable-coordinate-that-is-not-a-coordinate-in-four-variables-October-5-2026",
+      "title": "A stable coordinate that is not a coordinate in four variables",
+      "abstract": "We construct an explicit degree-five polynomial over $\\mathbf C$ that is not a coordinate in four variables but becomes one after adjoining a single variable. This gives a counterexample to the stable",
+      "publishedOn": "2026-10-05",
+      "pdfUrl": "https://github.com/openai/math/blob/main/preprints/A-stable-coordinate-that-is-not-a-coordinate-in-four-variables-October-5-2026/stable-coordinate-four-variables.pdf",
+      "sourceUrl": "https://github.com/openai/math/tree/main/preprints/A-stable-coordinate-that-is-not-a-coordinate-in-four-variables-October-5-2026/build",
+      "readmeUrl": "https://github.com/openai/math/tree/main/preprints/A-stable-coordinate-that-is-not-a-coordinate-in-four-variables-October-5-2026",
+      "hasLean": true
+    },
+    {
+      "dir": "An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026",
+      "title": "An explicit noncoordinate polynomial with affine three-space zero fibre",
+      "abstract": "We construct an explicit counterexample to the Abhyankar–Sathaye conjecture: a noncoordinate polynomial in four complex variables whose zero fibre is affine three-space. Adjoining variables gives coun",
+      "publishedOn": "2026-09-24",
+      "pdfUrl": "https://github.com/openai/math/blob/main/preprints/An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026/paper.pdf",
+      "sourceUrl": "https://github.com/openai/math/tree/main/preprints/An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026/build",
+      "readmeUrl": "https://github.com/openai/math/tree/main/preprints/An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026",
+      "hasLean": true,
+      "digest": {
+        "slug": "noncoordinate",
+        "dir": "An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026",
+        "counts": {
+          "nodes": 12,
+          "sections": 4,
+          "novel": 1,
+          "friction": 12
+        }
+      }
+    }
+  ]
+}
