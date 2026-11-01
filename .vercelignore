@@ -1,0 +1,7 @@
+# Local-only: dev data archive, build output, plan docs
+.data
+.output
+.nuxt
+node_modules
+docs
+.env*
