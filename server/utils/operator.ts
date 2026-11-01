@@ -40,6 +40,9 @@ export function authMode(env: OperatorEnv = readEnv()): AuthMode {
  *  - /api/runs/:id/events: the sandbox agent's callback, authorized by the per-run bearer token.
  *  - /api/papers/:slug/chat: public for readers, bounded by chatLimits.ts instead.
  *  - /api/session/*: signing in and out.
+ * Reads (GET/HEAD) are open except OPERATOR_READS: the admin APIs, the corpus and run pages' data. Per-paper
+ * visibility (private papers 404 for the public) depends on the row, so handlers check it with canSeePaper.
+ * OPTIONS stays open.
  */
 const OPEN_WRITES: RegExp[] = [
   /^\/api\/inngest\/?$/,
@@ -48,10 +51,15 @@ const OPEN_WRITES: RegExp[] = [
   /^\/api\/papers\/[^/]+\/chat\/?$/,
   /^\/api\/session\/(login|logout)\/?$/
 ]
-const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+const OPERATOR_READS: RegExp[] = [
+  /^\/api\/admin(\/|$)/,
+  /^\/api\/corpus(\/|$)/,
+  /^\/api\/runs(\/|$)/
+]
 
 export function needsOperator(method: string, pathname: string) {
-  if (READ_METHODS.has(method.toUpperCase())) {
+  const m = method.toUpperCase()
+  if (m === 'OPTIONS') {
     return false
   }
   // Collapse `//` and decode so `/api//papers` or `/api/%70apers` can't slip past the prefix check.
@@ -64,6 +72,9 @@ export function needsOperator(method: string, pathname: string) {
   path = path.replace(/\/{2,}/g, '/').toLowerCase()
   if (!path.startsWith('/api/')) {
     return false
+  }
+  if (m === 'GET' || m === 'HEAD') {
+    return OPERATOR_READS.some(re => re.test(path))
   }
   return !OPEN_WRITES.some(re => re.test(path))
 }

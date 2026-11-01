@@ -1,13 +1,11 @@
-import { eq } from 'drizzle-orm'
 import { createPaperSchema } from '#shared/schemas'
-import { useDb } from '../db'
-import { papers } from '../db/schema'
 import { SourceError, sourceRef, summarize } from '../pipeline/sources'
 import type { SourceFile } from '../pipeline/sources'
 import { filesFromUpload } from '../pipeline/sources/upload'
 import { storeSources } from '../utils/sourceStore'
 import { startRun } from '../utils/dispatch'
 import { appendEvent, createRun } from '../utils/runs'
+import { must, useSupabase } from '../utils/supabase'
 
 /**
  * JSON `{ title, slug, source, profile, method, budgetUsd }`, or multipart for uploads:
@@ -51,25 +49,28 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: err instanceof Error ? err.message : 'Bad source' })
   }
 
-  const db = await useDb()
-  const [taken] = await db.select({ id: papers.id }).from(papers).where(eq(papers.slug, body.slug))
-  if (taken) {
-    throw createError({ statusCode: 409, statusMessage: `The slug "${body.slug}" is taken` })
+  const supa = useSupabase()
+  // papers.slug is unique: a taken slug is a 23505 on insert (one statement, no check-then-insert race).
+  let paperId: string
+  try {
+    paperId = must(await supa.from('papers').insert({
+      slug: body.slug,
+      title: body.title,
+      source_kind: body.source.kind,
+      source_ref: ref
+    }).select('id').single()).id
+  } catch (err) {
+    if ((err as { code?: string }).code === '23505') {
+      throw createError({ statusCode: 409, statusMessage: `The slug "${body.slug}" is taken` })
+    }
+    throw err
   }
-
-  const [paper] = await db.insert(papers).values({
-    slug: body.slug,
-    title: body.title,
-    sourceKind: body.source.kind,
-    sourceRef: ref
-  }).returning({ id: papers.id })
-  const paperId = paper!.id
   if (uploaded) {
     await storeSources(paperId, uploaded)
   }
 
   const runId = await createRun({ paperId, profile: body.profile, method: body.method, budgetUsd: body.budgetUsd })
-  await db.update(papers).set({ latestRunId: runId, updatedAt: new Date() }).where(eq(papers.id, paperId))
+  must(await supa.from('papers').update({ latest_run_id: runId, updated_at: new Date().toISOString() }).eq('id', paperId))
   await appendEvent(runId, 'run', 'info', `queued · ${body.source.kind} ${ref} · ${body.profile} · ${body.method} · budget $${body.budgetUsd}`)
 
   // Inngest when INNGEST_EVENT_KEY is set or outside dev, else LocalRunner in-process (not awaited).

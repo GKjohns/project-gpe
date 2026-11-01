@@ -1,11 +1,10 @@
-import { desc, inArray, sql } from 'drizzle-orm'
 import type { CorpusResponse, CorpusRow, CorpusRun } from '#shared/corpus'
 import { corpusPaperSlugs } from '#shared/corpus'
 import type { StructureMethod } from '#shared/types'
 import { ACTIVE_RUN_STATUSES } from '#shared/runs'
-import { useDb } from '../db'
-import { papers, runs } from '../db/schema'
-import type { RunRow } from '../db/schema'
+import { runRow } from '../utils/rows'
+import type { RunRow } from '../utils/rows'
+import { must, selectAll, useSupabase } from '../utils/supabase'
 import { defaultMethodFor, defaultProfileFor } from '../utils/aiModels'
 import { corpusManifest } from '../utils/corpus'
 
@@ -24,12 +23,16 @@ function pickRun(candidates: RunRow[]): RunRow | undefined {
 
 /** Manifest joined with the representative run per entry and method. */
 export default defineEventHandler(async (): Promise<CorpusResponse> => {
-  const db = await useDb()
+  const supa = useSupabase()
   const slugs = corpusManifest.entries.flatMap(e => METHODS.flatMap(m => corpusPaperSlugs(e, m)))
-  const paperRows = await db.select({ id: papers.id, slug: papers.slug, hasDigest: sql<boolean>`${papers.digest} is not null` }).from(papers).where(inArray(papers.slug, slugs))
+  // has_digest from the stats view, so no digest is downloaded.
+  const paperRows = (must(await supa.from('paper_digest_stats').select('id, slug, has_digest').in('slug', slugs)))
+    .map(p => ({ id: p.id!, slug: p.slug!, hasDigest: !!p.has_digest }))
   const bySlug = new Map(paperRows.map(p => [p.slug, p]))
+  const paperIds = paperRows.map(p => p.id)
   const runRows = paperRows.length
-    ? await db.select().from(runs).where(inArray(runs.paperId, paperRows.map(p => p.id))).orderBy(desc(runs.startedAt))
+    ? (await selectAll((from, to) => supa.from('runs').select('*').in('paper_id', paperIds)
+        .order('started_at', { ascending: false }).order('id').range(from, to))).map(runRow)
     : []
   const byId = new Map(runRows.map(r => [r.id, r]))
 

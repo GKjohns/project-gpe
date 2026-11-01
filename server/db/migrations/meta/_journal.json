@@ -29,6 +29,20 @@
       "when": 1793329428447,
       "tag": "0003_public_canonical_papers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793554757668,
+      "tag": "0004_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793554758128,
+      "tag": "0005_rls",
+      "breakpoints": true
     }
   ]
 }

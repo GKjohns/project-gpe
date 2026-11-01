@@ -1,15 +1,16 @@
-import { eq } from 'drizzle-orm'
 import type { PaperResponse } from '#shared/api'
-import { useDb } from '../../db'
-import { papers } from '../../db/schema'
 import { toyDigest } from '../../fixtures/toy-digest'
+import { manuscriptEntry } from '../../catalog/query'
+import { canSeePaper, loadCatalog } from '../../utils/agentApi'
+import { paperRow } from '../../utils/rows'
+import { must, useSupabase } from '../../utils/supabase'
 
 // A static papers/toy.* route would shadow every /api/papers/toy/* path (no router backtracking), so the
 // dev toy fixture lives here: a real `toy` row (e.g. from the corpus) still wins.
 export default defineEventHandler(async (event): Promise<PaperResponse> => {
   const slug = getRouterParam(event, 'slug') ?? ''
-  const db = await useDb()
-  const [row] = await db.select().from(papers).where(eq(papers.slug, slug))
+  const found = must(await useSupabase().from('papers').select('*').eq('slug', slug).maybeSingle())
+  const row = found ? paperRow(found) : null
   if (!row && import.meta.dev && slug === 'toy') {
     return {
       paper: {
@@ -25,7 +26,8 @@ export default defineEventHandler(async (event): Promise<PaperResponse> => {
       digest: toyDigest
     }
   }
-  if (!row) {
+  // A private paper is the same 404 as a missing one unless the operator asks.
+  if (!row || !(await canSeePaper(event, row))) {
     throw createError({ statusCode: 404, statusMessage: `No paper "${slug}"` })
   }
   return {
@@ -39,6 +41,7 @@ export default defineEventHandler(async (event): Promise<PaperResponse> => {
       tier: row.tier,
       latestRunId: row.latestRunId
     },
-    digest: row.digest ?? null
+    digest: row.digest ?? null,
+    catalog: row.manuscriptDir ? manuscriptEntry(await loadCatalog(), row.manuscriptDir) : null
   }
 })

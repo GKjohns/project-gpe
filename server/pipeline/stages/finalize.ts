@@ -1,17 +1,20 @@
-import { asc, eq, sql } from 'drizzle-orm'
 import { goldenDiff, goldenDiffCount } from '#shared/corpus'
 import type { Outline, RunProgress, Skeleton } from '#shared/pipeline'
 import { RUN_STAGES } from '#shared/pipeline'
-import type { PaperDigest, PaperFigure, PaperLabel, PaperRender, ProofNode, RunMetrics, RunStage } from '#shared/types'
-import { useDb } from '../../db'
-import { papers, reviewItems, runEvents, runs, sources } from '../../db/schema'
+import type { PaperDigest, PaperFigure, PaperLabel, PaperRender, PaperSummary, ProofNode, RunMetrics, RunStage } from '#shared/types'
+import { PROFILES } from '../../utils/aiModels'
 import { goldenForPaper } from '../../utils/corpus'
+import type { Json } from '#supabase/database'
 import { appendEvent, getRun, patchProgress, setStage } from '../../utils/runs'
+import { loadSourceText } from '../../utils/sourceStore'
+import { must, selectAll, useSupabase } from '../../utils/supabase'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { rootIds } from '../dag'
 import { extractLabels } from '../latex/equations'
 import type { PaperLabels } from '../latex/equations'
 import { statementIds } from '../nodes'
+import { getPaper } from '../papers'
+import { loadSummaryCatalog, runSummary } from '../summary'
 import { blobUrl } from '../../utils/blobs'
 import type { ClassifyOutput } from './classify'
 import type { FiguresOutput } from './figures'
@@ -169,6 +172,26 @@ export function buildDigest(input: {
   }
 }
 
+/**
+ * Puts the summary on the digest; any failure is reported through `warn` and the digest goes out without one
+ * (the overview falls back), so a summary never fails a run. Returns the call's cost (0 when skipped).
+ */
+export async function attachSummary(
+  digest: PaperDigest,
+  write: () => Promise<{ summary: PaperSummary, cost_usd: number }>,
+  warn: (message: string) => Promise<unknown>
+): Promise<number> {
+  try {
+    const { summary, cost_usd } = await write()
+    digest.summary = summary
+    return cost_usd
+  } catch (err) {
+    delete digest.summary
+    await warn(`finalize · summary skipped: ${(err as Error).message}`)
+    return 0
+  }
+}
+
 export const finalizeStage: StageFn = async (ctx) => {
   await setStage(ctx.runId, 'finalize')
   const classified = await stageOutputs.get<ClassifyOutput>(ctx.runId, 'classify')
@@ -180,15 +203,18 @@ export const finalizeStage: StageFn = async (ctx) => {
   const nodes: ProofNode[] = structuredClone(classified.nodes)
   const flagged = flagFriction(nodes, outline, skeleton)
 
-  const db = await useDb()
+  const supa = useSupabase()
   const run = await getRun(ctx.runId)
-  const [paper] = await db.select().from(papers).where(eq(papers.id, ctx.paperId))
+  const paper = await getPaper(ctx.paperId)
   if (!run || !paper) {
     throw new Error('run or paper row is gone')
   }
-  const events = await db.select({ stage: runEvents.stage, message: runEvents.message, data: runEvents.data, ts: runEvents.ts })
-    .from(runEvents).where(eq(runEvents.runId, ctx.runId)).orderBy(asc(runEvents.id))
-  const [items] = await db.select({ n: sql<number>`count(*)::int` }).from(reviewItems).where(eq(reviewItems.runId, ctx.runId))
+  // Agent runs log well over PostgREST's 1000-row cap.
+  const events = (await selectAll(async (from, to) => await supa.from('run_events').select('stage, message, data, ts')
+    .eq('run_id', ctx.runId).order('id').range(from, to)))
+    .map(e => ({ stage: e.stage, message: e.message, data: e.data as Record<string, unknown> | null, ts: new Date(e.ts) }))
+  const { count: reviewCount, error: countError } = await supa.from('review_items').select('id', { count: 'exact', head: true }).eq('run_id', ctx.runId)
+  must({ data: null, error: countError })
   const now = new Date()
   const counts = {
     statements_in_source: skeleton.statements.length,
@@ -198,7 +224,7 @@ export const finalizeStage: StageFn = async (ctx) => {
     refs_mechanical: nodes.reduce((s, n) => s + n.deps_paper.length, 0),
     refs_inferred: nodes.reduce((s, n) => s + n.deps_inferred.length, 0)
   }
-  const metrics = computeMetrics({ progress: run.progress, events, startedAt: run.startedAt, now, costUsd: run.costUsd, reviewItems: items?.n ?? 0, counts })
+  const metrics = computeMetrics({ progress: run.progress, events, startedAt: run.startedAt, now, costUsd: run.costUsd, reviewItems: reviewCount ?? 0, counts })
   const golden = goldenForPaper(paper.slug)
   if (golden) {
     metrics.golden_diff = goldenDiff(golden, nodes)
@@ -210,7 +236,7 @@ export const finalizeStage: StageFn = async (ctx) => {
   // Cross-ref index from the stored sources (not a chunk output), so a finalize-only retry backfills older digests.
   let refs: PaperLabels | undefined
   try {
-    const files = await db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, ctx.paperId))
+    const files = await loadSourceText(ctx.paperId)
     refs = files.length ? extractLabels(files, skeleton) : undefined
   } catch (err) {
     await appendEvent(ctx.runId, 'finalize', 'warn', `finalize · equation index skipped: ${(err as Error).message}`)
@@ -221,9 +247,21 @@ export const finalizeStage: StageFn = async (ctx) => {
     figureLabels(refs.labels, reader.figures, new Map(render.figures.map(f => [f.id, f.labels])))
   }
   const digest = buildDigest({ paper, skeleton, nodes, runId: ctx.runId, generatedAt: now.toISOString(), metrics, refs, reader })
+  // One short call on the profile's strong model. Its cost lands on the run; metrics were taken just before, so add it.
+  const model = PROFILES[run.profile].summary
+  const summaryCost = await attachSummary(digest,
+    async () => runSummary(digest, { model, catalog: await loadSummaryCatalog(paper.manuscriptDir), runId: ctx.runId }),
+    message => appendEvent(ctx.runId, 'finalize', 'warn', message))
+  if (summaryCost) {
+    metrics.cost_usd = Math.round((metrics.cost_usd + summaryCost) * 1e6) / 1e6
+    const fin = metrics.per_stage.finalize ??= { ms: 0, cost_usd: 0, calls: 0 }
+    fin.cost_usd = Math.round((fin.cost_usd + summaryCost) * 1e6) / 1e6
+    fin.calls++
+    metrics.calls++
+  }
 
-  await db.update(papers).set({ digest, latestRunId: ctx.runId, updatedAt: now }).where(eq(papers.id, ctx.paperId))
-  await db.update(runs).set({ metrics }).where(eq(runs.id, ctx.runId))
+  must(await supa.from('papers').update({ digest: digest as unknown as Json, latest_run_id: ctx.runId, updated_at: now.toISOString() }).eq('id', ctx.paperId))
+  must(await supa.from('runs').update({ metrics: metrics as unknown as Json }).eq('id', ctx.runId))
   await patchProgress(ctx.runId, { digest_nodes: nodes.length, friction_flags: flagged })
   await appendEvent(ctx.runId, 'finalize', 'info',
     `finalize · digest written: ${nodes.length} nodes, ${digest.sections.length} sections, roots ${digest.root_ids.join(', ') || 'none'} · ${flagged} friction rows from outline flags · $${metrics.cost_usd.toFixed(2)} · ${metrics.calls} calls`,

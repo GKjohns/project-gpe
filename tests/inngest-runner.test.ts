@@ -1,20 +1,16 @@
-import { eq } from 'drizzle-orm'
 import { NonRetriableError } from 'inngest'
-import { beforeAll, describe, expect, it } from 'vitest'
-import { createDb, setDb } from '../server/db'
-import type { Db } from '../server/db'
-import { papers, runEvents } from '../server/db/schema'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { InngestRunner } from '../server/pipeline/runners/inngest'
 import { createRun, patchProgress, setStatus } from '../server/utils/runs'
+import { setSupabase } from '../server/utils/supabase'
+import { createFakeSupabase } from './helpers/fakeSupabase'
 
-let db: Db
-let paperId: string
+let supa: ReturnType<typeof createFakeSupabase>
+const paperId = '00000000-0000-4000-8000-000000000002'
 
-beforeAll(async () => {
-  ({ db } = await createDb({ memory: true }))
-  setDb(db)
-  const [row] = await db.insert(papers).values({ slug: 'inngest', title: 'Inngest', sourceKind: 'upload', sourceRef: 'x.tex' }).returning()
-  paperId = row!.id
+beforeEach(() => {
+  supa = createFakeSupabase({ papers: [{ id: paperId, slug: 'inngest', title: 'Inngest', source_kind: 'upload', source_ref: 'x.tex', authors: [], tier: null, digest: null, latest_run_id: null, public: false, manuscript_dir: null, created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z' }] })
+  setSupabase(supa.client)
 })
 
 /** Stand-in for Inngest's step tools: runs steps inline (memoizing by id like a replay would) and records waits. */
@@ -53,7 +49,7 @@ describe('InngestRunner', () => {
     const fake = fakeStep()
     const step = new InngestRunner(fake.step as never, runId)
     expect(await step.run('fetch', async () => 3)).toBe(3)
-    const events = await db.select().from(runEvents).where(eq(runEvents.runId, runId)).orderBy(runEvents.id)
+    const events = supa.tables.run_events!.filter(e => e.run_id === runId).sort((a, b) => Number(a.id) - Number(b.id))
     expect(events.map(e => e.message)).toEqual(['fetch started', 'fetch finished'])
     expect(fake.ids).toEqual(['fetch'])
   })

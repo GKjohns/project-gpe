@@ -1,7 +1,7 @@
 // The guard end to end with OPERATOR_TOKEN set, on Nitro's own h3 (v1): sign in, cookie, guarded write, sign out.
 // vitest has no Nitro auto-imports, so the h3 helpers operator.ts uses are stubbed in as globals.
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import * as h3 from '../node_modules/@nuxt/nitro-server/node_modules/h3/dist/index.mjs'
+import * as h3 from 'h3' // the root h3 is pinned to Nitro's v1 (package.json)
 
 const TOKEN = 'test-operator-token-0123456789abcdef'
 

@@ -1,9 +1,10 @@
-import { desc } from 'drizzle-orm'
 import type { PaperListItem } from '#shared/api'
+import { familyCode } from '#shared/catalog'
 import type { PaperDigest } from '#shared/types'
-import { useDb } from '../db'
-import { papers, runs } from '../db/schema'
-import { toyDigest } from '../fixtures/toy-digest'
+import { toyDigest } from '../../fixtures/toy-digest'
+import { runRow } from '../../utils/rows'
+import type { PaperRow } from '../../utils/rows'
+import { selectAll, useSupabase } from '../../utils/supabase'
 
 function countsOf(digest: PaperDigest | null): PaperListItem['counts'] {
   if (!digest) {
@@ -17,24 +18,37 @@ function countsOf(digest: PaperDigest | null): PaperListItem['counts'] {
   }
 }
 
-// Library list: every paper with its most recent run. Small enough to join in memory for v1.
+// Operator library: every paper, public or not, with its most recent run and family. Small enough to join in memory.
+// Digest counts come from the paper_digest_stats view, so no digest is downloaded. The public list is GET /api/papers.
 export default defineEventHandler(async (): Promise<PaperListItem[]> => {
-  const db = await useDb()
-  const rows = await db.select().from(papers).orderBy(desc(papers.createdAt))
-  const runRows = await db.select({
-    id: runs.id,
-    paperId: runs.paperId,
-    status: runs.status,
-    stage: runs.stage,
-    profile: runs.profile,
-    structureMethod: runs.structureMethod,
-    costUsd: runs.costUsd,
-    startedAt: runs.startedAt,
-    finishedAt: runs.finishedAt,
-    error: runs.error,
-    progress: runs.progress,
-    metrics: runs.metrics
-  }).from(runs).orderBy(desc(runs.startedAt))
+  const supa = useSupabase()
+  const [paperRows, statRows, manuscriptRows, runRows] = await Promise.all([
+    selectAll((from, to) => supa.from('papers')
+      .select('id, slug, title, authors, source_kind, source_ref, tier, public, manuscript_dir, created_at')
+      .order('created_at', { ascending: false }).order('id').range(from, to)),
+    selectAll((from, to) => supa.from('paper_digest_stats').select('id, has_digest, nodes, sections, novel, friction').order('id').range(from, to)),
+    selectAll((from, to) => supa.from('manuscripts').select('dir, family_number').order('dir').range(from, to)),
+    selectAll((from, to) => supa.from('runs').select('*').order('started_at', { ascending: false }).order('id').range(from, to))
+      .then(rs => rs.map(runRow))
+  ])
+  const statsOf = new Map(statRows.map(s => [s.id!, s]))
+  const familyOf = new Map(manuscriptRows.map(m => [m.dir, m.family_number]))
+  const rows = paperRows.map((p) => {
+    const s = statsOf.get(p.id)
+    return {
+      id: p.id,
+      slug: p.slug,
+      title: p.title,
+      authors: p.authors,
+      sourceKind: p.source_kind as PaperRow['sourceKind'],
+      sourceRef: p.source_ref,
+      tier: p.tier,
+      public: p.public,
+      manuscriptDir: p.manuscript_dir,
+      createdAt: new Date(p.created_at),
+      counts: s?.has_digest ? { nodes: s.nodes ?? 0, sections: s.sections ?? 0, novel: s.novel ?? 0, friction: s.friction ?? 0 } : null
+    }
+  })
 
   const latest = new Map<string, (typeof runRows)[number]>()
   for (const r of runRows) {
@@ -45,6 +59,7 @@ export default defineEventHandler(async (): Promise<PaperListItem[]> => {
 
   const items: PaperListItem[] = rows.map((p) => {
     const r = latest.get(p.id)
+    const family = p.manuscriptDir ? familyOf.get(p.manuscriptDir) : undefined
     return {
       id: p.id,
       slug: p.slug,
@@ -54,7 +69,9 @@ export default defineEventHandler(async (): Promise<PaperListItem[]> => {
       sourceRef: p.sourceRef,
       tier: p.tier,
       createdAt: p.createdAt.toISOString(),
-      counts: countsOf(p.digest ?? null),
+      counts: p.counts,
+      public: p.public,
+      ...(family ? { family: { number: family, code: familyCode(family) } } : {}),
       run: r
         ? {
             id: r.id,
@@ -86,6 +103,7 @@ export default defineEventHandler(async (): Promise<PaperListItem[]> => {
       createdAt: toyDigest.generated_at,
       counts: countsOf(toyDigest),
       run: null,
+      public: true,
       fixture: true
     })
   }

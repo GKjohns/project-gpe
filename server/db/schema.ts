@@ -1,6 +1,8 @@
-// Contract: docs/20261029_digest_v1/implementation_plan.md § DB schema. Change the plan first.
+// Contract: docs/20261029_digest_v1/implementation_plan.md § DB schema; the catalog tables (families, manuscripts,
+// catalog_meta, papers.manuscript_dir) are docs/20261101_openai_explorer/implementation_plan.md § Data model.
+// Change the plan first.
 import { sql } from 'drizzle-orm'
-import { bigserial, boolean, customType, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigserial, boolean, customType, date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import type { PaperDigest, Profile, RunMetrics, RunStage, RunStatus, StructureMethod } from '#shared/types'
 import type { RunProgress } from '#shared/pipeline'
 import type { ReviewItemPayload } from '#shared/runs'
@@ -19,9 +21,12 @@ export const papers = pgTable('papers', {
   latestRunId: uuid('latest_run_id'),
   // Listed and queryable on the public agent API (/llms.txt, /api/v1, /api/mcp). Flip with `npm run paper:public`.
   public: boolean('public').notNull().default(false),
+  // openai/math manuscript this paper digests. Soft link (no FK) so catalog sync and data import can run in any order;
+  // set from source_ref by the sync.
+  manuscriptDir: text('manuscript_dir'),
   createdAt: tstz('created_at').notNull().defaultNow(),
   updatedAt: tstz('updated_at').notNull().defaultNow()
-})
+}, t => [index('papers_manuscript_idx').on(t.manuscriptDir)])
 
 export const sources = pgTable('sources', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -125,7 +130,41 @@ export const agentRequests = pgTable('agent_requests', {
   ref: text('ref')
 }, t => [index('agent_requests_at_idx').on(t.at)])
 
+// --- openai/math catalog (Nov 1): built from the repo index by server/catalog/sync.ts, zero model calls ---
+
+/** A result family: CONTENTS.md's bold entry. `number` 49 displays as '049'. */
+export const families = pgTable('families', {
+  number: integer('number').primaryKey(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  discipline: text('discipline').notNull(),
+  disciplineSlug: text('discipline_slug').notNull(),
+  position: integer('position').notNull(),
+  memberCount: integer('member_count').notNull(),
+  hasLean: boolean('has_lean').notNull().default(false),
+  reasoningTrace: text('reasoning_trace') // 'reasoning_traces/<file>.pdf'
+}, t => [index('families_discipline_idx').on(t.disciplineSlug)])
+
+/** One manuscript under preprints/<dir>/. */
+export const manuscripts = pgTable('manuscripts', {
+  dir: text('dir').primaryKey(),
+  familyNumber: integer('family_number').notNull().references(() => families.number),
+  position: integer('position').notNull(),
+  title: text('title').notNull(),
+  abstract: text('abstract').notNull(),
+  pdfFile: text('pdf_file').notNull(),
+  publishedOn: date('published_on'), // from the dir's '-October-25-2026' suffix
+  hasLean: boolean('has_lean').notNull().default(false)
+}, t => [index('manuscripts_family_idx').on(t.familyNumber)])
+
+export const catalogMeta = pgTable('catalog_meta', {
+  key: text('key').primaryKey(), // 'openai-math'
+  value: jsonb('value').$type<{ sha: string, syncedAt: string, counts: Record<string, number> }>().notNull()
+})
+
 export type PaperRow = typeof papers.$inferSelect
+export type FamilyRow = typeof families.$inferSelect
+export type ManuscriptRow = typeof manuscripts.$inferSelect
 export type RunRow = typeof runs.$inferSelect
 export type RunEventRow = typeof runEvents.$inferSelect
 export type ReviewItemRow = typeof reviewItems.$inferSelect

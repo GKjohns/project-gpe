@@ -1,12 +1,10 @@
-import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { RUN_STAGES } from '#shared/pipeline'
 import type { RunStage } from '#shared/types'
-import { useDb } from '../../../db'
-import { papers } from '../../../db/schema'
 import { startRun } from '../../../utils/dispatch'
 import { appendEvent, createRun, getRun, patchProgress } from '../../../utils/runs'
 import { stageOutputs } from '../../../utils/stageOutputs'
+import { must, useSupabase } from '../../../utils/supabase'
 
 // forceReview (dev only): critique adds a low-confidence test item if the model asks nothing, so the review queue can be exercised.
 // forceRenderFail (dev only): render skips the compile as if it failed, so the reader's fallbacks can be exercised.
@@ -42,8 +40,7 @@ export default defineEventHandler(async (event) => {
   if (forceRenderFail && import.meta.dev) {
     await patchProgress(runId, { force_render_fail: true })
   }
-  const db = await useDb()
-  await db.update(papers).set({ latestRunId: runId, updatedAt: new Date() }).where(eq(papers.id, parent.paperId))
+  must(await useSupabase().from('papers').update({ latest_run_id: runId, updated_at: new Date().toISOString() }).eq('id', parent.paperId))
   await appendEvent(runId, 'run', 'info', `re-run of ${parent.id.slice(0, 8)} from ${fromStage}${copied.length ? ` · reused stage_outputs.${copied.join(', ')}` : ''}`)
 
   await startRun(runId, parent.paperId)

@@ -4,9 +4,8 @@ import type { FormSubmitEvent, SelectMenuItem, TabsItem } from '@nuxt/ui'
 import { slugSchema } from '#shared/schemas'
 import type { Profile, StructureMethod } from '#shared/types'
 
+definePageMeta({ title: 'New paper' })
 useSeoMeta({ title: 'New paper' })
-// Operator only: everyone else is sent to /login first.
-definePageMeta({ middleware: 'operator' })
 
 type SourceKind = 'github' | 'arxiv' | 'upload'
 // defaultProfile / defaultMethod come from the server (aiModels.ts) for GitHub/arXiv; uploads are summarized here without them.
@@ -205,7 +204,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   submitting.value = true
   try {
     const res = await $fetch<{ runId: string, slug: string }>('/api/papers', { method: 'POST', body })
-    await navigateTo(`/papers/${res.slug}/run?run=${res.runId}`)
+    await navigateTo(`/admin/papers/${res.slug}/run?run=${res.runId}`)
   } catch (err) {
     const message = errorMessage(err)
     if (/slug/i.test(message)) {
@@ -222,7 +221,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   <UContainer class="py-10 max-w-3xl">
     <div class="mb-8">
       <UBreadcrumb
-        :items="[{ label: 'GPE', to: '/' }, { label: 'New paper' }]"
+        :items="[{ label: 'Admin', to: '/admin' }, { label: 'New paper' }]"
         class="mb-3"
       />
       <h1 class="text-2xl font-semibold text-highlighted">

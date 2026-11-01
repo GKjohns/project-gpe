@@ -1,17 +1,24 @@
 <script setup lang="ts">
+// Admin papers table (frame 08): every paper, public or not, with its latest run, family and Public switch.
+import type { TableColumn } from '@nuxt/ui'
 import type { PaperListItem } from '#shared/api'
 import type { RunStatus } from '#shared/types'
 
-useSeoMeta({ title: 'Papers' })
+definePageMeta({ title: 'Papers' })
+useSeoMeta({ title: 'Admin · Papers' })
 
-const { operator } = useOperator()
+const toast = useToast()
+const { syncing, syncCatalog } = useCatalogSync()
 
-const { data: papers, refresh } = await useFetch<PaperListItem[]>('/api/papers', { key: 'papers', default: () => [] })
+const { data: papers, refresh } = await useFetch<PaperListItem[]>('/api/admin/papers', { key: 'admin-papers', default: () => [] })
+
+// Public papers first (what readers see), then newest first as the API returns them.
+const rows = computed(() => [...papers.value].sort((a, b) => Number(b.public) - Number(a.public)))
 
 const ACTIVE: RunStatus[] = ['queued', 'running', 'waiting_review']
 const anyActive = computed(() => (papers.value ?? []).some(p => p.run && ACTIVE.includes(p.run.status)))
 
-// Re-poll while any card is mid-run.
+// Re-poll while any row is mid-run.
 let timer: ReturnType<typeof setInterval> | undefined
 watch(anyActive, (active) => {
   clearInterval(timer)
@@ -57,117 +64,160 @@ function runningLabel(r: NonNullable<PaperListItem['run']>) {
   return r.stage ? `running · ${r.stage}` : 'running'
 }
 
-function linkFor(p: PaperListItem) {
-  return p.counts ? `/${p.slug}` : `/papers/${p.slug}/run`
-}
-
-function sourceText(p: PaperListItem) {
-  if (p.sourceKind === 'arxiv') {
-    return `arXiv ${p.sourceRef}`
-  }
-  if (p.sourceKind === 'github') {
-    const m = p.sourceRef.match(/github\.com\/([^/]+\/[^/]+)/)
-    return m ? m[1] : 'GitHub'
-  }
-  return p.sourceRef || 'upload'
-}
-
 function formatMs(ms: number) {
   const s = Math.round(ms / 1000)
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
-function formatDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+function costText(p: PaperListItem) {
+  const r = p.run
+  if (r?.metrics?.calls) {
+    return `$${r.metrics.cost_usd.toFixed(2)} · ${formatMs(r.metrics.wallclock_ms)}`
+  }
+  // A re-run that only redid finalize has no spend of its own; its parents carry the cost.
+  if (r?.metrics) {
+    return 're-run · stages reused'
+  }
+  return r ? `$${r.costUsd.toFixed(2)} so far` : '—'
 }
+
+// Optimistic flip; on failure the toast says why and the refresh puts the switch back.
+const flipping = ref(new Set<string>())
+async function setPublic(p: PaperListItem, value: boolean) {
+  flipping.value.add(p.slug)
+  p.public = value
+  try {
+    await $fetch(`/api/papers/${p.slug}/public`, { method: 'POST', body: { public: value } })
+  } catch (err) {
+    toast.add({ title: `Could not change ${p.slug}`, description: (err as { statusMessage?: string }).statusMessage, color: 'error', icon: 'i-lucide-circle-alert' })
+  } finally {
+    flipping.value.delete(p.slug)
+    await refresh()
+  }
+}
+
+const columns: TableColumn<PaperListItem>[] = [
+  { id: 'paper', header: 'Paper' },
+  { id: 'family', header: 'Family' },
+  { id: 'tier', header: 'Tier' },
+  { id: 'state', header: 'State' },
+  { id: 'nodes', header: 'Nodes' },
+  { id: 'cost', header: 'Cost · wallclock' },
+  { id: 'public', header: 'Public' },
+  { id: 'actions' }
+]
 </script>
 
 <template>
-  <UContainer class="pb-16">
-    <UPageHeader
-      title="Project GPE"
-      description="Graphical Proof Explorer. A browsable map of each proof: paper structure, dependency edges, plain-English explanations, and a chat that cites nodes."
-      :links="[
-        { label: 'Corpus', to: '/corpus', color: 'neutral', variant: 'outline', icon: 'i-lucide-library' },
-        ...(operator ? [{ label: 'New paper', to: '/papers/new', icon: 'i-lucide-plus', color: 'primary' as const, variant: 'solid' as const }] : [])
-      ]"
-    />
+  <div class="space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-muted">
+        {{ papers.length }} papers · {{ papers.filter(p => p.public).length }} public
+      </p>
+      <div class="flex flex-wrap gap-2">
+        <UButton
+          label="Sync catalog"
+          icon="i-lucide-refresh-cw"
+          color="neutral"
+          variant="outline"
+          :loading="syncing"
+          @click="syncCatalog()"
+        />
+        <UButton
+          label="New paper"
+          icon="i-lucide-plus"
+          to="/admin/papers/new"
+        />
+      </div>
+    </div>
 
-    <UPageGrid class="mt-8">
-      <UPageCard
-        v-for="p in papers"
-        :key="p.slug"
-        :to="linkFor(p)"
-        variant="outline"
-        :ui="{ container: 'gap-y-3', title: 'text-base text-pretty', description: 'text-sm' }"
-      >
-        <template #header>
-          <div class="flex flex-wrap gap-1.5">
-            <UBadge
-              v-if="p.tier"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              :label="p.tier"
-            />
-            <UBadge
-              :color="state(p).color"
-              variant="subtle"
-              size="sm"
-              :icon="state(p).icon"
-              :label="state(p).label"
-              :ui="{ leadingIcon: p.run?.status === 'running' ? 'animate-spin' : '' }"
-            />
-            <UBadge
-              color="neutral"
-              variant="soft"
-              size="sm"
-              label="Lean: not aligned"
-            />
+    <UTable
+      :data="rows"
+      :columns="columns"
+      :get-row-id="(p: PaperListItem) => p.slug"
+      class="rounded-md border border-default"
+      :ui="{ td: 'py-2.5 px-3 text-sm', th: 'px-3' }"
+    >
+      <template #paper-cell="{ row: { original: p } }">
+        <div class="min-w-56 max-w-md whitespace-normal">
+          <div class="font-medium text-highlighted text-pretty">
+            {{ p.title }}
           </div>
-        </template>
-        <template #title>
-          {{ p.title }}
-        </template>
-        <template #description>
-          <span class="text-muted">
-            {{ [p.authors.join(', '), sourceText(p), formatDate(p.createdAt)].filter(Boolean).join(' · ') }}
-          </span>
-        </template>
-        <template #footer>
-          <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-            <template v-if="p.counts">
-              <span><b class="text-highlighted">{{ p.counts.nodes }}</b> nodes</span>
-              <span><b class="text-highlighted">{{ p.counts.sections }}</b> sections</span>
-              <span><b class="text-highlighted">{{ p.counts.novel }}</b> novel</span>
-              <span><b class="text-highlighted">{{ p.counts.friction }}</b> friction</span>
-            </template>
-            <span
-              v-if="p.run?.metrics?.calls"
-              class="text-dimmed"
-            >{{ formatMs(p.run.metrics.wallclock_ms) }} · ${{ p.run.metrics.cost_usd.toFixed(2) }} · {{ p.run.metrics.calls }} calls</span>
-            <!-- A re-run that only redid finalize has no spend of its own; its parents carry the cost. -->
-            <span
-              v-else-if="p.run?.metrics"
-              class="text-dimmed"
-            >re-run · earlier stages reused</span>
-            <span
-              v-else-if="p.run && !p.counts"
-              class="text-dimmed"
-            >{{ p.run.profile }} · {{ p.run.structureMethod }} · ${{ p.run.costUsd.toFixed(2) }} so far</span>
+          <div class="font-mono text-xs text-dimmed">
+            {{ p.slug }}<span v-if="p.fixture"> · fixture</span>
           </div>
-        </template>
-      </UPageCard>
-
-      <UPageCard
-        v-if="operator"
-        to="/papers/new"
-        variant="ghost"
-        icon="i-lucide-plus"
-        title="New paper"
-        description="Paste a GitHub directory or arXiv id, or upload .tex files."
-        class="border border-dashed border-accented"
-      />
-    </UPageGrid>
-  </UContainer>
+        </div>
+      </template>
+      <template #family-cell="{ row: { original: p } }">
+        <ULink
+          v-if="p.family"
+          :to="`/papers/${p.family.code}`"
+          class="font-mono"
+        >
+          {{ p.family.code }}
+        </ULink>
+        <span
+          v-else
+          class="text-dimmed"
+        >—</span>
+      </template>
+      <template #tier-cell="{ row: { original: p } }">
+        <UBadge
+          v-if="p.tier"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          :label="p.tier"
+        />
+      </template>
+      <template #state-cell="{ row: { original: p } }">
+        <UBadge
+          :color="state(p).color"
+          variant="subtle"
+          size="sm"
+          :icon="state(p).icon"
+          :label="state(p).label"
+          :ui="{ leadingIcon: p.run?.status === 'running' ? 'animate-spin' : '' }"
+        />
+      </template>
+      <template #nodes-cell="{ row: { original: p } }">
+        <span v-if="p.counts">{{ p.counts.nodes }}</span>
+        <span
+          v-else
+          class="text-dimmed"
+        >—</span>
+      </template>
+      <template #cost-cell="{ row: { original: p } }">
+        <span class="text-muted whitespace-nowrap">{{ costText(p) }}</span>
+      </template>
+      <template #public-cell="{ row: { original: p } }">
+        <USwitch
+          :model-value="p.public"
+          :disabled="p.fixture || flipping.has(p.slug)"
+          :aria-label="`Public: ${p.slug}`"
+          @update:model-value="(v: boolean) => setPublic(p, v)"
+        />
+      </template>
+      <template #actions-cell="{ row: { original: p } }">
+        <div class="flex justify-end gap-1">
+          <UButton
+            v-if="p.counts"
+            :to="`/${p.slug}`"
+            label="Open"
+            size="xs"
+            color="neutral"
+            variant="ghost"
+          />
+          <UButton
+            v-if="!p.fixture"
+            :to="`/admin/papers/${p.slug}/run`"
+            label="Run"
+            size="xs"
+            color="neutral"
+            variant="ghost"
+          />
+        </div>
+      </template>
+    </UTable>
+  </div>
 </template>

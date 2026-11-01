@@ -1,8 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Outline, Skeleton } from '#shared/pipeline'
 import type { ProofNode } from '#shared/types'
-import { createDb, setDb } from '../server/db'
-import { papers, sources } from '../server/db/schema'
 import { chunkLatex } from '../server/pipeline/latex/chunk'
 import { callObject } from '../server/pipeline/llm'
 import { statementIds } from '../server/pipeline/nodes'
@@ -14,6 +12,8 @@ import { depGraph, mentionsUnreffed, resolveStage } from '../server/pipeline/sta
 import type { ResolveOutput } from '../server/pipeline/stages/resolve'
 import { createRun, getRun, getRunView } from '../server/utils/runs'
 import { stageOutputs } from '../server/utils/stageOutputs'
+import { setSupabase } from '../server/utils/supabase'
+import { createFakeSupabase } from './helpers/fakeSupabase'
 import { readFixtureDir } from './fixtures/fetch-fixtures'
 
 vi.mock('../server/pipeline/llm', () => ({ callObject: vi.fn() }))
@@ -46,11 +46,11 @@ const newCtx = async (): Promise<RunContext> => {
 }
 
 beforeAll(async () => {
-  const { db } = await createDb({ memory: true })
-  setDb(db)
-  const [row] = await db.insert(papers).values({ slug: 'toy-tex', title: 'Toy', sourceKind: 'upload', sourceRef: 'main.tex' }).returning()
-  paperId = row!.id
-  await db.insert(sources).values(files.map(f => ({ paperId, path: f.path, content: f.content, bytes: f.content.length })))
+  const { client } = createFakeSupabase()
+  setSupabase(client)
+  const { data } = await client.from('papers').insert({ slug: 'toy-tex', title: 'Toy', source_kind: 'upload', source_ref: 'main.tex' }).select('id').single()
+  paperId = data!.id
+  await client.from('sources').insert(files.map(f => ({ paper_id: paperId, path: f.path, content: f.content, bytes: f.content.length })))
 })
 
 beforeEach(() => {

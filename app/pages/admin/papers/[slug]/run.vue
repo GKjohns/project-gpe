@@ -5,13 +5,15 @@ import { ACTIVE_RUN_STATUSES } from '#shared/runs'
 import type { RunResponse } from '#shared/runs'
 import type { RunStatus } from '#shared/types'
 
+definePageMeta({ title: 'Run' })
+
 const route = useRoute()
 const slug = computed(() => String(route.params.slug))
 const toast = useToast()
 const { operator } = useOperator()
 
 // ?run=<id> pins a run; otherwise the paper's latest.
-const { data: paperData } = await useFetch<{ paper: { latestRunId: string | null, title: string } }>(() => `/api/papers/${slug.value}`, {
+const { data: paperData } = await useFetch<{ paper: { latestRunId: string | null, title: string }, digest: { summary?: unknown } | null }>(() => `/api/papers/${slug.value}`, {
   immediate: !route.query.run
 })
 const runId = computed(() => (route.query.run as string | undefined) ?? paperData.value?.paper.latestRunId ?? null)
@@ -118,6 +120,24 @@ async function relabel() {
   }
 }
 
+// Backfill for digests finalized before the overview summary existed (or to redo it): one model call.
+const summarizing = ref(false)
+const summaryWritten = ref(false)
+const hasSummary = computed(() => summaryWritten.value || !!paperData.value?.digest?.summary)
+async function writeSummary() {
+  summarizing.value = true
+  try {
+    const res = await $fetch<{ summary: { headline: string }, cost_usd: number, model: string }>(`/api/papers/${slug.value}/summary`, { method: 'POST' })
+    toast.add({ title: 'Summary written', description: `${res.summary.headline} · $${res.cost_usd.toFixed(3)} · ${res.model}`, icon: 'i-lucide-text-quote', color: 'success' })
+    summaryWritten.value = true
+    clearNuxtData(`paper:${slug.value}`)
+  } catch (err) {
+    toast.add({ title: 'Could not write the summary', description: (err as { statusMessage?: string }).statusMessage, color: 'error' })
+  } finally {
+    summarizing.value = false
+  }
+}
+
 const rerunItems = computed<DropdownMenuItem[]>(() => [
   { type: 'label', label: 'Re-run from stage (earlier outputs reused)' },
   ...RUN_STAGES.map(stage => ({ label: stage, icon: 'i-lucide-rotate-ccw', onSelect: () => rerun(stage) }))
@@ -127,7 +147,7 @@ const rerunItems = computed<DropdownMenuItem[]>(() => [
 <template>
   <UContainer class="py-8">
     <UBreadcrumb
-      :items="[{ label: 'GPE', to: '/' }, { label: title }, { label: 'Run' }]"
+      :items="[{ label: 'Admin', to: '/admin' }, { label: title }, { label: 'Run' }]"
       class="mb-4"
     />
 
@@ -203,6 +223,20 @@ const rerunItems = computed<DropdownMenuItem[]>(() => [
                 :loading="relabeling"
                 data-relabel
                 @click="relabel"
+              />
+            </UTooltip>
+            <UTooltip
+              v-if="(run.status === 'complete' || run.status === 'structure_partial') && data?.paper?.hasDigest"
+              text="Write the overview's headline and three-sentence summary (one model call on the profile's summary model)"
+            >
+              <UButton
+                :label="hasSummary ? 'Rewrite summary' : 'Write summary'"
+                icon="i-lucide-text-quote"
+                color="neutral"
+                variant="outline"
+                :loading="summarizing"
+                data-summary
+                @click="writeSummary"
               />
             </UTooltip>
             <UTooltip

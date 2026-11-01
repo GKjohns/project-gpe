@@ -398,7 +398,7 @@ onBeforeUnmount(() => {
 })
 
 const sourceLink = computed(() => sourceUrl(paper.value, { section: '', file: '', line: 1 }))
-const runLink = computed(() => `/papers/${paper.value?.slug}/run`)
+const runLink = computed(() => `/admin/papers/${paper.value?.slug}/run`)
 </script>
 
 <template>

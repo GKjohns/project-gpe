@@ -4,18 +4,16 @@
  * supports, and a confidence. One call per figure (fan-out of 3), skip-if-present, cost through callObject.
  * Figures without an image keep their caption and get no model call.
  */
-import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Skeleton } from '#shared/pipeline'
 import type { FigureKind, PaperFigure, PaperSection, ProofNode } from '#shared/types'
-import { useDb } from '../../db'
-import { papers } from '../../db/schema'
 import { PROFILES } from '../../utils/aiModels'
 import { blobStore, blobUrl } from '../../utils/blobs'
 import { appendEvent, patchProgress, setStage } from '../../utils/runs'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { callObject } from '../llm'
 import { mapLimit } from '../nodes'
+import { paperTitle } from '../papers'
 import type { ClassifyOutput } from './classify'
 import type { RenderFigure, RenderOutput } from './render'
 import type { StageFn } from './stub'
@@ -132,8 +130,7 @@ export const figuresStage: StageFn = async (ctx) => {
   const sections = new Map(skeleton.sections.map(s => [s.id, s]))
   const model = PROFILES[ctx.profile].figures
   const withImage = render.figures.filter(f => f.image)
-  const [paper] = await (await useDb()).select({ title: papers.title }).from(papers).where(eq(papers.id, ctx.paperId))
-  const title = paper?.title ?? ''
+  const title = await paperTitle(ctx.paperId) ?? ''
   if (withImage.length) {
     await appendEvent(ctx.runId, 'figures', 'info', `figures · looking at ${withImage.length} figures with ${model}`)
   }

@@ -2,6 +2,11 @@
 @import "@nuxt/ui";
 @import "katex/dist/katex.min.css";
 
+/* Display headings on the public pages (landing, catalog, family). @nuxt/fonts fetches Cormorant Garamond. */
+@theme {
+  --font-serif: 'Cormorant Garamond', ui-serif, Georgia, serif;
+}
+
 /* Long display math scrolls inside its block instead of widening the page. */
 [data-math-text] .katex-display {
   overflow-x: auto;

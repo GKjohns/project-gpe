@@ -20,7 +20,14 @@ describe('operator guard: which requests need the operator', () => {
     // Path tricks don't reach the open list.
     ['POST', '//api//papers'],
     ['POST', '/api/%70apers'],
-    ['POST', '/api/papers/x/chat/papers']
+    ['POST', '/api/papers/x/chat/papers'],
+    // Operator reads: admin APIs, the corpus and runs, with the same path tricks.
+    ['GET', '/api/runs/abc'],
+    ['HEAD', '/api/runs/x'],
+    ['GET', '/api/corpus'],
+    ['GET', '/api/admin/papers'],
+    ['GET', '/api//admin/papers'],
+    ['GET', '/api/%61dmin/papers']
   ]
   it.each(guarded)('%s %s is guarded', (method, path) => {
     expect(needsOperator(method, path)).toBe(true)
@@ -28,11 +35,12 @@ describe('operator guard: which requests need the operator', () => {
 
   const open: [string, string][] = [
     ['GET', '/api/papers'],
-    ['GET', '/api/runs/abc'],
-    ['GET', '/api/blobs/abc'],
+    ['GET', '/api/papers/eth'],
+    ['GET', '/api/v1/families'],
+    ['GET', '/api/blobs/x'],
     ['HEAD', '/api/blobs/abc'],
     ['OPTIONS', '/api/papers'],
-    ['GET', '/api/corpus'],
+    ['OPTIONS', '/api/admin/papers'],
     ['GET', '/api/session'],
     ['POST', '/api/session/login'],
     ['POST', '/api/session/logout'],

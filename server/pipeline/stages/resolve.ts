@@ -1,11 +1,9 @@
-import { eq } from 'drizzle-orm'
 import type { Outline, Skeleton } from '#shared/pipeline'
 import { inferredDepsSchema } from '#shared/schemas'
 import type { ProofNode } from '#shared/types'
-import { useDb } from '../../db'
-import { sources } from '../../db/schema'
 import { PROFILES } from '../../utils/aiModels'
 import { appendEvent, patchProgress, setStage } from '../../utils/runs'
+import { loadSourceText } from '../../utils/sourceStore'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { callObject } from '../llm'
 import { mapLimit, sliceLines, sourceLines, statementIds, textAfter } from '../nodes'
@@ -209,8 +207,7 @@ export function prosePrompt(job: ProseJob, nodes: ProofNode[], numbers: Map<stri
 }
 
 async function loadSourceLines(paperId: string): Promise<SourceLines> {
-  const db = await useDb()
-  return sourceLines(await db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, paperId)))
+  return sourceLines(await loadSourceText(paperId))
 }
 
 export const resolveStage: StageFn = async (ctx) => {

@@ -1,9 +1,6 @@
 // The operator's readout of agent_requests: counts by day, surface, client, tool, paper and ref, with unique callers
 // (distinct ip_hash). Printed by `npm run agent:stats`; there is deliberately no HTTP endpoint for it.
-import { desc, gte, sql } from 'drizzle-orm'
-import type { SQL } from 'drizzle-orm'
-import type { Db } from '../db'
-import { agentRequests } from '../db/schema'
+import { must, useSupabase } from './supabase'
 
 export interface AgentStatRow { key: string, requests: number, callers: number, errors: number }
 
@@ -18,32 +15,10 @@ export interface AgentStats {
   byRef: AgentStatRow[]
 }
 
-const DIMENSION_ROWS = 25
-
-export async function agentRequestStats(db: Db, opts: { days?: number } = {}): Promise<AgentStats> {
-  const since = new Date(Date.now() - (opts.days ?? 30) * 86_400_000)
-  const where = gte(agentRequests.at, since)
-  const counts = {
-    requests: sql<number>`count(*)`.mapWith(Number),
-    callers: sql<number>`count(distinct ${agentRequests.ipHash})`.mapWith(Number),
-    errors: sql<number>`count(*) filter (where ${agentRequests.status} >= 400)`.mapWith(Number)
-  }
-  const by = async (key: SQL, order: 'key' | 'requests' = 'requests') => {
-    const rows = await db.select({ key: sql<string>`coalesce(${key}, '—')`, ...counts }).from(agentRequests).where(where)
-      .groupBy(sql`1`).orderBy(order === 'key' ? desc(sql`1`) : desc(sql`2`)).limit(order === 'key' ? 366 : DIMENSION_ROWS)
-    return rows.map(r => ({ ...r, key: String(r.key) }))
-  }
-  const [total] = await db.select({ ...counts }).from(agentRequests).where(where)
-  return {
-    since,
-    total: { key: 'total', ...(total ?? { requests: 0, callers: 0, errors: 0 }) },
-    byDay: await by(sql`to_char(${agentRequests.at} at time zone 'UTC', 'YYYY-MM-DD')`, 'key'),
-    bySurface: await by(sql`${agentRequests.surface}`),
-    byClient: await by(sql`${agentRequests.client}`),
-    byTool: await by(sql`${agentRequests.tool}`),
-    byPaper: await by(sql`${agentRequests.paper}`),
-    byRef: await by(sql`${agentRequests.ref}`)
-  }
+/** Aggregated in Postgres by RPC agent_request_stats (db_migrations/0004): newest 366 days, top 25 per dimension. */
+export async function agentRequestStats(opts: { days?: number } = {}): Promise<AgentStats> {
+  const raw = must(await useSupabase().rpc('agent_request_stats', { p_days: opts.days ?? 30 })) as unknown as Omit<AgentStats, 'since'> & { since: string }
+  return { ...raw, since: new Date(raw.since) }
 }
 
 /** Plain-text tables, one per dimension. */

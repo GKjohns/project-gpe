@@ -1,23 +1,30 @@
 # Project GPE
 
-Project GPE (Graphical Proof Explorer) turns a math proof into a map you can browse. Point it at a math paper (PDF/LaTeX) and, optionally, the Lean 4 repo that formalizes it. Get back a browsable map of the proof: semantically named nodes, plain-English explanations, dependency edges, links back to the paper section and Lean declaration, and a chat that answers questions with links into the map. When both sources are present, it surfaces friction between what the paper says and what the Lean actually proves.
-
-First target: OpenAI's disproof of the Exponential Time Hypothesis (`openai/math`), paper first, Lean second.
+Project GPE (Graphical Proof Explorer) is a public reading site for [openai/math](https://github.com/openai/math): all
+373 result families (721 machine-written manuscripts) with abstracts and PDF links, and, for the papers that have been
+digested, a browsable map of the proof: semantically named nodes, plain-English explanations, dependency edges, links
+back to the paper, and a chat that answers questions with links into the map. Behind `/admin` sits the operator tool
+that makes the digests: point it at a paper's LaTeX (and, later, the Lean that formalizes it) and watch it run.
 
 The full project brief is in [docs/BRIEF.md](docs/BRIEF.md). Read it before building anything.
 
 ## Status
 
 Phase 1 (paper only, no Lean) is built: ingest from the browser, run page, tree + node pages, dependency graph, chat
-with node citations, friction table, and a corpus page comparing the two structure methods. The plan, per-sprint notes
-and the corpus results are in [docs/20261029_digest_v1/implementation_plan.md](docs/20261029_digest_v1/implementation_plan.md).
+with node citations, friction table, and a corpus page comparing the two structure methods
+([docs/20261029_digest_v1/implementation_plan.md](docs/20261029_digest_v1/implementation_plan.md)). The pivot to a public
+openai/math explorer is in progress: catalog, admin move and API guarding are done; the public landing, catalog and
+family pages and the paper overview are next
+([docs/20261101_openai_explorer/implementation_plan.md](docs/20261101_openai_explorer/implementation_plan.md)).
 
 ## How it works
 
-Everything an operator does is a page: `/papers/new` (paste a GitHub directory or arXiv id, or upload `.tex`), the run
-page (`/papers/<slug>/run`: stepper, live log, spend, review queue, Render paper / Re-render), the paper itself
-(`/<slug>` lands on the reader: `/<slug>/<node>?view=paper`), the map (`/<slug>/<node>` with tree, node page,
-`?view=graph`, chat), `/<slug>/friction`, and `/corpus`.
+Public pages: `/` (landing), `/papers` (the catalog), `/papers/<code>` (a result family), `/<slug>` (a digested
+paper; today it lands on the reader, `/<slug>/<node>?view=paper`), the map (`/<slug>/<node>` with tree, node page,
+`?view=graph`, chat) and `/<slug>/friction`. Everything an operator does is under `/admin` (sign in at `/login`): the
+papers table (`/admin`: family, run state, cost, Public switch, Sync catalog), `/admin/papers/new` (paste a GitHub
+directory or arXiv id, or upload `.tex`), the run page (`/admin/papers/<slug>/run`: stepper, live log, spend, review
+queue, Render paper / Re-render) and `/admin/corpus`.
 
 **Pipeline** (`server/pipeline/ingest.ts`, one file per stage in `server/pipeline/stages/`):
 
@@ -59,33 +66,51 @@ them are read-only, need no key and make no model calls. Each one is a database 
 minute) plus the chat tools' pure functions, with output capped by paging and `READ_NODE_CHARS`. Rate limiting is
 meant to be a Vercel Firewall rule on `/api/mcp` and `/api/v1`.
 
+**Catalog** (`server/catalog/`): every openai/math result family (373) and manuscript (721), built from the repo's own
+index (`CONTENTS.md`, `overview.tex`, `lean/formalization.yaml`, `README.md`) at a pinned commit, with zero model calls.
+`npm run catalog:sync` (server stopped; `-- --force` writes even when the index fails validation, `-- --json`) or
+`POST /api/admin/catalog/sync` (operator) upserts `families`, `manuscripts` and `catalog_meta`, never deletes, and links
+papers to their manuscript (`papers.manuscript_dir`, from `source_ref`). It is served at `GET /api/v1/families`
+(`q`, `discipline`, `digested`, `lean`, `sort`, `limit`, `offset`), `/api/v1/families/<code>` (`49` = `049`) and
+`/api/v1/disciplines` (totals + per-discipline counts), which the site's pages and agents both read. A family's
+`digested` list counts public digests only. Agent rows (`list_papers`, `/api/v1/papers`) carry `family`, `pdf_url`,
+`has_lean` and `headline` for openai/math papers; `get_overview` adds `summary` and `catalog`. `GET /api/papers` is the
+public list (public digests, no runs); the operator library reads `GET /api/admin/papers`.
+
 Only papers with `papers.public` set are listed or queryable there; a private slug is the same 404 as a missing one.
 New papers start private. Migration `0003` made the canonical maps public (eth, sensitivity, pfr, sunflowers-rao,
 sunflower-alwz, noncoordinate, unit-distance, intmult, logspace), not their `-agent`/`-e2e`/`toy-inngest-*` copies; in
-dev the toy fixture counts as public. Every request is logged to `agent_requests` (`server/utils/agentLog.ts`): surface
+dev the toy fixture counts as public. Since the openai/math pivot only the five OpenAI digests are public in dev (eth,
+logspace, intmult, unit-distance, noncoordinate); the fixtures and other corpus runs were turned off with
+`npm run paper:public -- --off …` and stay reachable from `/admin`. Every request is logged to `agent_requests` (`server/utils/agentLog.ts`): surface
 (`llms`, `v1`, `mcp`), tool, paper, status, ms, a client family read off the user-agent (Claude-User, ChatGPT-User,
 OAI-SearchBot, PerplexityBot, curl, python-requests, node, browser, …), the truncated user-agent, a salted sha256 of the
 IP (never the IP itself) and the `?ref=` param, so links like `/llms.txt?ref=blog` can be attributed (view_figure's own
 `ref` argument is not). Over MCP there is one row per `tools/call` and one per `initialize`; `client` is the MCP
 client's own name/version when the message carries it (always on `initialize`, and on every request in the modern
-protocol's `_meta`), otherwise the user-agent family. The write is fire-and-forget behind `event.waitUntil`, and a failed
-one is only a warning. Two operator commands (they load `.env`, so they hit Postgres when
+protocol's `_meta`), otherwise the user-agent family. The site's own fetches of `/api/v1` are not logged: browser requests that say
+`sec-fetch-site: same-origin`, and requests carrying `x-gpe-site` (pages send it, since SSR fetches run in-process with
+no `sec-fetch-*` headers). The write is fire-and-forget behind `event.waitUntil`, and a failed
+one is only a warning. Operator commands (they load `.env`, so they hit Postgres when
 `DATABASE_URL` is set, else `.data/pg`, and refuse while the dev server holds PGlite):
 
 ```bash
 npm run paper:public                      # every paper and its flag
 npm run paper:public -- eth pfr           # make public (or --off to make private); live within a minute
 curl -X POST localhost:3120/api/papers/eth/public -H 'content-type: application/json' -d '{"public":true}'  # same, over HTTP (operator-only); works while the dev server runs
+npm run catalog:sync                      # openai/math index → families / manuscripts (server stopped)
 npm run agent:stats -- --days 7           # requests, unique callers and errors by day, surface, client, tool, paper, ref
 ```
 
-**Operator auth** (`server/utils/operator.ts`, `server/middleware/operator.ts`): anything that spends money or
+**Operator auth** (`server/utils/operator.ts`, `server/middleware/operator.ts`): `/admin` and anything that spends money or
 changes state is operator-only. That covers new papers and previews, retry/cancel/review, Render paper, graph labels, the public flag
 and corpus ingests. Set `OPERATOR_TOKEN` to a long random value and sign in at `/login`, which sets a sealed httpOnly
 cookie (`SESSION_SECRET` optionally sets its key). The guard denies every `/api` write by default, with four
 exceptions: `/api/inngest` (Inngest signs it), `/api/mcp`, the sandbox callback `/api/runs/:id/events` (it has a
-per-run bearer token) and the chat. In dev with no token everything is open; in production with no token those writes
-are denied. Reading, the map and the agent API need no sign-in. The chat stays public but bounded for non-operators:
+per-run bearer token) and the chat. Reads are open except the operator ones: `/api/admin/*`, `/api/corpus` and
+`/api/runs/*` (401 signed out). A private paper (`papers.public` off) is the same 404 as a missing one for everyone
+but the operator: its page, `GET /api/papers/:slug` and its chat. In dev with no token everything is open; in
+production with no token those routes are denied. Reading public papers, the catalog and the agent API need no sign-in. The chat stays public but bounded for non-operators:
 20 turns per IP per hour and a daily spend ceiling (`CHAT_DAILY_USD`, default $5), both counted in memory per function
 instance (`server/utils/chatLimits.ts`). A Vercel Firewall rate-limit rule on the chat route is the real backstop.
 
@@ -126,9 +151,9 @@ No database to install: the first boot creates `.data/pg/` and runs the migratio
 `npm run typecheck` and `npm test` (vitest) should be clean; CI runs lint and typecheck on every push. Some tests
 download their LaTeX fixtures (ETH from GitHub, the sensitivity paper from arXiv) on first run into gitignored folders.
 
-To try it: open `/papers/new`, paste
+To try it: open `/admin/papers/new`, paste
 `https://github.com/openai/math/tree/main/preprints/The-Exponential-Time-Hypothesis-is-False-October-25-2026/build`,
-and start the run; or open `/corpus` and press Ingest on any row.
+and start the run; or open `/admin/corpus` and press Ingest on any row.
 
 ### Runs in dev: LocalRunner by default, Inngest optionally
 
@@ -212,18 +237,22 @@ apply them before deploying a schema change with `DATABASE_URL=… npm run db:mi
 
 ```
 app/
-  pages/            library (index), papers/new, papers/[slug]/run, [paper]/[node] (map), [paper]/friction, corpus
+  pages/            index (landing), [paper]/[node] (map), [paper]/friction, login;
+                    admin/ (operator: papers table, papers/new, papers/[slug]/run, corpus; admin.vue guards them)
+  layouts/          default (public), dashboard (explorer), admin (operator sidebar)
   components/       tree/, node/, graph/ (custom dagre DAG), reader/ (PDF.js + SyncTeX overlays), figure/, chat/, run/
   composables/      useDigest, useSelection, usePaperChat
 server/
-  api/              papers, runs (retry/cancel/review/agent events), corpus, chat, inngest
+  api/              papers, runs (retry/cancel/review/agent events), corpus, chat, inngest, v1/ (agent API + catalog),
+                    admin/ (operator reads, catalog sync)
+  catalog/          openai/math index: parse (pure), sync, query (pure filters over the cached catalog)
   pipeline/         ingest.ts, runner.ts, stages/, latex/ (chunk, equations, figures, synctex), sources/, prompts/,
                     sandbox/ (agent scripts, TeX snapshot, figure rasterizer), llm.ts
   db/               Drizzle schema + migrations
   utils/            aiModels (profiles, prices, defaults), dispatch (LocalRunner vs Inngest), runs, corpus,
                     mcpTools/agentApi/agentLog/agentStats (the public agent API)
-scripts/            operator CLIs (tsx): set-public.ts, agent-stats.ts
-shared/             types and zod schemas shared by app and server (types, pipeline, api, runs, corpus)
+scripts/            operator CLIs (tsx): set-public.ts, agent-stats.ts, sync-catalog.ts
+shared/             types and zod schemas shared by app and server (types, pipeline, api, runs, corpus, catalog, flagship)
 corpus/             manifest.json (tiered test set) and golden/ (hand-written statement lists)
 tests/              vitest; tests/fixtures/latex/ holds the toy and downloaded sources
 docs/               BRIEF.md, the v1 plan, storyboard and verification screenshots

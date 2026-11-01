@@ -1,15 +1,13 @@
-import { eq } from 'drizzle-orm'
 import type { Skeleton } from '#shared/pipeline'
 import { annotateSchema } from '#shared/schemas'
 import type { ProofNode } from '#shared/types'
-import { useDb } from '../../db'
-import { papers } from '../../db/schema'
 import { PROFILES } from '../../utils/aiModels'
 import { appendEvent, bumpProgress, patchProgress, setStage } from '../../utils/runs'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { CycleError, topoLevels, usedByMap } from '../dag'
 import { runGraphLabels } from '../graphLabels'
 import { callObject } from '../llm'
+import { paperTitle } from '../papers'
 import { mapLimit, statementIds } from '../nodes'
 import ANNOTATE_INSTRUCTIONS from '../prompts/annotate.md'
 import { checkpoint } from '../runner'
@@ -96,11 +94,10 @@ export const annotateStage: StageFn = async (ctx) => {
     levels = topoLevels(nodes, { onCycle: 'flatten' })
   }
 
-  const db = await useDb()
-  const [paper] = await db.select({ title: papers.title }).from(papers).where(eq(papers.id, ctx.paperId))
+  const title = await paperTitle(ctx.paperId)
   const ids = statementIds(skeleton.statements)
   const c: AnnotateContext = {
-    title: paper?.title ?? '',
+    title: title ?? '',
     byId: new Map(nodes.map(n => [n.id, n])),
     usedBy: usedByMap(nodes),
     numbers: new Map(skeleton.statements.map(s => [ids.get(s.label)!, s.number])),

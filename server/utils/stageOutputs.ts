@@ -1,14 +1,11 @@
 // Stage outputs are what "retry from stage" reuses; no memoization lives in the runner.
-import { and, eq, inArray } from 'drizzle-orm'
 import type { RunStage } from '#shared/types'
 import { RUN_STAGES } from '#shared/pipeline'
-import { useDb } from '../db'
-import { stageOutputs as table } from '../db/schema'
+import type { Json } from '#supabase/database'
+import { must, useSupabase } from './supabase'
 
 async function get<T>(runId: string, stage: RunStage): Promise<T | null> {
-  const db = await useDb()
-  const [row] = await db.select({ payload: table.payload }).from(table)
-    .where(and(eq(table.runId, runId), eq(table.stage, stage)))
+  const row = must(await useSupabase().from('stage_outputs').select('payload').eq('run_id', runId).eq('stage', stage).maybeSingle())
   return (row?.payload as T | undefined) ?? null
 }
 
@@ -25,10 +22,8 @@ export function jsonbSafe<T>(value: T): T {
 }
 
 async function put(runId: string, stage: RunStage, payload: unknown) {
-  payload = jsonbSafe(payload)
-  const db = await useDb()
-  await db.insert(table).values({ runId, stage, payload })
-    .onConflictDoUpdate({ target: [table.runId, table.stage], set: { payload, createdAt: new Date() } })
+  must(await useSupabase().from('stage_outputs')
+    .upsert({ run_id: runId, stage, payload: jsonbSafe(payload) as Json, created_at: new Date().toISOString() }, { onConflict: 'run_id,stage' }))
 }
 
 /** Copies the parent's outputs for every stage strictly before `beforeStage`. Returns the stages copied. */
@@ -37,14 +32,13 @@ async function copyForward(parentRunId: string, runId: string, beforeStage: RunS
   if (!stages.length) {
     return []
   }
-  const db = await useDb()
-  const rows = await db.select().from(table)
-    .where(and(eq(table.runId, parentRunId), inArray(table.stage, [...stages])))
+  const supa = useSupabase()
+  const rows = must(await supa.from('stage_outputs').select('stage, payload').eq('run_id', parentRunId).in('stage', [...stages]))
   if (rows.length) {
-    await db.insert(table).values(rows.map(r => ({ runId, stage: r.stage, payload: r.payload })))
-      .onConflictDoNothing()
+    must(await supa.from('stage_outputs')
+      .upsert(rows.map(r => ({ run_id: runId, stage: r.stage, payload: r.payload })), { onConflict: 'run_id,stage', ignoreDuplicates: true }))
   }
-  return rows.map(r => r.stage)
+  return rows.map(r => r.stage as RunStage)
 }
 
 // A namespace object so Nitro's auto-import doesn't put bare `get` / `put` in global scope.

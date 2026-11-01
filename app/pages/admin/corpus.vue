@@ -7,6 +7,7 @@ import { goldenDiffCount } from '#shared/corpus'
 import { ACTIVE_RUN_STATUSES } from '#shared/runs'
 import type { Profile, StructureMethod } from '#shared/types'
 
+definePageMeta({ title: 'Corpus' })
 useSeoMeta({ title: 'Corpus' })
 
 const toast = useToast()
@@ -134,7 +135,7 @@ function goldenCell(r: Row): { label: string, color: BadgeColor, title?: string 
   return { label: `${n} diff${n === 1 ? '' : 's'}`, color: n ? 'warning' : 'success', title: title || 'matches the golden' }
 }
 
-const runHref = (r: Row) => r.run ? `/papers/${r.run.paperSlug}/run?run=${r.run.runId}` : undefined
+const runHref = (r: Row) => r.run ? `/admin/papers/${r.run.paperSlug}/run?run=${r.run.runId}` : undefined
 
 const columns: TableColumn<Row>[] = [
   { id: 'paper', header: 'Paper' },
@@ -190,7 +191,7 @@ async function submitIngest() {
       title: `Queued ${form.slug} · ${form.method}`,
       description: `${form.profile} · budget $${form.budgetUsd}`,
       color: 'success',
-      actions: [{ label: 'Open run', to: `/papers/${res.slug}/run?run=${res.runId}` }]
+      actions: [{ label: 'Open run', to: `/admin/papers/${res.slug}/run?run=${res.runId}` }]
     })
     await refresh()
   } catch (err) {
@@ -230,7 +231,7 @@ async function runAllPending() {
     >
       <template #links>
         <UButton
-          to="/"
+          to="/admin"
           color="neutral"
           variant="ghost"
           icon="i-lucide-arrow-left"
@@ -238,7 +239,7 @@ async function runAllPending() {
         />
         <UButton
           v-if="!operator"
-          :to="loginHref('/corpus')"
+          :to="loginHref('/admin/corpus')"
           color="neutral"
           variant="outline"
           icon="i-lucide-log-in"

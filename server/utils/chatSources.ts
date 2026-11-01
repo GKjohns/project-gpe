@@ -1,20 +1,19 @@
 // Loads what the chat tools read (stored LaTeX + the digest run's chunk/outline spans). Called lazily, once per request.
-import { eq } from 'drizzle-orm'
 import type { Outline, Skeleton } from '#shared/pipeline'
 import type { PaperDigest } from '#shared/types'
-import { useDb } from '../db'
-import { papers, sources } from '../db/schema'
 import { buildChatSources } from './chatTools'
 import type { ChatSources } from './chatTools'
 import { stageOutputs } from './stageOutputs'
+import { must, useSupabase } from './supabase'
 
 export async function loadChatSources(slug: string, digest: PaperDigest): Promise<ChatSources | null> {
-  const db = await useDb()
-  const [paper] = await db.select({ id: papers.id }).from(papers).where(eq(papers.slug, slug))
+  const supa = useSupabase()
+  const paper = must(await supa.from('papers').select('id').eq('slug', slug).maybeSingle())
   if (!paper) {
     return null
   }
-  const files = await db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, paper.id))
+  // A paper's sources are a few dozen files at most (order is rebuilt by buildChatSources).
+  const files = must(await supa.from('sources').select('path, content').eq('paper_id', paper.id).order('path'))
   if (!files.length) {
     return null
   }

@@ -53,10 +53,12 @@ export function useDigest(slug: MaybeRefOrGetter<string>) {
   })
   const digest = computed(() => fetched.data.value?.digest ?? null)
   const paper = computed(() => fetched.data.value?.paper ?? null)
+  // The openai/math family + manuscript, when the paper digests a catalogued one (breadcrumbs, overview badges).
+  const catalog = computed(() => fetched.data.value?.catalog ?? null)
   const index = computed(() => buildIndex(digest.value))
   // `await ready` in a page's setup so SSR renders with the digest.
   const ready: Promise<void> = fetched.then(() => undefined)
-  return { paper, digest, index, error: fetched.error, status: fetched.status, refresh: fetched.refresh, ready }
+  return { paper, digest, catalog, index, error: fetched.error, status: fetched.status, refresh: fetched.refresh, ready }
 }
 
 export type DigestContext = Pick<ReturnType<typeof useDigest>, 'paper' | 'digest' | 'index'>

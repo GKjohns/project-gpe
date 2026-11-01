@@ -16,7 +16,11 @@ export default defineConfig({
   }],
   resolve: {
     alias: {
-      '#shared': fileURLToPath(new URL('./shared', import.meta.url))
+      '#shared': fileURLToPath(new URL('./shared', import.meta.url)),
+      // Tests never reach Supabase (dev and prod are one project): the module's server entry is a stub that throws,
+      // and tests inject tests/helpers/fakeSupabase.ts with setSupabase().
+      '#supabase/server': fileURLToPath(new URL('./tests/helpers/supabaseServerStub.ts', import.meta.url)),
+      '#supabase/database': fileURLToPath(new URL('./app/types/database.types.ts', import.meta.url))
     }
   },
   test: {

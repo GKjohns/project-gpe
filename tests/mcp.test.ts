@@ -15,7 +15,17 @@ const files = ['main.tex', 'sections/prelim.tex'].map(path => ({ path, content: 
 const { skeleton } = chunkLatex(files, { mainFile: 'main.tex' })
 
 const deps: McpDeps = {
-  listPapers: async () => [{ slug: 'toy', title: toyDigest.title, authors: [], source: toyDigest.source.ref, nodes: toyDigest.nodes.length }],
+  listPapers: async () => [{
+    slug: 'toy',
+    title: toyDigest.title,
+    authors: [],
+    source: toyDigest.source.ref,
+    nodes: toyDigest.nodes.length,
+    family: { number: 49, code: '049', title: 'A stable-coordinate counterexample', discipline: 'Algebraic and complex geometry' },
+    pdf_url: 'https://github.com/openai/math/blob/main/preprints/x/paper.pdf',
+    has_lean: true,
+    headline: 'A one-line result'
+  }],
   loadDigest: async slug => slug === 'toy' ? toyDigest : null,
   loadSources: async () => buildChatSources(files, skeleton, null),
   appUrl: APP
@@ -72,6 +82,27 @@ describe('agent api tools', () => {
       expect(md).toContain(`### ${name}`)
     }
     expect(md).toContain('`direction` (`supports` \\| `supported_by`, required)')
+  })
+
+  it('the guide leads with the openai/math catalog and documents its endpoints', () => {
+    const row = { slug: 'eth', title: 'ETH', authors: [], source: 'x', nodes: 9, family: { number: 378, code: '378', title: 'ETH', discipline: 'Theoretical computer science' }, url: `${APP}/eth` }
+    const md = agentGuide([row], APP, { families: 373, manuscripts: 721, digested: 5 })
+    expect(md.split('\n')[0]).toBe('# Project GPE: proof maps of OpenAI\'s openai/math papers (373 families catalogued, 5 digested)')
+    expect(md).toContain('`eth`: ETH, 9 nodes, family 378 (Theoretical computer science).')
+    for (const path of ['/families?…', '/families/<code>', '/disciplines']) {
+      expect(md).toContain(`${APP}/api/v1${path}`)
+    }
+  })
+
+  it('overview carries the summary and the catalog entry when there is one', async () => {
+    const digest = { ...toyDigest, summary: { headline: 'H', proves: 'P.', model: 'm', generated_at: 't' } }
+    const entry = {
+      family: { number: 49, code: '049', title: 'F', description: 'D', discipline: 'Algebra', disciplineSlug: 'algebra', members: 2, hasLean: true, digested: [] },
+      manuscript: { dir: 'd', title: 'T', abstract: 'A', pdfUrl: 'p', sourceUrl: 's', readmeUrl: 'r', hasLean: true }
+    }
+    const { output } = await runPaperTool({ ...deps, loadDigest: async () => digest, loadCatalogEntry: async () => entry }, 'get_overview', 'toy', {})
+    expect(output).toMatchObject({ summary: { headline: 'H', proves: 'P.' }, catalog: { family: { code: '049', url: `${APP}/papers/049` }, manuscript: { pdf_url: 'p', has_lean: true } } })
+    expect(paperOverview(toyDigest, APP)).not.toHaveProperty('catalog')
   })
 })
 

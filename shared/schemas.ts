@@ -76,13 +76,19 @@ export const graphLabelsSchema = z.object({
   }))
 })
 
+// summary (finalize / POST /api/papers/:slug/summary): the paper's one-line result and three-sentence "what it proves".
+export const summarySchema = z.object({
+  headline: z.string().min(1),
+  proves: z.string().min(1)
+})
+
 // classify: novel must justify why nothing prior covers it.
 export const classifySchema = z.object({
   classification: z.enum(['standard', 'routine', 'novel', 'unknown']),
   classification_cite: z.string().optional()
 })
 
-export const RESERVED_SLUGS = ['papers', 'corpus', 'api', 'toy'] as const
+export const RESERVED_SLUGS = ['papers', 'corpus', 'api', 'toy', 'admin', 'login'] as const
 
 export const slugSchema = z.string()
   .regex(/^[a-z0-9-]{2,40}$/, 'Use 2–40 lowercase letters, digits or dashes')

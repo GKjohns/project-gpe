@@ -1,4 +1,5 @@
 // Response shapes for the read routes the app pages consume. Additive to the plan's contracts (Sprint 5).
+import type { FamilySummary, ManuscriptItem } from './catalog'
 import type { PaperDigest, Profile, RunStage, RunStatus, StructureMethod } from './types'
 
 /** `GET /api/papers/:slug` (and the dev-only `/api/papers/toy`). `paper.id` is null for the toy fixture. */
@@ -14,6 +15,21 @@ export interface PaperResponse {
     latestRunId: string | null
   }
   digest: PaperDigest | null
+  /** The openai/math family and manuscript, when papers.manuscript_dir links one. */
+  catalog?: { family: FamilySummary, manuscript: ManuscriptItem } | null
+}
+
+/** `GET /api/papers`: one public, digested paper. No run, cost or progress. */
+export interface PublicPaperItem {
+  slug: string
+  title: string
+  authors: string[]
+  counts: { nodes: number, sections: number, novel: number, friction: number }
+  family?: { number: number, code: string, title: string, discipline: string, disciplineSlug: string }
+  pages?: number
+  hasLean?: boolean
+  headline?: string
+  updatedAt: string
 }
 
 /** `POST /api/papers/:slug/chat`: usage attached to each assistant message's metadata on finish (Sprint 7). */
@@ -27,7 +43,7 @@ export interface ChatTurnMetadata {
   ms: number
 }
 
-/** One card on the library page: a paper joined with its latest run. */
+/** `GET /api/admin/papers`: every paper joined with its latest run (operator library). */
 export interface PaperListItem {
   id: string | null
   slug: string
@@ -54,6 +70,8 @@ export interface PaperListItem {
     /** From runs.metrics once finalized. */
     metrics: { cost_usd: number, wallclock_ms: number, calls: number } | null
   } | null
+  public: boolean
+  family?: { number: number, code: string }
   /** True for the dev-only toy fixture entry (no DB row). */
   fixture?: boolean
 }

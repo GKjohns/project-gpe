@@ -1,9 +1,8 @@
-import { and, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
-import { useDb } from '../../../db'
-import { reviewItems } from '../../../db/schema'
 import { signalRun } from '../../../utils/dispatch'
+import { reviewItemRow } from '../../../utils/rows'
 import { appendEvent, getRun } from '../../../utils/runs'
+import { must, useSupabase } from '../../../utils/supabase'
 
 const bodySchema = z.object({ itemId: z.string().uuid(), decision: z.enum(['accept', 'reject']) })
 
@@ -22,18 +21,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Body must be { itemId, decision: "accept" | "reject" }' })
   }
   const { itemId, decision } = parsed.data
-  const db = await useDb()
-  const [item] = await db.update(reviewItems)
-    .set({ decision, decidedAt: new Date() })
-    .where(and(eq(reviewItems.id, itemId), eq(reviewItems.runId, id), isNull(reviewItems.decision)))
-    .returning()
+  const supa = useSupabase()
+  // Conditional on still-pending: a double click decides once.
+  const updated = must(await supa.from('review_items')
+    .update({ decision, decided_at: new Date().toISOString() })
+    .eq('id', itemId).eq('run_id', id).is('decision', null)
+    .select('*'))
+  const item = updated[0] ? reviewItemRow(updated[0]) : undefined
   if (!item) {
     throw createError({ statusCode: 409, statusMessage: 'No pending review item with that id on this run' })
   }
   await appendEvent(id, 'critique', 'info', `review · ${decision === 'accept' ? 'accepted' : 'rejected'} ${item.kind} [${item.payload.target.join(', ')}]`)
 
-  const left = await db.select({ id: reviewItems.id }).from(reviewItems)
-    .where(and(eq(reviewItems.runId, id), isNull(reviewItems.decision)))
+  const left = must(await supa.from('review_items').select('id').eq('run_id', id).is('decision', null))
   if (!left.length) {
     // Sets progress.review_done (LocalRunner polls it); under Inngest also sends 'review/decided'.
     await signalRun(id, 'review/decided')

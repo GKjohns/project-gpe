@@ -1,12 +1,10 @@
-import { eq } from 'drizzle-orm'
 import type { Outline, Skeleton } from '#shared/pipeline'
 import { CLAIM_PROOF_LINES } from '#shared/pipeline'
 import { outlineModelSchema } from '#shared/schemas'
 import type { z } from 'zod'
-import { useDb } from '../../db'
-import { sources } from '../../db/schema'
 import { PROFILES } from '../../utils/aiModels'
 import { appendEvent, patchProgress, setStage } from '../../utils/runs'
+import { loadSourceText } from '../../utils/sourceStore'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { callObject } from '../llm'
 import { claimId, sliceLines, sourceLines, statementIds } from '../nodes'
@@ -146,8 +144,7 @@ export function normalizeOutline(raw: ModelOutline, skeleton: Skeleton): { claim
 }
 
 async function loadSources(paperId: string): Promise<SourceFile[]> {
-  const db = await useDb()
-  return db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, paperId))
+  return loadSourceText(paperId)
 }
 
 /** Method A: one whole-paper call. */

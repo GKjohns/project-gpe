@@ -10,18 +10,18 @@
  * polling stays on as the safety net. Any failure path stops the sandbox (failRun, the dev sweep, collect's finally).
  */
 import { randomBytes } from 'node:crypto'
-import { eq, sql } from 'drizzle-orm'
 import { Sandbox } from '@vercel/sandbox'
 import type { NetworkPolicy } from '@vercel/sandbox'
 import type { Outline, Skeleton } from '#shared/pipeline'
 import { CLAIM_PROOF_LINES } from '#shared/pipeline'
 import { outlineModelSchema } from '#shared/schemas'
 import type { z } from 'zod'
-import { useDb } from '../../db'
-import { runs, sources } from '../../db/schema'
 import { PRICES, PROFILES } from '../../utils/aiModels'
+import { resolveAppUrl } from '../../utils/appUrl'
 import { runnerMode } from '../../utils/dispatch'
-import { addCost, appendEvent, bumpProgress, getRun, patchProgress } from '../../utils/runs'
+import { addCost, appendEvent, appendEvents, bumpProgress, getRun, patchProgress } from '../../utils/runs'
+import { loadSourceText } from '../../utils/sourceStore'
+import { must, useSupabase } from '../../utils/supabase'
 import { stageOutputs } from '../../utils/stageOutputs'
 import type { RunContext } from '../runner'
 import { AGENT_DIR, PAPER_DIR, ensureSnapshot } from '../sandbox/snapshot'
@@ -133,29 +133,23 @@ export async function ingestTrace(runId: string, entries: TraceEntry[]): Promise
   }
   const maxSeq = Math.max(...entries.map(e => e.seq))
   const maxCost = Math.max(...entries.map(e => e.cost_usd ?? 0))
-  const db = await useDb()
-  const res = await db.execute<{ seq: number, cost: string }>(sql`
-    update runs set progress = runs.progress || jsonb_build_object(
-      'agent_trace_seq', greatest(prev.seq, ${maxSeq}::int),
-      'agent_cost_usd', greatest(prev.cost, ${maxCost}::numeric))
-    from (
-      select coalesce((progress->>'agent_trace_seq')::int, 0) as seq, coalesce((progress->>'agent_cost_usd')::numeric, 0) as cost
-      from runs where id = ${runId} for update
-    ) prev
-    where runs.id = ${runId}
-    returning prev.seq as seq, prev.cost as cost`)
-  const row = (Array.isArray(res) ? res : (res as unknown as { rows: { seq: number, cost: string }[] }).rows)[0]
+  const [row] = must(await useSupabase().rpc('claim_agent_trace', { p_run_id: runId, p_max_seq: maxSeq, p_max_cost: maxCost }))
   const prevSeq = Number(row?.seq ?? 0)
   const prevCost = Number(row?.cost ?? 0)
   if (maxCost > prevCost) {
     await addCost(runId, maxCost - prevCost)
   }
   const fresh = entries.filter(e => e.seq > prevSeq).sort((a, b) => a.seq - b.seq)
-  for (const e of fresh) {
+  // One insert for the whole batch, not a round trip per line.
+  await appendEvents(runId, fresh.map((e) => {
     const what = e.kind === 'tool' ? `${e.tool} ${e.summary ?? ''}` : `${e.kind}${e.summary ? ` · ${e.summary}` : ''}`
-    const level = e.kind === 'error' ? 'warn' : 'info'
-    await appendEvent(runId, 'outline', level, `agent · turn ${e.turn} · ${what.trim()}`, { trace: true, seq: e.seq, turn: e.turn, kind: e.kind, tool: e.tool ?? null, cost_usd: e.cost_usd })
-  }
+    return {
+      stage: 'outline' as const,
+      level: e.kind === 'error' ? 'warn' as const : 'info' as const,
+      message: `agent · turn ${e.turn} · ${what.trim()}`,
+      data: { trace: true, seq: e.seq, turn: e.turn, kind: e.kind, tool: e.tool ?? null, cost_usd: e.cost_usd }
+    }
+  }))
   const lastTool = [...fresh].reverse().find(e => e.kind === 'tool' || e.kind === 'validate')
   const turn = Math.max(...entries.map(e => e.turn))
   await patchProgress(runId, {
@@ -192,8 +186,7 @@ export async function outlineAgentStart(ctx: RunContext): Promise<number> {
   // A retried step may have booted a sandbox already; never leave two running.
   await stopAgentSandbox(ctx.runId, 'outline step retried')
   const run = (await getRun(ctx.runId))!
-  const db = await useDb()
-  const files = await db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, ctx.paperId))
+  const files = await loadSourceText(ctx.paperId)
 
   const profileModel = PROFILES[ctx.profile].agent
   const model = claudeCodeModel(profileModel)
@@ -202,7 +195,7 @@ export async function outlineAgentStart(ctx: RunContext): Promise<number> {
   const agentBudget = Math.max(0.5, Math.min(ctx.budgetUsd * 0.6, ctx.budgetUsd - run.costUsd - 2))
   const long = skeleton.statements.filter(s => (s.proof?.lines ?? 0) >= CLAIM_PROOF_LINES).length
   const token = randomBytes(24).toString('hex')
-  const callback = callbackUrl(process.env.NUXT_PUBLIC_APP_URL, ctx.runId)
+  const callback = callbackUrl(resolveAppUrl(process.env.NUXT_PUBLIC_APP_URL), ctx.runId)
 
   const t0 = Date.now()
   const snapshotId = await ensureSnapshot(msg => appendEvent(ctx.runId, 'outline', 'info', msg))
@@ -262,7 +255,7 @@ export async function outlineAgentStart(ctx: RunContext): Promise<number> {
       detached: true
     })
     const now = Date.now()
-    await db.update(runs).set({ agentToken: callback ? token : null }).where(eq(runs.id, ctx.runId))
+    must(await useSupabase().from('runs').update({ agent_token: callback ? token : null }).eq('id', ctx.runId))
     await patchProgress(ctx.runId, {
       agent_cmd: cmd.cmdId,
       agent_model: model,

@@ -1,21 +1,9 @@
-import { runner } from '../pipeline/runner'
 import { runnerMode } from '../utils/dispatch'
 
-// Dev only: Nitro restarts on any server/ edit, so in-flight runs can't survive; retry-from-stage makes that cheap.
+// Announces the runner at boot. There is no boot sweep or drain: dev shares production's `runs`, so a dev server must
+// never fail or start runs it didn't begin. A run orphaned by a dev restart is cancelled (or retried) from its run page.
 export default defineNitroPlugin(() => {
-  // Under Inngest nothing runs in-process: runs survive a restart and the queue is Inngest's.
-  if (!import.meta.dev || runnerMode() === 'inngest') {
-    return
+  if (import.meta.dev) {
+    runnerMode()
   }
-  void (async () => {
-    try {
-      const swept = await runner.sweep()
-      if (swept) {
-        console.info(`[gpe] marked ${swept} interrupted run(s) failed`)
-      }
-      await runner.drain()
-    } catch (err) {
-      console.error('[gpe] runner boot failed', err)
-    }
-  })()
 })
