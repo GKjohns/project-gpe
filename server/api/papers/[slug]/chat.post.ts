@@ -14,6 +14,7 @@ import type { UIMessage } from 'ai'
 import { convertToModelMessages, createUIMessageStreamResponse, isStepCount, pruneMessages, streamText, toUIMessageStream } from 'ai'
 import { z } from 'zod'
 import type { ChatTurnMetadata } from '#shared/api'
+import { canSeePaper } from '../../../utils/agentApi'
 import { estimateCost, MODELS } from '../../../utils/aiModels'
 import { CHAT_UNAVAILABLE, chatInstructions, citedIds, trimHistory } from '../../../utils/chat'
 import { CHAT_RATE_LIMITED, chatLimiter } from '../../../utils/chatLimits'
@@ -22,9 +23,14 @@ import type { ChatSources } from '../../../utils/chatTools'
 import { chatTools } from '../../../utils/chatTools'
 import { loadDigest, loadFigureImage } from '../../../utils/digests'
 import { isOperator } from '../../../utils/operator'
+import { must, useSupabase } from '../../../utils/supabase'
 
 /** isStepCount(CHAT_STEPS): at most CHAT_STEPS - 1 tool rounds, and the last step must answer. */
 const CHAT_STEPS = 5
+
+// Sonnet with thinking on, kept 'low': it runs on every tool step, so higher levels multiply latency and output
+// tokens up to CHAT_STEPS times. The reasoning text stays server-side (sendReasoning: false).
+const CHAT_REASONING = 'low'
 
 const bodySchema = z.object({
   id: z.string().optional(),
@@ -42,8 +48,10 @@ function gatewayCost(meta: unknown): number | null {
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug') ?? ''
   const body = await readValidatedBody(event, bodySchema.parse)
+  const row = must(await useSupabase().from('papers').select('public').eq('slug', slug).maybeSingle())
   const digest = await loadDigest(slug)
-  if (!digest) {
+  // Private papers are the same 404 as missing ones (the dev toy has no row and counts as public).
+  if (!digest || !(await canSeePaper(event, { slug, public: row?.public ?? false }))) {
     throw createError({ statusCode: 404, statusMessage: `No digest for "${slug}"` })
   }
 
@@ -102,6 +110,7 @@ export default defineEventHandler(async (event) => {
     instructions: chatInstructions(digest),
     messages: modelMessages,
     tools: chatTools(digest, getSources, loadFigureImage),
+    reasoning: CHAT_REASONING,
     stopWhen: isStepCount(CHAT_STEPS),
     // Last step answers. toolChoice (not activeTools) so the tool list, and with it the cached prefix, stays the same.
     prepareStep: ({ stepNumber }) => stepNumber >= CHAT_STEPS - 1 ? { toolChoice: 'none' } : undefined,

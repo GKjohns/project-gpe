@@ -1,11 +1,9 @@
 // Contract: docs/20261029_digest_v1/implementation_plan.md § Step runner. Change the plan first.
-import { and, asc, eq, inArray, ne } from 'drizzle-orm'
 import type { Profile, RunStage, StructureMethod } from '#shared/types'
 import { RUN_STAGES } from '#shared/pipeline'
 import type { RunProgress } from '#shared/pipeline'
-import { useDb } from '../db'
-import { runs } from '../db/schema'
 import { appendEvent, getRun, setStatus } from '../utils/runs'
+import { must, useSupabase } from '../utils/supabase'
 import type { EventStage } from '../utils/runs'
 
 export interface StepRunner {
@@ -114,7 +112,11 @@ export class LocalRunner implements StepRunner {
   }
 }
 
-// --- Local run lifecycle: one run at a time, the rest wait as `queued`. ---
+// --- Local run lifecycle: one run at a time per process, the rest wait as `queued`. ---
+// Per process, not per database: dev shares production's `runs`, so a dev server must never queue behind, steal or
+// drain a run it didn't start (Inngest's, or another dev server's). Both sets live only in this process.
+const active = new Set<string>()
+const waiting: string[] = []
 
 let lock: Promise<unknown> = Promise.resolve()
 // Serializes check-then-claim so two starts can't both see "nothing running".
@@ -126,17 +128,25 @@ function exclusive<T>(fn: () => Promise<T>): Promise<T> {
 
 export type StartResult = 'started' | 'queued' | 'skipped'
 
+/** queued → running in one conditional update, so only one claimer wins. */
+async function claimRow(runId: string): Promise<boolean> {
+  const rows = must(await useSupabase().from('runs').update({ status: 'running', started_at: new Date().toISOString() })
+    .eq('id', runId).eq('status', 'queued').select('id'))
+  return rows.length > 0
+}
+
 async function claim(runId: string): Promise<'claimed' | 'queued' | 'skipped'> {
-  const db = await useDb()
-  const [busy] = await db.select({ id: runs.id }).from(runs)
-    .where(and(eq(runs.status, 'running'), ne(runs.id, runId))).limit(1)
-  if (busy) {
+  if ([...active].some(id => id !== runId)) {
+    if (!waiting.includes(runId)) {
+      waiting.push(runId)
+    }
     return 'queued'
   }
-  const [row] = await db.update(runs).set({ status: 'running', startedAt: new Date() })
-    .where(and(eq(runs.id, runId), eq(runs.status, 'queued')))
-    .returning({ id: runs.id })
-  return row ? 'claimed' : 'skipped'
+  if (!await claimRow(runId)) {
+    return 'skipped'
+  }
+  active.add(runId)
+  return 'claimed'
 }
 
 /**
@@ -166,18 +176,16 @@ async function execute(runId: string, opts: { pipeline?: PipelineFn, pollMs?: nu
     await finishRun(runId)
   } catch (err) {
     await failRun(runId, err)
+  } finally {
+    active.delete(runId)
   }
 }
 
 // --- Run lifecycle shared by LocalRunner's execute() and the Inngest function (each call is one step there). ---
 
 /** Inngest's claim: queued → running with no one-at-a-time check (the function's concurrency key does that per paper). */
-export async function claimQueued(runId: string): Promise<boolean> {
-  const db = await useDb()
-  const [row] = await db.update(runs).set({ status: 'running', startedAt: new Date() })
-    .where(and(eq(runs.id, runId), eq(runs.status, 'queued')))
-    .returning({ id: runs.id })
-  return Boolean(row)
+export function claimQueued(runId: string): Promise<boolean> {
+  return claimRow(runId)
 }
 
 /** Reads the run into a RunContext and logs 'run started'. Null if the row is gone. */
@@ -234,50 +242,21 @@ export async function failRun(runId: string, err: unknown) {
   await appendEvent(runId, 'run', 'error', overBudget ? overBudget.message : `run failed: ${message}`).catch(() => {})
 }
 
-/**
- * Drizzle wraps driver errors as "Failed query: <sql> params: <every param>", which buried the cause under 120 kB
- * of payload in Sprint 8 (sunflower-alwz agent, classify). Lead with the driver's own message and keep it short.
- */
+/** The error's message, capped: a run row's `error` is shown on the run page, not a log dump. */
 export function errorText(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err)
-  const cause = err instanceof Error && err.cause instanceof Error ? err.cause.message : ''
-  if (message.startsWith('Failed query:')) {
-    const query = message.slice(0, message.indexOf('\nparams:') === -1 ? 200 : Math.min(200, message.indexOf('\nparams:')))
-    return `${cause || 'database error'} (${query})`
-  }
   return message.length > 2000 ? `${message.slice(0, 2000)}…` : message
 }
 
-/** Starts the oldest queued run, if nothing is running. */
+/** Starts the next run this process queued, if it isn't running one. Runs queued elsewhere are never touched. */
 async function drain(opts: { pipeline?: PipelineFn, pollMs?: number } = {}): Promise<void> {
-  const db = await useDb()
-  const [next] = await db.select({ id: runs.id }).from(runs)
-    .where(eq(runs.status, 'queued')).orderBy(asc(runs.startedAt)).limit(1)
-  if (!next) {
-    return
+  while (!active.size && waiting.length) {
+    const { result, done } = await start(waiting.shift()!, opts)
+    if (result === 'started') {
+      await done
+      return
+    }
   }
-  const { done } = await start(next.id, opts)
-  await done
 }
 
-/** Dev boot: nothing in-flight survives a Nitro restart (a run waiting for review included), so mark it failed. */
-async function sweep(): Promise<number> {
-  const db = await useDb()
-  const rows = await db.update(runs)
-    .set({ status: 'failed', error: 'dev server restarted', finishedAt: new Date() })
-    .where(inArray(runs.status, ['running', 'waiting_review']))
-    .returning({ id: runs.id, progress: runs.progress })
-  const agents = rows.filter(r => r.progress.agent_sandbox && !r.progress.agent_stopped)
-  if (agents.length) {
-    const { stopAgentSandbox } = await import('./stages/outline-agent')
-    await Promise.all(agents.map(r => stopAgentSandbox(r.id, 'dev server restarted').catch(() => {})))
-  }
-  const renders = rows.filter(r => r.progress.render_sandbox && !r.progress.render_sandbox_stopped)
-  if (renders.length) {
-    const { stopRenderSandbox } = await import('./stages/render')
-    await Promise.all(renders.map(r => stopRenderSandbox(r.id).catch(() => {})))
-  }
-  return rows.length
-}
-
-export const runner = { start, drain, sweep }
+export const runner = { start, drain }

@@ -7,21 +7,19 @@
  */
 import { posix } from 'node:path'
 import { gunzipSync } from 'node:zlib'
-import { eq } from 'drizzle-orm'
 import { Sandbox } from '@vercel/sandbox'
 import type { Outline, Skeleton } from '#shared/pipeline'
 import type { PageRect, PaperAnchor, PaperRender } from '#shared/types'
-import { useDb } from '../../db'
-import { papers, sources } from '../../db/schema'
 import { blobStore } from '../../utils/blobs'
 import { appendEvent, getRun, patchProgress, setStage } from '../../utils/runs'
-import { loadAssets, replaceAssets } from '../../utils/sourceStore'
+import { loadAssets, loadSourceText, replaceAssets } from '../../utils/sourceStore'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { extractFigures } from '../latex/figures'
 import type { FigureSource } from '../latex/figures'
 import { figureRect, parseSynctex, rectsForLines } from '../latex/synctex'
 import type { SyncIndex } from '../latex/synctex'
 import { statementIds } from '../nodes'
+import { getPaper } from '../papers'
 import { RENDER_DIR, ensureTexSnapshot } from '../sandbox/tex'
 import { fetchRemoteSource } from '../sources'
 import type { SourceFile } from '../sources'
@@ -217,12 +215,11 @@ export const renderStage: StageFn = async (ctx) => {
   if (!skeleton || !classified) {
     throw new Error('missing chunk/classify output for this run; re-run from classify')
   }
-  const db = await useDb()
-  const [paper] = await db.select().from(papers).where(eq(papers.id, ctx.paperId))
+  const paper = await getPaper(ctx.paperId)
   if (!paper) {
     throw new Error('paper row is gone')
   }
-  const text: SourceFile[] = await db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, ctx.paperId))
+  const text: SourceFile[] = await loadSourceText(ctx.paperId)
   let assets = await loadAssets(ctx.paperId)
   // Papers fetched before assets were kept: fetch once more for the figures' files.
   if (!assets.length && paper.sourceKind !== 'upload' && text.some(f => /\\includegraphics|\\input\s*\{[^}]*\.(?:tikz|pgf)\}/.test(f.content))) {

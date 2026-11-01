@@ -5,15 +5,21 @@ useHead({
   htmlAttrs: { lang: 'en' }
 })
 
-const title = 'Project GPE'
-const description = 'Project GPE (Graphical Proof Explorer): a browsable map of a math proof — paper + Lean, side by side.'
+const title = 'GPE'
+const fullTitle = 'GPE · OpenAI\'s math papers, made readable'
+const description = 'Browse OpenAI\'s 721 machine-written math papers. Each digested paper becomes a proof map with plain-English steps, the PDF alongside, and a chat that cites the map.'
+// Crawlers need an absolute og:image; appUrl is the public origin (NUXT_PUBLIC_APP_URL in prod).
+const ogImage = `${useRuntimeConfig().public.appUrl.replace(/\/$/, '')}/landing/hero.webp`
 
 useSeoMeta({
   title,
-  titleTemplate: t => t && t !== title ? `${t} · GPE` : 'Project GPE · Graphical Proof Explorer',
+  titleTemplate: t => t && t !== title ? `${t} · GPE` : fullTitle,
   description,
-  ogTitle: title,
-  ogDescription: description
+  ogTitle: fullTitle,
+  ogDescription: description,
+  ogImage,
+  ogType: 'website',
+  twitterCard: 'summary_large_image'
 })
 </script>
 

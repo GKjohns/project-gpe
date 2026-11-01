@@ -1,9 +1,7 @@
-import { eq } from 'drizzle-orm'
-import { useDb } from '../../db'
-import { papers, sources } from '../../db/schema'
 import { appendEvent, patchProgress, setStage } from '../../utils/runs'
-import { storeSources } from '../../utils/sourceStore'
+import { loadSourceText, storeSources } from '../../utils/sourceStore'
 import { stageOutputs } from '../../utils/stageOutputs'
+import { getPaper } from '../papers'
 import { fetchRemoteSource, summarize } from '../sources'
 import type { SourceFile, SourceSummary } from '../sources'
 import type { StageFn } from './stub'
@@ -20,15 +18,14 @@ export const fetchStage: StageFn = async (ctx) => {
     return reused.files.length
   }
 
-  const db = await useDb()
-  const [paper] = await db.select().from(papers).where(eq(papers.id, ctx.paperId))
+  const paper = await getPaper(ctx.paperId)
   if (!paper) {
     throw new Error('paper row is gone')
   }
 
   let files: SourceFile[]
   if (paper.sourceKind === 'upload') {
-    files = await db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, paper.id))
+    files = await loadSourceText(paper.id)
   } else {
     await appendEvent(ctx.runId, 'fetch', 'info', `fetch · ${paper.sourceKind === 'github' ? 'GitHub' : 'arXiv'} ${paper.sourceRef}`)
     files = await fetchRemoteSource(paper.sourceKind, paper.sourceRef)

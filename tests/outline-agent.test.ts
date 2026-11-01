@@ -5,20 +5,20 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { Skeleton } from '#shared/pipeline'
-import { createDb, setDb } from '../server/db'
-import { papers } from '../server/db/schema'
 import { finishRun } from '../server/pipeline/runner'
 import { callbackUrl, claudeCodeModel, ingestTrace, parseAgentOutline } from '../server/pipeline/stages/outline-agent'
 import type { TraceEntry } from '../server/pipeline/stages/outline-agent'
 import { createRun, getRun, getRunView, patchProgress, setStatus } from '../server/utils/runs'
+import { setSupabase } from '../server/utils/supabase'
+import { createFakeSupabase } from './helpers/fakeSupabase'
 
 let paperId: string
 
 beforeAll(async () => {
-  const { db } = await createDb({ memory: true })
-  setDb(db)
-  const [row] = await db.insert(papers).values({ slug: 'agent', title: 'Agent', sourceKind: 'upload', sourceRef: 'x.tex' }).returning()
-  paperId = row!.id
+  const { client } = createFakeSupabase()
+  setSupabase(client)
+  const { data } = await client.from('papers').insert({ slug: 'agent', title: 'Agent', source_kind: 'upload', source_ref: 'x.tex' }).select('id').single()
+  paperId = data!.id
 })
 
 const entry = (seq: number, cost: number, extra: Partial<TraceEntry> = {}): TraceEntry => ({

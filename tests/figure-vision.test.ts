@@ -1,6 +1,4 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { createDb, setDb } from '../server/db'
-import { papers } from '../server/db/schema'
 import { toyDigest } from '../server/fixtures/toy-digest'
 import { chunkLatex } from '../server/pipeline/latex/chunk'
 import { callObject } from '../server/pipeline/llm'
@@ -11,6 +9,8 @@ import { readerParts } from '../server/pipeline/stages/finalize'
 import { blobStore } from '../server/utils/blobs'
 import { createRun } from '../server/utils/runs'
 import { stageOutputs } from '../server/utils/stageOutputs'
+import { setSupabase } from '../server/utils/supabase'
+import { createFakeSupabase } from './helpers/fakeSupabase'
 import { readFixtureDir } from './fixtures/fetch-fixtures'
 
 vi.mock('../server/pipeline/llm', () => ({ callObject: vi.fn() }))
@@ -56,10 +56,10 @@ describe('figuresStage (mocked vision)', () => {
   let runId = ''
   let paperId = ''
   beforeAll(async () => {
-    const { db } = await createDb({ memory: true })
-    setDb(db)
-    const [paper] = await db.insert(papers).values({ slug: 'fig-test', title: 'Toy', sourceKind: 'upload', sourceRef: 'toy.tex' }).returning({ id: papers.id })
-    paperId = paper!.id
+    const { client } = createFakeSupabase()
+    setSupabase(client)
+    const { data } = await client.from('papers').insert({ slug: 'fig-test', title: 'Toy', source_kind: 'upload', source_ref: 'toy.tex' }).select('id').single()
+    paperId = data!.id
     runId = await createRun({ paperId, profile: 'standard', method: 'pipeline', budgetUsd: 5 })
     const sha = await blobStore.put(new Uint8Array([137, 80, 78, 71, 1, 2, 3]), 'image/png')
     const render: RenderOutput = {

@@ -1,13 +1,11 @@
-import { and, eq, inArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { corpusPaperSlugs } from '#shared/corpus'
 import { ACTIVE_RUN_STATUSES } from '#shared/runs'
-import { useDb } from '../../../db'
-import { papers, runs } from '../../../db/schema'
 import { sourceRef } from '../../../pipeline/sources'
 import { corpusEntry } from '../../../utils/corpus'
 import { startRun } from '../../../utils/dispatch'
 import { appendEvent, createRun } from '../../../utils/runs'
+import { must, useSupabase } from '../../../utils/supabase'
 
 const bodySchema = z.object({
   method: z.enum(['pipeline', 'agent']),
@@ -38,29 +36,37 @@ export default defineEventHandler(async (event) => {
   const ref = sourceRef(source)
   const paperSlug = corpusPaperSlugs(entry, method)[0]!
 
-  const db = await useDb()
-  let [paper] = await db.select({ id: papers.id }).from(papers).where(eq(papers.slug, paperSlug))
-  if (paper) {
-    const [active] = await db.select({ id: runs.id }).from(runs)
-      .where(and(eq(runs.paperId, paper.id), inArray(runs.status, ACTIVE_RUN_STATUSES)))
-    if (active) {
+  const supa = useSupabase()
+  const existing = must(await supa.from('papers').select('id').eq('slug', paperSlug).maybeSingle())
+  let paperId: string
+  if (existing) {
+    const active = must(await supa.from('runs').select('id').eq('paper_id', existing.id).in('status', ACTIVE_RUN_STATUSES).limit(1))
+    if (active.length) {
       throw createError({ statusCode: 409, statusMessage: `"${paperSlug}" already has a run in progress` })
     }
-    await db.update(papers).set({ tier: entry.tier, sourceKind: source.kind, sourceRef: ref, updatedAt: new Date() }).where(eq(papers.id, paper.id))
+    must(await supa.from('papers').update({ tier: entry.tier, source_kind: source.kind, source_ref: ref, updated_at: new Date().toISOString() }).eq('id', existing.id))
+    paperId = existing.id
   } else {
-    [paper] = await db.insert(papers).values({
-      slug: paperSlug,
-      title: entry.title,
-      authors: entry.authors,
-      sourceKind: source.kind,
-      sourceRef: ref,
-      tier: entry.tier
-    }).returning({ id: papers.id })
+    try {
+      paperId = must(await supa.from('papers').insert({
+        slug: paperSlug,
+        title: entry.title,
+        authors: entry.authors,
+        source_kind: source.kind,
+        source_ref: ref,
+        tier: entry.tier
+      }).select('id').single()).id
+    } catch (err) {
+      // Two first ingests of the same entry at once: the slug is unique, so the second is today's 409.
+      if ((err as { code?: string }).code === '23505') {
+        throw createError({ statusCode: 409, statusMessage: `"${paperSlug}" already has a run in progress` })
+      }
+      throw err
+    }
   }
-  const paperId = paper!.id
 
   const runId = await createRun({ paperId, profile, method, budgetUsd })
-  await db.update(papers).set({ latestRunId: runId, updatedAt: new Date() }).where(eq(papers.id, paperId))
+  must(await supa.from('papers').update({ latest_run_id: runId, updated_at: new Date().toISOString() }).eq('id', paperId))
   await appendEvent(runId, 'run', 'info', `queued · corpus ${entry.slug} (${entry.tier}) · ${source.kind} ${ref} · ${profile} · ${method} · budget $${budgetUsd}`)
 
   await startRun(runId, paperId)

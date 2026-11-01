@@ -1,0 +1,27 @@
+# npm run catalog:sync — first run on this DB (an earlier agent had synced a prior parse; 245 family rows rewritten)
+
+openai/math @ 4eaee87548250b2682affda7d05d947c05554bae
+373 families, 721 manuscripts, 17 disciplines; Lean: 138 families, 175 manuscripts
+written: 245 families, 0 manuscripts
+   31  Number theory
+   36  Algebraic and complex geometry
+   16  Real and complex analysis
+   15  Convex and metric geometry
+   41  Theoretical computer science
+   12  Dynamical systems and ergodic theory
+   37  Combinatorics
+   18  Algebra
+   29  Probability and statistical mechanics
+    6  Mathematical logic
+   14  Group theory
+   25  Mathematical physics
+   19  Operator algebras
+   18  Topology
+   11  Functional analysis
+   29  Differential geometry
+   16  Partial differential equations
+stale (kept): 0 families, 0 manuscripts
+linked: (none)
+warning: lean/formalization.yaml names Taming-implies-compatibility-on-four-manifolds-September-23-2026, which CONTENTS.md does not list
+
+# second run (--json): written 0/0, linked [], stale []

@@ -2,6 +2,13 @@
 
 Renamed from the working name "Digest" on Oct 29. If it is renamed again, NOT "Proof Atlas" / "ProofAtlas": proofatlas.ai already exists (Lech Mazur) and is a different product — see "Not to be confused with" below.
 
+> **Direction change (Nov 2026).** GPE is pivoting from an operator tool into a public reading site for
+> [openai/math](https://github.com/openai/math): a catalog of all 373 result families (721 machine-written manuscripts,
+> 17 disciplines) built from the repo's own index with zero model calls, and, for the papers that have been digested,
+> an overview page in front of the unchanged explorer (tree, node pages, graph, reader, chat). Ingest, runs and corpus
+> move under `/admin` behind the operator login. The Lean phases below are deferred, not dropped. Plan and status:
+> [20261101_openai_explorer/implementation_plan.md](20261101_openai_explorer/implementation_plan.md).
+
 > **Implementation:** Phase 1 (paper only) is planned and tracked in [20261029_digest_v1/implementation_plan.md](20261029_digest_v1/implementation_plan.md).
 
 ## One-line

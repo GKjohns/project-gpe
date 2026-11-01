@@ -7,6 +7,7 @@ import { McpServer } from '@modelcontextprotocol/server'
 import type { CallToolResult } from '@modelcontextprotocol/server'
 import { z } from 'zod'
 import type { ChatToolNode } from '#shared/api'
+import type { FamilySummary, ManuscriptItem } from '#shared/catalog'
 import type { FrictionKind, NodeKind, PaperDigest, ProofNode } from '#shared/types'
 import type { ChatSources, FigureImageLoader } from './chatTools'
 import { depClosure, readNode, resolveFigure, resolveNodeId, searchPaper, traceDeps, viewFigure } from './chatTools'
@@ -16,13 +17,29 @@ const LIST_NODES_MAX = 200
 const FRICTION_MAX = 100
 const CAPTION_CHARS = 160
 
-export interface McpPaperRow { slug: string, title: string, authors: string[], source: string, nodes: number }
+export interface McpPaperRow {
+  slug: string
+  title: string
+  authors: string[]
+  source: string
+  nodes: number
+  /** The openai/math result family the paper belongs to, when it is a catalogued manuscript. */
+  family?: { number: number, code: string, title: string, discipline: string }
+  pdf_url?: string
+  has_lean?: boolean
+  headline?: string
+}
+
+/** A paper's place in the openai/math catalog (GET /api/papers/:slug's `catalog`). */
+export interface CatalogEntry { family: FamilySummary, manuscript: ManuscriptItem }
 
 export interface McpDeps {
   listPapers: () => Promise<McpPaperRow[]>
   loadDigest: (slug: string) => Promise<PaperDigest | null>
   loadSources: (slug: string, digest: PaperDigest) => Promise<ChatSources | null>
   loadFigureImage?: FigureImageLoader
+  /** The family and manuscript a public paper digests; absent or null → get_overview has no `catalog`. */
+  loadCatalogEntry?: (slug: string) => Promise<CatalogEntry | null>
   /** Public origin for the links in tool output, no trailing slash. */
   appUrl: string
 }
@@ -31,7 +48,7 @@ const brief = (n: ProofNode): ChatToolNode => ({ id: n.id, kind: n.kind, name: n
 const clip = (s: string, n: number) => s.length > n ? `${s.slice(0, n - 1)}…` : s
 
 /** `get_overview`: what the paper proves and how it is laid out, without the per-node bodies. */
-export function paperOverview(digest: PaperDigest, appUrl: string) {
+export function paperOverview(digest: PaperDigest, appUrl: string, catalog?: CatalogEntry | null) {
   const bySection = new Map<string, number>()
   const byKind: Partial<Record<NodeKind, number>> = {}
   for (const n of digest.nodes) {
@@ -45,6 +62,32 @@ export function paperOverview(digest: PaperDigest, appUrl: string) {
     authors: digest.authors ?? [],
     source: digest.source,
     url: `${appUrl}/${digest.slug}`,
+    ...(digest.summary ? { summary: { headline: digest.summary.headline, proves: digest.summary.proves } } : {}),
+    ...(catalog
+      ? {
+          catalog: {
+            family: {
+              number: catalog.family.number,
+              code: catalog.family.code,
+              title: catalog.family.title,
+              description: catalog.family.description,
+              discipline: catalog.family.discipline,
+              members: catalog.family.members,
+              has_lean: catalog.family.hasLean,
+              url: `${appUrl}/papers/${catalog.family.code}`
+            },
+            manuscript: {
+              dir: catalog.manuscript.dir,
+              title: catalog.manuscript.title,
+              abstract: catalog.manuscript.abstract,
+              ...(catalog.manuscript.publishedOn ? { published_on: catalog.manuscript.publishedOn } : {}),
+              pdf_url: catalog.manuscript.pdfUrl,
+              source_url: catalog.manuscript.sourceUrl,
+              has_lean: catalog.manuscript.hasLean
+            }
+          }
+        }
+      : {}),
     main_results: digest.root_ids.map(id => byId.get(id)).filter(n => !!n)
       .map(n => ({ ...brief(n), statement_plain: n.statement_plain })),
     sections: [...digest.sections].sort((a, b) => a.order - b.order)
@@ -116,7 +159,7 @@ export function paperFriction(digest: PaperDigest, opts: { severity?: 'info' | '
 
 // --- the tool table: one definition per tool, served over MCP (/api/mcp) and as GET JSON (/api/v1) ---
 
-interface ToolCtx { slug: string, digest: PaperDigest, appUrl: string, sources: () => Promise<ChatSources | null> }
+interface ToolCtx { slug: string, digest: PaperDigest, appUrl: string, sources: () => Promise<ChatSources | null>, catalog: () => Promise<CatalogEntry | null> }
 interface PaperTool {
   title: string
   description: string
@@ -131,9 +174,9 @@ const nodeId = z.string().describe('Node id, e.g. lem-greedy-hashes, or a LaTeX 
 export const PAPER_TOOLS: Record<string, PaperTool> = {
   get_overview: paperTool({
     title: 'Paper overview',
-    description: 'A paper\'s main results (with plain-English statements), its sections with node counts, counts by kind, and its figures. Start here.',
+    description: 'A paper\'s summary and main results (with plain-English statements), its openai/math family and manuscript (PDF, Lean status), its sections with node counts, counts by kind, and its figures. Start here.',
     input: z.object({}),
-    run: ({ digest, appUrl }) => paperOverview(digest, appUrl)
+    run: async ({ digest, appUrl, catalog }) => paperOverview(digest, appUrl, await catalog())
   }),
   list_nodes: paperTool({
     title: 'List nodes',
@@ -203,7 +246,7 @@ export const PAPER_TOOLS: Record<string, PaperTool> = {
   })
 }
 
-const LIST_PAPERS_DESCRIPTION = 'Every paper that has a proof map: slug, title, authors, source, node count and link.'
+const LIST_PAPERS_DESCRIPTION = 'Every paper that has a proof map: slug, title, authors, source, node count and link; for openai/math manuscripts also `family` (number, code, title, discipline), `pdf_url`, `has_lean` and a one-line `headline` when the map has a summary.'
 
 /** A mistake in the request (status 400) or something it names that doesn't exist (404); the message is for the agent. */
 export class ToolError extends Error {
@@ -230,7 +273,13 @@ export async function runPaperTool(deps: McpDeps, name: string, slug: string, ar
     throw new ToolError(`No digested paper "${slug}". Call list_papers for the available slugs.`, 404)
   }
   let sources: Promise<ChatSources | null> | null = null
-  const ctx: ToolCtx = { slug, digest, appUrl: deps.appUrl, sources: () => sources ??= deps.loadSources(slug, digest).catch(() => null) }
+  const ctx: ToolCtx = {
+    slug,
+    digest,
+    appUrl: deps.appUrl,
+    sources: () => sources ??= deps.loadSources(slug, digest).catch(() => null),
+    catalog: () => deps.loadCatalogEntry?.(slug).catch(() => null) ?? Promise.resolve(null)
+  }
   try {
     return { digest, output: await tool.run(ctx, parsed.data as never) }
   } catch (err) {
@@ -297,7 +346,7 @@ function argLines(input: z.ZodObject) {
   })
 }
 
-export function agentGuide(papers: (McpPaperRow & { url: string })[], appUrl: string) {
+export function agentGuide(papers: (McpPaperRow & { url: string })[], appUrl: string, catalog?: { families: number, manuscripts: number, digested: number }) {
   const api = `${appUrl}/api/v1`
   const example = papers[0]?.slug ?? 'eth'
   const tools = Object.entries(PAPER_TOOLS).map(([name, t]) => [
@@ -308,23 +357,27 @@ export function agentGuide(papers: (McpPaperRow & { url: string })[], appUrl: st
     t.description,
     ...(argLines(t.input).length ? ['', ...argLines(t.input)] : [])
   ].join('\n'))
-  return `# Project GPE: proof maps for agents
+  const scale = catalog ? `${catalog.families} families catalogued, ${catalog.digested} digested` : `${papers.length} digested`
+  return `# Project GPE: proof maps of OpenAI's openai/math papers (${scale})
 
-Project GPE turns math papers into browsable proof maps: every definition, lemma and theorem, plus the major claims
-inside long proofs, each with a plain-English statement, an explanation of why it is in the paper, a
-standard/routine/novel classification, and the dependency edges between them. This page tells an agent how to read
-those maps. Everything is read-only, needs no key, and returns JSON.
+[openai/math](https://github.com/openai/math) is a collection of ${catalog?.manuscripts ?? 'several hundred'} machine-written math manuscripts in ${catalog?.families ?? 'a few hundred'} result
+families. Project GPE catalogues all of them (title, abstract, discipline, PDF, Lean status) and turns some into
+browsable proof maps: every definition, lemma and theorem, plus the major claims inside long proofs, each with a
+plain-English statement, an explanation of why it is in the paper, a standard/routine/novel classification, and the
+dependency edges between them. This page tells an agent how to read the catalog and the maps. Everything is read-only,
+needs no key, and returns JSON.
 
 Two ways in, same tools and same answers:
 
 - **HTTP GET** (works with any fetch or curl): \`${api}\`, described below.
 - **MCP** (streamable HTTP): \`${appUrl}/api/mcp\`. Add it as a remote MCP server; the tools are the ones below, each
-  with an extra \`paper\` argument (the slug).
+  with an extra \`paper\` argument (the slug). The catalog endpoints are HTTP only.
 
 ## How to use it
 
-1. \`GET ${api}/papers\` lists the papers. Pick a slug.
-2. \`GET ${api}/papers/<slug>/get_overview\` gives the main results and the section layout.
+1. \`GET ${api}/papers\` lists the papers with a map. Pick a slug. (To find a result that has no map yet, search the
+   catalog: \`GET ${api}/families?q=…\`.)
+2. \`GET ${api}/papers/<slug>/get_overview\` gives the summary, main results and the section layout.
 3. Drill in with \`get_node\` (the explanation and direct edges) and \`read_node\` (the verbatim LaTeX statement and proof).
 4. For "how does X lead to Y", call \`trace\`; a node's own edges are only its direct uses, so don't assemble chains by
    hand. \`ancestors\` gives everything a node rests on or supports.
@@ -332,13 +385,48 @@ Two ways in, same tools and same answers:
 
 Node ids look like \`lem-greedy-hashes\`; the paper's LaTeX labels (\`lem:greedy-hashes\`) work too. An unknown id comes back
 as an error that lists close matches. Errors are \`{ "error": "…" }\` with status 400 (bad arguments) or 404 (unknown
-paper, node or figure).
+paper, node, figure or family).
 
 Example: \`GET ${api}/papers/${example}/trace?from=<node>&to=<node>\`
 
+## Catalog
+
+Every openai/math result family, built from the repository's own index (no model involved). A family has a 3-digit
+code (\`049\`), a title and description, a discipline, its manuscripts, Lean status, and \`digested\`: the maps
+made from its manuscripts (slug and counts), \`[]\` when none is mapped yet.
+
+### list_families
+
+\`GET ${api}/families?…\`
+
+Families, filtered and paged. Each has number, code, title, description, discipline, members, has Lean, reasoning-trace
+PDF (when there is one), and \`digested\`.
+
+  - \`q\` (string, optional): case-insensitive text match against family titles and descriptions and manuscript titles and abstracts
+  - \`discipline\` (string, optional): a discipline slug from list_disciplines, e.g. \`combinatorics\`
+  - \`digested\` (\`1\` \\| \`0\`, optional): only families with (or without) a map
+  - \`lean\` (\`1\` \\| \`0\`, optional): only families with (or without) a Lean formalization
+  - \`sort\` (\`flagship\` \\| \`number\` \\| \`title\` \\| \`members\`, optional): default \`flagship\` (featured families first, then mapped, then by number)
+  - \`limit\` (integer, optional): default 50, max 400
+  - \`offset\` (integer, optional)
+
+### get_family
+
+\`GET ${api}/families/<code>\`
+
+One family (\`049\` or \`49\`) with every manuscript: title, abstract, publication date, PDF, source and README links,
+Lean status, and the map's slug when one exists.
+
+### list_disciplines
+
+\`GET ${api}/disciplines\`
+
+Catalog totals (families, manuscripts, disciplines, digested, Lean, the indexed commit) and each discipline's slug, name,
+family count and digested count.
+
 ## Papers
 
-${papers.length ? papers.map(p => `- \`${p.slug}\`: ${p.title}${p.authors.length ? ` (${p.authors.join(', ')})` : ''}, ${p.nodes} nodes. ${p.url}`).join('\n') : 'None yet.'}
+${papers.length ? papers.map(p => `- \`${p.slug}\`: ${p.title}${p.authors.length ? ` (${p.authors.join(', ')})` : ''}, ${p.nodes} nodes${p.family ? `, family ${p.family.code} (${p.family.discipline})` : ''}. ${p.url}`).join('\n') : 'None yet.'}
 
 ## Tools
 

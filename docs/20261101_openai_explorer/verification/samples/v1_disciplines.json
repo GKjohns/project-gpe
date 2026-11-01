@@ -1,0 +1,115 @@
+{
+  "stats": {
+    "families": 373,
+    "manuscripts": 721,
+    "disciplines": 17,
+    "digested": 5,
+    "lean": 138,
+    "sha": "4eaee87548250b2682affda7d05d947c05554bae",
+    "syncedAt": "2026-11-01T17:49:20.187Z"
+  },
+  "disciplines": [
+    {
+      "slug": "number-theory",
+      "name": "Number theory",
+      "families": 31,
+      "digested": 0
+    },
+    {
+      "slug": "algebraic-and-complex-geometry",
+      "name": "Algebraic and complex geometry",
+      "families": 36,
+      "digested": 1
+    },
+    {
+      "slug": "real-and-complex-analysis",
+      "name": "Real and complex analysis",
+      "families": 16,
+      "digested": 0
+    },
+    {
+      "slug": "convex-and-metric-geometry",
+      "name": "Convex and metric geometry",
+      "families": 15,
+      "digested": 0
+    },
+    {
+      "slug": "theoretical-computer-science",
+      "name": "Theoretical computer science",
+      "families": 41,
+      "digested": 3
+    },
+    {
+      "slug": "dynamical-systems-and-ergodic-theory",
+      "name": "Dynamical systems and ergodic theory",
+      "families": 12,
+      "digested": 0
+    },
+    {
+      "slug": "combinatorics",
+      "name": "Combinatorics",
+      "families": 37,
+      "digested": 1
+    },
+    {
+      "slug": "algebra",
+      "name": "Algebra",
+      "families": 18,
+      "digested": 0
+    },
+    {
+      "slug": "probability-and-statistical-mechanics",
+      "name": "Probability and statistical mechanics",
+      "families": 29,
+      "digested": 0
+    },
+    {
+      "slug": "mathematical-logic",
+      "name": "Mathematical logic",
+      "families": 6,
+      "digested": 0
+    },
+    {
+      "slug": "group-theory",
+      "name": "Group theory",
+      "families": 14,
+      "digested": 0
+    },
+    {
+      "slug": "mathematical-physics",
+      "name": "Mathematical physics",
+      "families": 25,
+      "digested": 0
+    },
+    {
+      "slug": "operator-algebras",
+      "name": "Operator algebras",
+      "families": 19,
+      "digested": 0
+    },
+    {
+      "slug": "topology",
+      "name": "Topology",
+      "families": 18,
+      "digested": 0
+    },
+    {
+      "slug": "functional-analysis",
+      "name": "Functional analysis",
+      "families": 11,
+      "digested": 0
+    },
+    {
+      "slug": "differential-geometry",
+      "name": "Differential geometry",
+      "families": 29,
+      "digested": 0
+    },
+    {
+      "slug": "partial-differential-equations",
+      "name": "Partial differential equations",
+      "families": 16,
+      "digested": 0
+    }
+  ]
+}

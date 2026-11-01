@@ -76,6 +76,14 @@ export interface PaperRender {
   rendered_at: string
 }
 
+/** One model call over a finished digest (finalize, or POST /api/papers/:slug/summary to backfill). */
+export interface PaperSummary {
+  headline: string // the result in one line, ≤ 140 chars, inline $…$ allowed (cards, rails, agent rows)
+  proves: string // "What this paper proves": exactly 3 plain-English sentences, ≤ 700 chars
+  model: string
+  generated_at: string
+}
+
 export interface PaperDigest {
   slug: string
   title: string
@@ -89,6 +97,7 @@ export interface PaperDigest {
   labels?: Record<string, PaperLabel> // every \label in the body, classified
   render?: PaperRender // additive: absent until the paper is rendered
   figures?: PaperFigure[] // additive: figure environments, rasterized and described
+  summary?: PaperSummary // additive (Nov 1, OpenAI explorer): absent → the UI falls back
   generated_at: string
   run_id: string
   metrics: RunMetrics

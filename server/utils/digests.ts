@@ -1,17 +1,14 @@
 // Loading a paper's digest and figure images, shared by the chat route and the MCP endpoint.
-import { eq } from 'drizzle-orm'
 import type { PaperDigest } from '#shared/types'
-import { useDb } from '../db'
-import { papers } from '../db/schema'
 import { toyDigest } from '../fixtures/toy-digest'
 import { blobStore } from './blobs'
 import type { FigureImageLoader } from './chatTools'
+import { must, useSupabase } from './supabase'
 
 export async function loadDigest(slug: string): Promise<PaperDigest | null> {
-  const db = await useDb()
-  const [row] = await db.select({ digest: papers.digest }).from(papers).where(eq(papers.slug, slug))
+  const row = must(await useSupabase().from('papers').select('digest').eq('slug', slug).maybeSingle())
   if (row) {
-    return row.digest ?? null
+    return (row.digest as unknown as PaperDigest | null) ?? null
   }
   // Same fallback as GET /api/papers/toy.
   return import.meta.dev && slug === 'toy' ? toyDigest : null

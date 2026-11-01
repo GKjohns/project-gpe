@@ -1,22 +1,24 @@
+import { randomUUID } from 'node:crypto'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { createMcpHandler } from '@modelcontextprotocol/server'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { createDb, setDb } from '../server/db'
-import type { Db } from '../server/db'
-import { agentRequests, papers } from '../server/db/schema'
 import { toyDigest } from '../server/fixtures/toy-digest'
-import { listPublicPapers, loadPublicDigest } from '../server/utils/agentApi'
+import { invalidateCatalog, listPublicPapers, loadPublicDigest } from '../server/utils/agentApi'
 import { agentEntry, attributionRef, classifyUserAgent, hashIp, hasLoggedCalls, mcpCalls, parseRpc, recordAgentRequests, setAgentLogSink } from '../server/utils/agentLog'
 import { agentRequestStats, formatAgentStats } from '../server/utils/agentStats'
 import type { McpDeps } from '../server/utils/mcpTools'
 import { createDigestMcpServer } from '../server/utils/mcpTools'
+import { setSupabase } from '../server/utils/supabase'
+import { createFakeSupabase } from './helpers/fakeSupabase'
 
-let db: Db
-beforeAll(async () => {
-  ({ db } = await createDb({ memory: true }))
-  setDb(db)
-  const row = (slug: string, isPublic: boolean) => ({ slug, title: slug, sourceKind: 'arxiv' as const, sourceRef: slug, digest: { ...toyDigest, slug }, public: isPublic })
-  await db.insert(papers).values([row('eth', true), row('eth-agent', false), { ...row('undigested', true), digest: null }])
+let fake: ReturnType<typeof createFakeSupabase>
+const paper = (slug: string, isPublic: boolean, digest: unknown = { ...toyDigest, slug }) =>
+  // Seed rows skip the fake's column defaults, so they carry id and timestamps themselves.
+  ({ id: randomUUID(), slug, title: slug, authors: [], source_kind: 'arxiv', source_ref: slug, digest, public: isPublic, manuscript_dir: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+beforeAll(() => {
+  fake = createFakeSupabase({ papers: [paper('eth', true), paper('eth-agent', false), paper('undigested', true, null)] })
+  setSupabase(fake.client)
+  invalidateCatalog()
 })
 
 describe('public flag', () => {
@@ -33,7 +35,8 @@ describe('public flag', () => {
   })
 
   it('new papers start private', async () => {
-    await db.insert(papers).values({ slug: 'fresh', title: 'Fresh', sourceKind: 'arxiv', sourceRef: 'x', digest: toyDigest })
+    // Insert as the routes do: no `public`, so the column default applies.
+    await fake.client.from('papers').insert({ slug: 'fresh', title: 'Fresh', source_kind: 'arxiv', source_ref: 'x', digest: toyDigest as never })
     expect((await listPublicPapers()).map(p => p.slug)).not.toContain('fresh')
   })
 })
@@ -88,20 +91,43 @@ describe('log entries', () => {
     warn.mockRestore()
   })
 
-  it('writes rows and the readout aggregates them', async () => {
+  it('the default sink inserts snake_case agent_requests rows', async () => {
     const info = { userAgent: 'curl/8', ip: '198.51.100.1', ref: 'blog' }
     await recordAgentRequests([
       agentEntry(info, { surface: 'v1', tool: 'get_overview', paper: 'eth', status: 200, ms: 5 }),
-      agentEntry(info, { surface: 'v1', tool: 'get_node', paper: 'eth', status: 404, ms: 3 }),
-      agentEntry({ ip: '198.51.100.2' }, { surface: 'llms', status: 200, ms: 2 })
+      agentEntry({ ip: '198.51.100.2' }, { surface: 'llms', status: 404, ms: 2 })
     ])
-    const stats = await agentRequestStats(db, { days: 1 })
-    expect(stats.total).toMatchObject({ requests: 3, callers: 2, errors: 1 })
-    expect(stats.bySurface.find(r => r.key === 'v1')?.requests).toBe(2)
-    expect(stats.byRef.find(r => r.key === 'blog')?.requests).toBe(2)
-    expect(stats.byDay).toHaveLength(1)
-    expect(formatAgentStats(stats)).toContain('3 requests, 2 unique callers, 1 errors')
-    expect(await db.select().from(agentRequests)).toHaveLength(3)
+    expect(fake.tables.agent_requests).toHaveLength(2)
+    expect(fake.tables.agent_requests![0]).toMatchObject({ surface: 'v1', tool: 'get_overview', paper: 'eth', status: 200, client: 'curl', user_agent: 'curl/8', ip_hash: hashIp('198.51.100.1'), ref: 'blog' })
+  })
+
+  it('reads the readout from RPC agent_request_stats', async () => {
+    const empty = { key: 'total', requests: 0, callers: 0, errors: 0 }
+    const calls: unknown[] = []
+    fake.rpcs.agent_request_stats = (a) => {
+      calls.push(a)
+      return { since: '2026-10-02T12:00:00.5+00:00', total: empty, byDay: [], bySurface: [], byClient: [], byTool: [], byPaper: [], byRef: [] }
+    }
+    const stats = await agentRequestStats({ days: 30 })
+    expect(calls).toEqual([{ p_days: 30 }])
+    expect(stats.since.toISOString()).toBe('2026-10-02T12:00:00.500Z')
+    expect(stats.total).toEqual(empty)
+  })
+
+  it('formats the readout (aggregated by RPC agent_request_stats)', () => {
+    const row = (key: string, requests: number, callers: number, errors: number) => ({ key, requests, callers, errors })
+    const text = formatAgentStats({
+      since: new Date('2026-11-01T00:00:00Z'),
+      total: row('total', 3, 2, 1),
+      byDay: [row('2026-11-01', 3, 2, 1)],
+      bySurface: [row('v1', 2, 1, 1), row('llms', 1, 1, 0)],
+      byClient: [],
+      byTool: [],
+      byPaper: [],
+      byRef: []
+    })
+    expect(text).toContain('Agent API since 2026-11-01: 3 requests, 2 unique callers, 1 errors')
+    expect(text).toContain('client\n  (none)')
   })
 })
 

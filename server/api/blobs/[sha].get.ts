@@ -31,12 +31,13 @@ export default defineEventHandler(async (event) => {
       setResponseHeader(event, 'Content-Range', `bytes */${meta.size}`)
       throw createError({ statusCode: 416, statusMessage: 'Range not satisfiable' })
     }
-    const part = await blobStore.range(sha, start, end)
+    const body = await blobStore.stream(sha, { start, end })
     setResponseStatus(event, 206)
-    setResponseHeaders(event, { 'Content-Range': `bytes ${start}-${end}/${meta.size}`, 'Content-Length': part!.byteLength })
-    return Buffer.from(part!)
+    setResponseHeaders(event, { 'Content-Range': `bytes ${start}-${end}/${meta.size}`, 'Content-Length': end - start + 1 })
+    return sendStream(event, body)
   }
-  const blob = await blobStore.get(sha)
-  setResponseHeader(event, 'Content-Length', blob!.data.byteLength)
-  return Buffer.from(blob!.data)
+  // Streamed too, so a whole PDF never sits in the function's memory.
+  const body = await blobStore.stream(sha)
+  setResponseHeader(event, 'Content-Length', meta.size)
+  return sendStream(event, body)
 })

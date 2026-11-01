@@ -7,7 +7,7 @@
  */
 import type { Profile, StructureMethod } from '#shared/types'
 
-export type ModelStep = 'outline' | 'extract' | 'resolve' | 'critique' | 'annotate' | 'classify' | 'agent' | 'figures'
+export type ModelStep = 'outline' | 'extract' | 'resolve' | 'critique' | 'annotate' | 'classify' | 'agent' | 'figures' | 'summary'
 
 export const PROFILES: Record<Profile, Record<ModelStep, string>> = {
   careful: {
@@ -18,7 +18,9 @@ export const PROFILES: Record<Profile, Record<ModelStep, string>> = {
     extract: 'anthropic/claude-sonnet-5.5',
     resolve: 'anthropic/claude-sonnet-5.5',
     annotate: 'anthropic/claude-sonnet-5.5',
-    figures: 'anthropic/claude-opus-5.5'
+    figures: 'anthropic/claude-opus-5.5',
+    // One short call over the finished digest (finalize, or the backfill route): the profile's strong model.
+    summary: 'anthropic/claude-opus-5.5'
   },
   standard: {
     outline: 'openai/gpt-6-sol',
@@ -29,7 +31,8 @@ export const PROFILES: Record<Profile, Record<ModelStep, string>> = {
     resolve: 'anthropic/claude-sonnet-5.5',
     annotate: 'anthropic/claude-sonnet-5.5',
     // Vision: few calls per paper and a misread chart is worse than a missing one, so the strongest reader on both.
-    figures: 'anthropic/claude-opus-5.5'
+    figures: 'anthropic/claude-opus-5.5',
+    summary: 'openai/gpt-6-sol'
   },
   quick: {
     outline: 'anthropic/claude-sonnet-5.5',
@@ -39,7 +42,8 @@ export const PROFILES: Record<Profile, Record<ModelStep, string>> = {
     extract: 'anthropic/claude-haiku-5.5',
     resolve: 'anthropic/claude-haiku-5.5',
     annotate: 'anthropic/claude-haiku-5.5',
-    figures: 'anthropic/claude-sonnet-5.5'
+    figures: 'anthropic/claude-sonnet-5.5',
+    summary: 'anthropic/claude-sonnet-5.5'
   }
 }
 

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mathlib-initiative/formalization.yaml/main/schema/formalization.schema.json
+# Catalog of papers with a formalized main result. Paths are relative to lean/.
+version: "v0.4"
+
+project:
+  name: "OpenAI math repository"
+  description: "Lean formalizations accompanying a mathematics manuscript collection."
+  authors: ["OpenAI"]
+  license: "Apache-2.0"
+
+sources:
+  - title: "A stable coordinate that is not a coordinate in four variables"
+    authors: ["OpenAI"]
+    id: ../preprints/A-stable-coordinate-that-is-not-a-coordinate-in-four-variables-October-5-2026/stable-coordinate-four-variables.pdf
+    type: article
+
+  - title: "An explicit noncoordinate polynomial with affine three-space zero fibre"
+    authors: ["OpenAI"]
+    id: ../preprints/An-explicit-noncoordinate-polynomial-with-affine-three-space-zero-fibre-September-24-2026/paper.pdf
+    type: article
+
+  - title: "Entropy and Face Dimension of the Perfect-Matching Polytope"
+    authors: ["OpenAI"]
+    id: ../preprints/Entropy-and-Face-Dimension-of-the-Perfect-Matching-Polytope-September-23-2026/main.pdf
+    type: article
+
+
+related_formalizations:
+  # Ids below this line are not this repo's formalizations and must be ignored.
+  - title: "The irrationality exponent of pi is 2"
+    id: ../preprints/The-irrationality-exponent-of-pi-is-2-September-24-2026/paper.pdf
+    type: article

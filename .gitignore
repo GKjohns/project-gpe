@@ -33,3 +33,6 @@ corpus/sources/
 
 # Browser automation scratch
 .playwright-mcp/
+
+# Hero candidates: keep the .webp copies, not the multi-MB source PNGs
+docs/**/hero/*.png

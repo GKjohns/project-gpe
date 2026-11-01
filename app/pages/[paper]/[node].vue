@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { breakpointsTailwind, useBreakpoints, useClipboard } from '@vueuse/core'
 import type { BreadcrumbItem, CommandPaletteGroup, CommandPaletteItem, DropdownMenuItem, SplitterItem, TabsItem } from '@nuxt/ui'
-import type { PaperListItem } from '#shared/api'
+import type { PaperTab } from '~/components/paper/PaperNavbar.vue'
+import type { PublicPaperItem } from '#shared/api'
 import type { GraphColorBy, GraphMode } from '~/utils/graph'
 
 // Keyed by paper so moving between nodes keeps the sidebar, tree state and panel sizes mounted.
@@ -11,7 +12,8 @@ const route = useRoute()
 const toast = useToast()
 const { paperSlug, selectedId, select, setQuery } = useSelection()
 
-const { paper, digest, index, error, ready } = useDigest(paperSlug)
+const { paper, digest, catalog, index, error, ready } = useDigest(paperSlug)
+const { operator, ready: operatorReady } = useOperator()
 provideDigest({ paper, digest, index })
 await ready
 
@@ -19,8 +21,12 @@ if (error.value) {
   throw createError({ statusCode: error.value.statusCode ?? 404, statusMessage: error.value.statusMessage ?? 'Paper not found', fatal: true })
 }
 if (paper.value && !digest.value) {
-  // Not digested yet: the run page is the only useful view.
-  await navigateTo(`/papers/${paperSlug.value}/run`, { replace: true })
+  // Not digested yet: the operator's only useful view is the run page; for everyone else there is nothing here.
+  await operatorReady
+  if (!operator.value) {
+    throw createError({ statusCode: 404, statusMessage: 'Paper not found', fatal: true })
+  }
+  await navigateTo(`/admin/papers/${paperSlug.value}/run`, { replace: true })
 }
 
 const node = computed(() => index.value.byId.get(selectedId.value))
@@ -28,7 +34,7 @@ const node = computed(() => index.value.byId.get(selectedId.value))
 useSeoMeta({ title: () => node.value ? `${node.value.name} · ${digest.value?.title}` : (digest.value?.title ?? 'Paper') })
 
 // --- paper switcher -------------------------------------------------------
-const { data: library } = await useFetch<PaperListItem[]>('/api/papers', { key: 'papers', default: () => [] })
+const { data: library } = await useFetch<PublicPaperItem[]>('/api/papers', { key: 'papers', default: () => [] })
 const paperItems = computed(() => (library.value ?? []).filter(p => p.counts).map(p => ({ label: p.title, value: p.slug })))
 const paperModel = computed({
   get: () => paperSlug.value,
@@ -69,7 +75,7 @@ const counts = computed(() => {
 })
 
 // --- navbar ---------------------------------------------------------------
-// Just parent › node: the paper title is in the sidebar switcher and the section is the tree's grouping.
+// PaperNavbar's Papers › family › paper, then parent › node (the section is the tree's grouping).
 const breadcrumb = computed<BreadcrumbItem[]>(() => {
   const n = node.value
   const hideNarrow = { item: 'hidden md:flex', separator: 'hidden md:flex' }
@@ -86,16 +92,12 @@ const breadcrumb = computed<BreadcrumbItem[]>(() => {
   return items
 })
 
-const viewTabs: TabsItem[] = [
-  { label: 'Paper', value: 'paper', icon: 'i-lucide-book-open-text' },
-  { label: 'Node', value: 'tree', icon: 'i-lucide-file-text' },
-  { label: 'Graph', value: 'graph', icon: 'i-lucide-git-fork' }
-]
-// `/[paper]` lands on ?view=paper (the reader); a bare node link stays the node page so old deep links keep working.
+// Overview · Tree · Graph · Paper live in PaperNavbar; a bare node link is the tree view, so old deep links work.
 const view = computed({
   get: () => route.query.view === 'graph' ? 'graph' : route.query.view === 'paper' ? 'paper' : 'tree',
   set: (v: string | number) => setQuery('view', v === 'graph' || v === 'paper' ? String(v) : undefined)
 })
+const activeTab = computed<PaperTab>(() => view.value)
 
 // --- graph view (Sprint 6) ----------------------------------------------------
 // Route state lives in the query so a graph view is shareable: ?view=graph&mode=focus&claims=1&color=sec
@@ -187,6 +189,17 @@ const chat = createPaperChat(paperSlug, {
 })
 providePaperChat(chat)
 const chatMessages = chat.messages
+
+// ?ask=<text> (the family page's Ask box, the overview's Ask door): open the chat with the question prefilled.
+// Never sent automatically: a shared link shouldn't spend a model call.
+onMounted(() => {
+  const ask = route.query.ask
+  if (ask !== undefined) {
+    chatPref.value = true
+    chat.input.value = String(Array.isArray(ask) ? ask[0] ?? '' : ask ?? '')
+    setQuery('ask', undefined)
+  }
+})
 function clearChat() {
   chat.stop()
   chatMessages.value = []
@@ -363,17 +376,16 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
           :ui="{ body: view !== 'tree' ? 'p-0 sm:p-0 gap-0 sm:gap-0 overflow-hidden' : 'lg:py-8' }"
         >
           <template #header>
-            <UDashboardNavbar
-              :as="{ root: 'div', title: 'div' }"
-              :ui="{ title: 'min-w-0', left: 'min-w-0', right: 'gap-1.5' }"
+            <PaperNavbar
+              :slug="paperSlug"
+              :title="digest?.title ?? paperSlug"
+              :family="catalog?.family"
+              :active="activeTab"
+              :node-id="selectedId"
+              :crumbs="breadcrumb"
+              label-class="hidden 2xl:inline"
             >
-              <template #title>
-                <UBreadcrumb
-                  :items="breadcrumb"
-                  :ui="{ root: 'min-w-0', list: 'min-w-0', item: 'min-w-0', linkLabel: 'truncate max-w-48 md:max-w-64' }"
-                />
-              </template>
-              <template #right>
+              <template #right-start>
                 <!-- Graph options tuck into a popover instead of a second toolbar row. -->
                 <UPopover
                   v-if="view === 'graph'"
@@ -418,14 +430,8 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
                     </div>
                   </template>
                 </UPopover>
-                <UTabs
-                  v-model="view"
-                  :items="viewTabs"
-                  :content="false"
-                  size="xs"
-                  color="neutral"
-                  :ui="{ label: 'hidden 2xl:inline' }"
-                />
+              </template>
+              <template #right>
                 <UTooltip :text="chatOpen ? 'Close chat' : 'Ask the paper'">
                   <UButton
                     icon="i-lucide-message-square"
@@ -449,7 +455,7 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
                   />
                 </UDropdownMenu>
               </template>
-            </UDashboardNavbar>
+            </PaperNavbar>
           </template>
 
           <template #body>

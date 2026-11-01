@@ -16,13 +16,17 @@ export default defineConfig({
   }],
   resolve: {
     alias: {
-      '#shared': fileURLToPath(new URL('./shared', import.meta.url))
+      '#shared': fileURLToPath(new URL('./shared', import.meta.url)),
+      // Tests never reach Supabase (dev and prod are one project): the module's server entry is a stub that throws,
+      // and tests inject tests/helpers/fakeSupabase.ts with setSupabase().
+      '#supabase/server': fileURLToPath(new URL('./tests/helpers/supabaseServerStub.ts', import.meta.url)),
+      '#supabase/database': fileURLToPath(new URL('./app/types/database.types.ts', import.meta.url))
     }
   },
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
-    // Each file gets its own module graph, so each file's in-memory PGlite (via setDb) is isolated.
+    // Each file gets its own module graph; tests build a fresh fake Supabase per test.
     isolate: true,
     testTimeout: 20_000
   }

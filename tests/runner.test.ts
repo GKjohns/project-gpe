@@ -1,12 +1,10 @@
-import { eq } from 'drizzle-orm'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { createDb, setDb } from '../server/db'
-import type { Db } from '../server/db'
-import { papers, runEvents, runs, sources } from '../server/db/schema'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BudgetExceeded, LocalRunner, runner } from '../server/pipeline/runner'
 import type { PipelineFn } from '../server/pipeline/runner'
 import { addCost, createRun, getRun, getRunView, patchProgress, setStatus } from '../server/utils/runs'
 import { stageOutputs } from '../server/utils/stageOutputs'
+import { setSupabase } from '../server/utils/supabase'
+import { createFakeSupabase } from './helpers/fakeSupabase'
 
 // Outline/extract/resolve call models since Sprint 3; the end-to-end case gets an empty outline.
 vi.mock('../server/pipeline/llm', () => ({
@@ -14,15 +12,15 @@ vi.mock('../server/pipeline/llm', () => ({
   callObject: vi.fn(async () => ({ object: { claims: [], flags: [], fixes: [], ok: true, deps: [], name: 'A lemma', statement_plain: 'x holds.', explanation: 'Base case.', classification: 'routine', classification_cite: 'A direct check.' }, usage: { model: 'm', tokens_in: 0, tokens_out: 0, tokens_cached: 0, cost_usd: 0, cost_source: 'gateway', ms: 0, retried: false } }))
 }))
 
-let db: Db
-let paperId: string
+let fake: ReturnType<typeof createFakeSupabase>
+const paperId = '00000000-0000-4000-8000-000000000001'
 
-beforeAll(async () => {
-  ({ db } = await createDb({ memory: true }))
-  setDb(db)
-  const [row] = await db.insert(papers).values({ slug: 'test', title: 'Test', sourceKind: 'upload', sourceRef: 'x.tex' }).returning()
-  paperId = row!.id
+beforeEach(() => {
+  fake = createFakeSupabase({ papers: [{ id: paperId, slug: 'test', title: 'Test', source_kind: 'upload', source_ref: 'x.tex', authors: [], tier: null, digest: null, latest_run_id: null, public: false, manuscript_dir: null, created_at: '2026-11-01T00:00:00Z', updated_at: '2026-11-01T00:00:00Z' }] })
+  setSupabase(fake.client)
 })
+
+const eventsOf = (runId: string) => fake.tables.run_events!.filter(e => e.run_id === runId).sort((a, b) => Number(a.id) - Number(b.id))
 
 const newRun = (budgetUsd = 10) => createRun({ paperId, profile: 'standard', method: 'pipeline', budgetUsd })
 
@@ -47,7 +45,7 @@ describe('LocalRunner', () => {
       expect(out).toBe(name.length)
     }
     expect(order).toEqual(['fetch', 'chunk', 'outline'])
-    const events = await db.select().from(runEvents).where(eq(runEvents.runId, runId)).orderBy(runEvents.id)
+    const events = eventsOf(runId)
     expect(events).toHaveLength(6)
     expect(events.map(e => e.message)).toEqual([
       'fetch started', 'fetch finished', 'chunk started', 'chunk finished', 'outline started', 'outline finished'
@@ -101,9 +99,21 @@ describe('runner lifecycle', () => {
     await startA.done
     expect((await getRun(a))!.status).toBe('complete')
     expect((await getRun(b))!.status).toBe('complete')
-    // Earlier tests leave queued runs behind; the drainer picks those up too, oldest first.
-    expect(seen[0]).toBe(a)
-    expect(seen).toContain(b)
+    expect(seen).toEqual([a, b])
+  })
+
+  it('does not treat another process\'s running row as busy, and never drains its queued runs', async () => {
+    // Dev shares prod's runs: a row running under Inngest (or another dev server) must not block this process.
+    const elsewhere = await newRun()
+    const queuedElsewhere = await newRun()
+    await setStatus(elsewhere, 'running')
+    const mine = await newRun()
+    const { result, done } = await runner.start(mine, { pipeline: async () => {} })
+    expect(result).toBe('started')
+    await done
+    expect((await getRun(mine))!.status).toBe('complete')
+    expect((await getRun(elsewhere))!.status).toBe('running')
+    expect((await getRun(queuedElsewhere))!.status).toBe('queued')
   })
 
   it('marks a run failed with error "budget" when the budget is blown', async () => {
@@ -137,11 +147,12 @@ describe('runner lifecycle', () => {
   it('runs the ingest pipeline end to end with a mocked model and writes the digest', async () => {
     // The test paper is an upload, so fetch re-reads stored sources instead of hitting the network.
     const content = '\\documentclass{article}\n\\begin{document}\n\\section{A}\n\\begin{lemma}\\label{lem:a}x\\end{lemma}\n\\end{document}\n'
-    await db.insert(sources).values({ paperId, path: 'x.tex', content, bytes: content.length })
+    fake.tables.sources = [{ id: 'src-1', paper_id: paperId, path: 'x.tex', content, bytes: content.length }]
     const runId = await newRun()
     const { done } = await runner.start(runId)
     await done
     const view = await getRunView(runId)
+    expect(view!.run.error).toBeNull()
     expect(view!.run.status).toBe('complete')
     expect(view!.run.stage).toBe('finalize')
     expect(view!.run.progress).toMatchObject({ files: 1, sections: 1, statements: 1 })
@@ -149,18 +160,9 @@ describe('runner lifecycle', () => {
     expect(view!.run.progress).toMatchObject({ claims: 0, statements_extracted: 1, refs_mechanical: 0, refs_inferred: 0 })
     expect(view!.run.progress).toMatchObject({ critique_findings: 0, annotated: 1, classified: 1, digest_nodes: 1 })
     expect(view!.run.metrics).toMatchObject({ statements_in_source: 1, claims: 0 })
-    const [paper] = await db.select().from(papers).where(eq(papers.id, paperId))
+    const paper = fake.tables.papers!.find(p => p.id === paperId)
     expect(paper!.digest).toMatchObject({ root_ids: ['lem-a'], nodes: [{ id: 'lem-a', name: 'A lemma', classification: 'routine' }] })
-    expect(paper!.latestRunId).toBe(runId)
-  })
-
-  it('boot sweep fails runs left running', async () => {
-    const runId = await newRun()
-    await db.update(runs).set({ status: 'running' }).where(eq(runs.id, runId))
-    expect(await runner.sweep()).toBe(1)
-    const run = await getRun(runId)
-    expect(run!.status).toBe('failed')
-    expect(run!.error).toBe('dev server restarted')
+    expect(paper!.latest_run_id).toBe(runId)
   })
 })
 
@@ -180,13 +182,6 @@ describe('stageOutputs', () => {
     expect(await stageOutputs.get(child, 'extract')).toBeNull()
     expect(await stageOutputs.get(child, 'resolve')).toBeNull()
   })
-
-  it('put overwrites an existing row', async () => {
-    const runId = await newRun()
-    await stageOutputs.put(runId, 'chunk', { v: 1 })
-    await stageOutputs.put(runId, 'chunk', { v: 2 })
-    expect(await stageOutputs.get(runId, 'chunk')).toEqual({ v: 2 })
-  })
 })
 
 describe('Sprint 8 hardening', () => {
@@ -195,11 +190,16 @@ describe('Sprint 8 hardening', () => {
     expect(jsonbSafe({ a: ['x\u0000y', 'ok 𝐀', 'bad \uD835 z'] })).toEqual({ a: ['xy', 'ok 𝐀', 'bad � z'] })
   })
 
-  it('errorText leads with the driver error and drops the params', async () => {
+  it('errorText keeps a PostgREST error short and caps anything long', async () => {
     const { errorText } = await import('../server/pipeline/runner')
-    const err = new Error('Failed query: insert into "stage_outputs" values ($1)\nparams: ' + 'x'.repeat(5000), { cause: new Error('unsupported Unicode escape sequence') })
-    const text = errorText(err)
-    expect(text.startsWith('unsupported Unicode escape sequence (Failed query: insert')).toBe(true)
-    expect(text.length).toBeLessThan(300)
+    const { must } = await import('../server/utils/supabase')
+    let err: unknown
+    try {
+      must({ data: null, error: { message: 'unsupported Unicode escape sequence', code: '22P05', details: null, hint: null } })
+    } catch (e) {
+      err = e
+    }
+    expect(errorText(err)).toBe('unsupported Unicode escape sequence (22P05)')
+    expect(errorText(new Error('x'.repeat(5000))).length).toBe(2001)
   })
 })

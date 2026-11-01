@@ -5,10 +5,10 @@ useSeoMeta({ title: 'Sign in', robots: 'noindex' })
 const route = useRoute()
 const { operator, auth, refreshOperator } = useOperator()
 
-// Only same-site paths; anything else lands on the library.
+// Only same-site paths; anything else lands on the admin.
 const next = computed(() => {
-  const n = typeof route.query.next === 'string' ? route.query.next : '/'
-  return n.startsWith('/') && !n.startsWith('//') ? n : '/'
+  const n = typeof route.query.next === 'string' ? route.query.next : '/admin'
+  return n.startsWith('/') && !n.startsWith('//') ? n : '/admin'
 })
 
 const token = ref('')

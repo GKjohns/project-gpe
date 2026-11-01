@@ -7,7 +7,8 @@ definePageMeta({ layout: 'dashboard' })
 
 const route = useRoute()
 const slug = computed(() => String(route.params.paper ?? ''))
-const { paper, digest, index, error, ready } = useDigest(slug)
+const { paper, digest, catalog, index, error, ready } = useDigest(slug)
+const { operator, ready: operatorReady } = useOperator()
 provideDigest({ paper, digest, index })
 await ready
 
@@ -15,7 +16,12 @@ if (error.value) {
   throw createError({ statusCode: error.value.statusCode ?? 404, statusMessage: error.value.statusMessage ?? 'Paper not found', fatal: true })
 }
 if (paper.value && !digest.value) {
-  await navigateTo(`/papers/${slug.value}/run`, { replace: true })
+  // Not digested yet: operator → run page, everyone else → 404.
+  await operatorReady
+  if (!operator.value) {
+    throw createError({ statusCode: 404, statusMessage: 'Paper not found', fatal: true })
+  }
+  await navigateTo(`/admin/papers/${slug.value}/run`, { replace: true })
 }
 
 useSeoMeta({ title: () => `Friction · ${digest.value?.title ?? slug.value}` })
@@ -82,27 +88,14 @@ const columns: TableColumn<Row>[] = [
 <template>
   <UDashboardPanel id="friction">
     <template #header>
-      <UDashboardNavbar :ui="{ title: 'min-w-0' }">
-        <template #title>
-          <UBreadcrumb
-            :items="[
-              { label: digest?.title ?? slug, icon: 'i-lucide-book-open', to: `/${slug}` },
-              { label: 'Friction report' }
-            ]"
-            :ui="{ linkLabel: 'truncate max-w-48 md:max-w-80' }"
-          />
-        </template>
-        <template #right>
-          <UButton
-            :to="`/${slug}`"
-            icon="i-lucide-arrow-left"
-            label="Back to the map"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-          />
-        </template>
-      </UDashboardNavbar>
+      <PaperNavbar
+        :slug="slug"
+        :title="digest?.title ?? slug"
+        :family="catalog?.family"
+        :node-id="digest?.root_ids[0]"
+        :crumbs="[{ label: 'Friction report' }]"
+        logo
+      />
     </template>
 
     <template #body>

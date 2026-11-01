@@ -1,0 +1,43 @@
+
+> catalog:sync
+> tsx --env-file-if-exists=.env scripts/sync-catalog.ts --json
+
+{
+  "sha": "4eaee87548250b2682affda7d05d947c05554bae",
+  "families": 373,
+  "manuscripts": 721,
+  "disciplines": 17,
+  "lean": 138,
+  "leanManuscripts": 175,
+  "byDiscipline": {
+    "Number theory": 31,
+    "Algebraic and complex geometry": 36,
+    "Real and complex analysis": 16,
+    "Convex and metric geometry": 15,
+    "Theoretical computer science": 41,
+    "Dynamical systems and ergodic theory": 12,
+    "Combinatorics": 37,
+    "Algebra": 18,
+    "Probability and statistical mechanics": 29,
+    "Mathematical logic": 6,
+    "Group theory": 14,
+    "Mathematical physics": 25,
+    "Operator algebras": 19,
+    "Topology": 18,
+    "Functional analysis": 11,
+    "Differential geometry": 29,
+    "Partial differential equations": 16
+  },
+  "written": {
+    "families": 0,
+    "manuscripts": 0
+  },
+  "stale": {
+    "families": [],
+    "manuscripts": []
+  },
+  "linked": [],
+  "warnings": [
+    "lean/formalization.yaml names Taming-implies-compatibility-on-four-manifolds-September-23-2026, which CONTENTS.md does not list"
+  ]
+}

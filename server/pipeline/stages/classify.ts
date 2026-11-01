@@ -1,15 +1,13 @@
-import { eq } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Skeleton } from '#shared/pipeline'
 import { classifySchema } from '#shared/schemas'
 import type { ProofNode } from '#shared/types'
-import { useDb } from '../../db'
-import { papers } from '../../db/schema'
 import { PROFILES } from '../../utils/aiModels'
 import { appendEvent, bumpProgress, patchProgress, setStage } from '../../utils/runs'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { rootIds } from '../dag'
 import { callObject } from '../llm'
+import { paperTitle } from '../papers'
 import { mapLimit, statementIds } from '../nodes'
 import { checkpoint } from '../runner'
 import type { AnnotateOutput } from './annotate'
@@ -99,12 +97,11 @@ export const classifyStage: StageFn = async (ctx) => {
     throw new Error('missing annotate output for this run; re-run from annotate')
   }
   const nodes: ProofNode[] = structuredClone(annotated.nodes)
-  const db = await useDb()
-  const [paper] = await db.select({ title: papers.title }).from(papers).where(eq(papers.id, ctx.paperId))
+  const title = await paperTitle(ctx.paperId)
   const ids = statementIds(skeleton.statements)
   const byId = new Map(nodes.map(n => [n.id, n]))
   const c: ClassifyContext = {
-    title: paper?.title ?? '',
+    title: title ?? '',
     main: byId.get(rootIds(nodes, skeleton.sections)[0] ?? ''),
     byId,
     numbers: new Map(skeleton.statements.map(s => [ids.get(s.label)!, s.number]))

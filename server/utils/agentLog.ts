@@ -4,9 +4,8 @@
 // Read with `npm run agent:stats` (server/utils/agentStats.ts).
 import { createHash } from 'node:crypto'
 import { CLIENT_INFO_META_KEY } from '@modelcontextprotocol/server'
-import { useDb } from '../db'
-import { agentRequests } from '../db/schema'
-import type { AgentSurface } from '../db/schema'
+import type { AgentSurface } from './rows'
+import { must, useSupabase } from './supabase'
 
 // Nitro's h3 is auto-imported, not a dependency; take its event type from a helper.
 type H3Event = Parameters<typeof getQuery>[0]
@@ -16,7 +15,18 @@ const CLIENT_CHARS = 80
 const REF_CHARS = 64
 const DEV_SALT = 'gpe-agent-log-dev'
 
-export type AgentRequestEntry = typeof agentRequests.$inferInsert
+/** One agent_requests row to insert (camelCase; `id` and `at` come from the table's defaults). */
+export interface AgentRequestEntry {
+  surface: AgentSurface
+  tool: string | null
+  paper: string | null
+  status: number
+  ms: number
+  client: string
+  userAgent: string | null
+  ipHash: string | null
+  ref: string | null
+}
 
 /** What a log row needs from the request; requestInfo() reads it off an h3 event. */
 export interface AgentRequestInfo { userAgent?: string | null, ip?: string | null, ref?: string | null }
@@ -86,8 +96,21 @@ export function agentEntry(info: AgentRequestInfo, fields: AgentCallFields): Age
 export type AgentLogSink = (entries: AgentRequestEntry[]) => Promise<unknown>
 
 const insertEntries: AgentLogSink = async (entries) => {
-  const db = await useDb()
-  await db.insert(agentRequests).values(entries)
+  // Dev talks to the production project: local curls would pollute prod's agent stats. AGENT_LOG_DEV=1 opts back in.
+  if (import.meta.dev && process.env.AGENT_LOG_DEV !== '1') {
+    return
+  }
+  must(await useSupabase().from('agent_requests').insert(entries.map(e => ({
+    surface: e.surface,
+    tool: e.tool,
+    paper: e.paper,
+    status: e.status,
+    ms: e.ms,
+    client: e.client,
+    user_agent: e.userAgent,
+    ip_hash: e.ipHash,
+    ref: e.ref
+  }))))
 }
 let sink: AgentLogSink = insertEntries
 
@@ -136,9 +159,15 @@ export function requestInfo(event: H3Event, toolArgs: string[] = []): AgentReque
   }
 }
 
-/** Logs calls made by one request. Never throws. */
+/**
+ * Logs calls made by one request. Never throws. The site's own pages read /api/v1 too and aren't agents: browser
+ * fetches say `sec-fetch-site: same-origin`, and SSR fetches (in-process, no sec-fetch headers) send `x-gpe-site`.
+ */
 export function logAgentRequest(event: H3Event, calls: AgentCallFields | AgentCallFields[], toolArgs: string[] = []) {
   try {
+    if (getRequestHeader(event, 'sec-fetch-site') === 'same-origin' || getRequestHeader(event, 'x-gpe-site')) {
+      return
+    }
     const info = requestInfo(event, toolArgs)
     recordAgentRequests((Array.isArray(calls) ? calls : [calls]).map(c => agentEntry(info, c)), p => event.waitUntil?.(p))
   } catch (err) {

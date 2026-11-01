@@ -1,13 +1,14 @@
-import { asc, eq } from 'drizzle-orm'
 import type { CritiqueResult, Outline, RunProgress, Skeleton } from '#shared/pipeline'
 import { CLAIM_PROOF_LINES } from '#shared/pipeline'
 import { critiqueSchema } from '#shared/schemas'
 import type { ReviewItemPayload } from '#shared/runs'
 import type { ProofNode } from '#shared/types'
-import { useDb } from '../../db'
-import { reviewItems, sources } from '../../db/schema'
 import { PROFILES } from '../../utils/aiModels'
+import type { Json } from '#supabase/database'
+import { reviewItemRow } from '../../utils/rows'
 import { appendEvent, getRun, patchProgress, setStage, setStatus } from '../../utils/runs'
+import { loadSourceText } from '../../utils/sourceStore'
+import { must, useSupabase } from '../../utils/supabase'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { hasCycle } from '../dag'
 import { callObject } from '../llm'
@@ -301,13 +302,13 @@ async function createReviewItems(runId: string, pending: Fix[], nodes: ProofNode
   if (!pending.length) {
     return
   }
-  const db = await useDb()
+  const supa = useSupabase()
   // Idempotent: under Inngest a retried critique step must not queue the same questions twice.
-  const [existing] = await db.select({ id: reviewItems.id }).from(reviewItems).where(eq(reviewItems.runId, runId)).limit(1)
-  if (existing) {
+  const existing = must(await supa.from('review_items').select('id').eq('run_id', runId).limit(1))
+  if (existing.length) {
     return
   }
-  await db.insert(reviewItems).values(pending.map(fix => ({ runId, kind: fix.kind, payload: payloadFor(fix, nodes, outline) })))
+  must(await supa.from('review_items').insert(pending.map(fix => ({ run_id: runId, kind: fix.kind, payload: payloadFor(fix, nodes, outline) as unknown as Json }))))
 }
 
 async function loadInputs(ctx: RunContext) {
@@ -342,8 +343,7 @@ export const critiqueStage: StageFn = async (ctx) => {
     return reused.pending.length
   }
 
-  const db = await useDb()
-  const src = sourceLines(await db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, ctx.paperId)))
+  const src = sourceLines(await loadSourceText(ctx.paperId))
   const model = PROFILES[ctx.profile].critique
   await appendEvent(ctx.runId, 'critique', 'info', `critique · whole-DAG call to ${model} (reasoning high) over ${resolved.length} nodes`)
   const t0 = Date.now()
@@ -427,8 +427,7 @@ export async function critiqueReviewStage(ctx: RunContext, decided: boolean): Pr
   if (out.reviewed) {
     return out.applied.length
   }
-  const db = await useDb()
-  const items = await db.select().from(reviewItems).where(eq(reviewItems.runId, ctx.runId)).orderBy(asc(reviewItems.id))
+  const items = must(await useSupabase().from('review_items').select('*').eq('run_id', ctx.runId).order('id')).map(reviewItemRow)
   let nodes = out.nodes
   let accepted = 0
   for (const item of items) {

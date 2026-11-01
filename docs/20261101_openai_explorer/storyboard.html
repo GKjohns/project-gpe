@@ -1,0 +1,1069 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAI papers explorer — storyboard</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg-el: #fafafa; --bg-acc: #f4f4f5; --border: #e4e4e7; --border-acc: #d4d4d8;
+    --text: #09090b; --muted: #52525b; --dim: #a1a1aa;
+    --primary: #4f46e5; --primary-soft: #eef2ff; --primary-text: #3730a3;
+    --red: #dc2626; --red-soft: #fef2f2; --amber: #d97706; --amber-soft: #fffbeb; --blue: #2563eb; --blue-soft: #eff6ff; --green: #16a34a; --green-soft: #f0fdf4;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  }
+  html[data-theme="dark"] {
+    --bg: #09090b; --bg-el: #18181b; --bg-acc: #27272a; --border: #27272a; --border-acc: #3f3f46;
+    --text: #fafafa; --muted: #a1a1aa; --dim: #71717a;
+    --primary: #818cf8; --primary-soft: #1e1b4b; --primary-text: #c7d2fe;
+    --red: #f87171; --red-soft: #3b0a0a; --amber: #fbbf24; --amber-soft: #3a2a05; --blue: #60a5fa; --blue-soft: #0f2048; --green: #4ade80; --green-soft: #0a2e17;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  a { color: var(--primary); text-decoration: none; }
+  code, .mono { font-family: var(--mono); font-size: 12.5px; }
+  .math { font-family: "Latin Modern Math", "STIX Two Math", "Cambria Math", Georgia, serif; font-style: italic; }
+  .serif { font-family: var(--serif); }
+
+  /* ---------- page chrome ---------- */
+  .doc { max-width: 1240px; margin: 0 auto; padding: 32px 24px 96px; }
+  .doc-head { display:flex; justify-content: space-between; align-items: flex-start; gap: 24px; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 28px; }
+  .doc-head h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: -0.01em; }
+  .doc-head p { margin: 0; color: var(--muted); max-width: 820px; }
+  .legend { display:flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-size: 12.5px; }
+  .namenote { display:inline-flex; gap: 8px; align-items:center; margin-top: 10px; font-size: 12.5px; color: var(--muted); background: var(--amber-soft); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; }
+  .frame { margin: 0 0 56px; }
+  .frame-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+  .frame-num { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .frame-head h2 { margin: 0; font-size: 17px; }
+  .frame-cap { color: var(--muted); margin: 0 0 14px; max-width: 900px; }
+  .frame-cap b { color: var(--text); font-weight: 600; }
+  .sprint { display:inline-block; font-size: 11px; font-family: var(--mono); background: var(--bg-acc); border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; color: var(--muted); margin-left: 6px; vertical-align: 1px; }
+  .sprint.none { border-style: dashed; }
+  .onrails { font-size: 12px; color: var(--dim); margin: 8px 0 0; }
+  .onrails code { font-size: 11.5px; }
+
+  /* browser frame */
+  .browser { border: 1px solid var(--border-acc); border-radius: 10px; overflow: hidden; background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05); }
+  .browser-bar { display:flex; align-items:center; gap: 10px; padding: 8px 12px; background: var(--bg-el); border-bottom: 1px solid var(--border); }
+  .dots span { display:inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--border-acc); margin-right: 5px; }
+  .url { flex: 1; font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; }
+
+  /* ---------- Nuxt UI-ish primitives ---------- */
+  .btn { display:inline-flex; align-items:center; gap: 6px; border-radius: 6px; padding: 5px 10px; font-size: 13px; font-weight: 500; border: 1px solid transparent; cursor: pointer; background: transparent; color: var(--text); font-family: inherit; }
+  .btn.sm { padding: 3px 8px; font-size: 12px; }
+  .btn.xs { padding: 2px 7px; font-size: 11.5px; }
+  .btn.lg { padding: 9px 16px; font-size: 14px; }
+  .btn.solid { background: var(--primary); color: #fff; }
+  .btn.soft { background: var(--primary-soft); color: var(--primary-text); }
+  .btn.outline { border-color: var(--border-acc); }
+  .btn.ghost:hover { background: var(--bg-acc); }
+  .btn.ghost.active { background: var(--bg-acc); }
+  .btn.neutral-soft { background: var(--bg-acc); color: var(--text); }
+  .btn.white { background: #fff; color: #18181b; }
+  .btn.white-ghost { border-color: rgba(255,255,255,.45); color: #fff; }
+  .badge { display:inline-flex; align-items:center; gap: 4px; font-size: 11px; font-weight: 600; letter-spacing: .01em; border-radius: 5px; padding: 1px 7px; line-height: 18px; white-space: nowrap; }
+  .badge.kind { background: var(--bg-acc); color: var(--muted); font-weight: 500; }
+  .badge.novel { background: var(--primary-soft); color: var(--primary-text); }
+  .badge.routine { background: var(--bg-acc); color: var(--muted); }
+  .badge.standard { background: transparent; color: var(--muted); border: 1px solid var(--border-acc); }
+  .badge.unknown { background: transparent; color: var(--dim); border: 1px dashed var(--border-acc); }
+  .badge.high { background: var(--red-soft); color: var(--red); }
+  .badge.warn { background: var(--amber-soft); color: var(--amber); }
+  .badge.info { background: var(--blue-soft); color: var(--blue); }
+  .badge.ok { background: var(--green-soft); color: var(--green); }
+  .badge.disc { background: transparent; color: var(--muted); border: 1px solid var(--border); font-weight: 500; }
+  .chip { display:inline-flex; align-items:center; gap: 5px; font-size: 12px; border: 1px solid var(--border); background: var(--bg-el); border-radius: 6px; padding: 2px 8px; cursor: pointer; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chip .n { overflow: hidden; text-overflow: ellipsis; }
+  .chip:hover { border-color: var(--primary); color: var(--primary-text); }
+  .chip.on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-text); }
+  .chip .k { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; display:inline-block; }
+  .dot.high { background: var(--red);} .dot.warn{ background: var(--amber);} .dot.info{ background: var(--blue);}
+  .card { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .card .card-h { padding: 10px 14px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 13px; display:flex; align-items:center; justify-content: space-between; }
+  .card .card-b { padding: 12px 14px; }
+  .kbd { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--border-acc); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--muted); }
+  .sep { height: 1px; background: var(--border); }
+  .ico { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .ico.s { width: 13px; height: 13px; }
+  .muted { color: var(--muted); } .dim { color: var(--dim); }
+  .tabs { display:inline-flex; background: var(--bg-acc); border-radius: 7px; padding: 3px; gap: 2px; }
+  .tabs button { border: 0; background: transparent; border-radius: 5px; padding: 4px 10px; font-size: 12.5px; cursor:pointer; color: var(--muted); font-family: inherit; white-space: nowrap; }
+  .tabs button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align:left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr.hid { display:none; }
+  .stat-row { display:grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 18px; }
+  .stat { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; }
+  .stat .v { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .stat .l { font-size: 12px; color: var(--muted); }
+  .spin { width: 12px; height: 12px; border: 2px solid var(--border-acc); border-top-color: var(--primary); border-radius: 50%; display:inline-block; animation: sp .8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .inp { flex:1; border: 1px solid var(--border-acc); border-radius: 6px; padding: 6px 10px; font-size: 13px; background: var(--bg); }
+  .notes { border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; background: var(--bg-el); }
+  .notes h3 { margin: 0 0 8px; font-size: 15px; }
+  .notes ul, .notes ol { margin: 0; padding-left: 18px; color: var(--muted); }
+  .notes li { margin-bottom: 6px; }
+  .notes li b { color: var(--text); font-weight: 600; }
+  .theme-toggle { font-size: 12px; }
+  .toggle { display:inline-flex; align-items:center; gap: 6px; font-size: 12.5px; cursor:pointer; user-select:none; }
+  .toggle .sw { width: 28px; height: 16px; border-radius: 999px; background: var(--border-acc); position: relative; transition: background .15s; }
+  .toggle .sw::after { content:''; position:absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .toggle.on .sw { background: var(--primary); } .toggle.on .sw::after { left: 14px; }
+
+  /* ---------- public site chrome ---------- */
+  .site-nav { height: 56px; display:flex; align-items:center; gap: 18px; padding: 0 32px; border-bottom: 1px solid var(--border); background: var(--bg); }
+  .site-nav .wm { font-weight: 700; letter-spacing: -.02em; font-size: 16px; }
+  .site-nav .links { display:flex; gap: 16px; font-size: 13px; color: var(--muted); }
+  .site-nav .links .on { color: var(--text); font-weight: 500; }
+  .site-nav .search { max-width: 260px; }
+  .footer { border-top: 1px solid var(--border); padding: 18px 32px; display:flex; align-items:center; gap: 18px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; background: var(--bg-el); }
+  .footer .wm { font-weight: 700; color: var(--text); }
+
+  /* hero */
+  .hero { position: relative; aspect-ratio: 16/7; overflow: hidden; background:
+      radial-gradient(ellipse at 70% 40%, rgba(214,165,90,.55), transparent 55%),
+      radial-gradient(ellipse at 30% 80%, rgba(120,70,30,.6), transparent 60%),
+      linear-gradient(160deg, #3a2614 0%, #6b4523 35%, #a06f3a 60%, #2a1a0e 100%); }
+  .hero img { position:absolute; inset:0; width:100%; height:100%; object-fit: cover; object-position: 60% 40%; }
+  .hero .vig { position:absolute; inset:0; background: radial-gradient(ellipse at 55% 50%, transparent 40%, rgba(0,0,0,.55) 100%); }
+  .hero .scrim { position:absolute; inset:0; background: linear-gradient(90deg, rgba(10,8,6,.86) 0%, rgba(10,8,6,.72) 30%, rgba(10,8,6,.25) 60%, rgba(10,8,6,0) 100%); }
+  .hero .copy { position:absolute; left: 48px; top: 50%; transform: translateY(-50%); width: 42%; color: #fff; }
+  .hero .eyebrow { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.7); margin-bottom: 14px; }
+  .hero h1 { font-family: var(--serif); font-weight: 500; font-size: 40px; line-height: 1.12; letter-spacing: -.01em; margin: 0 0 14px; text-wrap: balance; }
+  .hero h1 em { font-style: italic; color: #f1d9a8; }
+  .hero p { font-size: 15px; line-height: 1.5; color: rgba(255,255,255,.82); margin: 0 0 22px; max-width: 460px; }
+  .hero .ctas { display:flex; gap: 10px; }
+  .hero .credit { position:absolute; right: 14px; bottom: 10px; font-size: 10.5px; color: rgba(255,255,255,.45); font-family: var(--mono); }
+
+  .psec { padding: 44px 32px; }
+  .psec h2 { font-size: 22px; letter-spacing: -.015em; margin: 0 0 4px; }
+  .psec .lead { color: var(--muted); margin: 0 0 22px; max-width: 640px; }
+  .psec .sec-head { display:flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+  .grid3 { display:grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+  .fcard { border: 1px solid var(--border); border-radius: 10px; padding: 18px; background: var(--bg); display:flex; flex-direction:column; gap: 10px; cursor:pointer; }
+  .fcard:hover { border-color: var(--border-acc); background: var(--bg-el); }
+  .fcard h3 { margin: 0; font-size: 15px; line-height: 1.35; font-family: var(--serif); font-weight: 600; }
+  .fcard .meta { color: var(--muted); font-size: 12.5px; }
+  .fcard .stats { display:flex; gap: 12px; margin-top:auto; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .fcard .stats b { color: var(--text); font-weight: 600; }
+  .fcard .top { display:flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .mini-g { width: 54px; height: 36px; flex:none; }
+  .mini-g circle { fill: var(--bg); stroke: var(--border-acc); stroke-width: 1.4; } .mini-g circle.nv { fill: var(--primary); stroke: var(--primary); }
+  .mini-g path { stroke: var(--border-acc); stroke-width: 1.1; fill:none; }
+  .feat { display:grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+  .feat .f { border-top: 2px solid var(--border); padding-top: 14px; }
+  .feat .f .num { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .feat .f h3 { margin: 4px 0 6px; font-size: 15px; }
+  .feat .f p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+  .feat .mock { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-el); padding: 10px 12px; font-size: 11.5px; height: 128px; overflow:hidden; position:relative; }
+  .disc-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .disc { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display:flex; justify-content: space-between; align-items: baseline; gap: 8px; cursor:pointer; font-size: 13px; }
+  .disc:hover { border-color: var(--primary); }
+  .disc .c { font-family: var(--mono); font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+  .disc .d { font-size: 10.5px; color: var(--primary-text); background: var(--primary-soft); border-radius: 4px; padding: 0 5px; margin-left: 4px; }
+
+  /* catalog */
+  .cat { padding: 28px 32px 32px; }
+  .ph-head { display:flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 16px; }
+  .ph-head h1 { font-size: 24px; margin: 0 0 2px; letter-spacing: -.015em; }
+  .ph-head p { margin: 0; color: var(--muted); }
+  .filters { display:flex; gap: 8px; align-items:center; flex-wrap: wrap; margin-bottom: 14px; }
+  .filters .inp { max-width: 320px; display:flex; gap: 6px; align-items:center; color: var(--dim); }
+  .sel { display:inline-flex; align-items:center; gap: 6px; border: 1px solid var(--border-acc); border-radius: 6px; padding: 5px 10px; font-size: 12.5px; background: var(--bg); cursor:pointer; }
+  .frow-l { display:grid; grid-template-columns: 52px 1fr 190px 70px 120px 110px; gap: 12px; align-items:center; padding: 10px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .frow-l:hover { background: var(--bg-el); }
+  .frow-l.hd { font-size: 12px; color: var(--muted); font-weight: 500; padding: 6px 10px; }
+  .frow-l.hid { display:none; }
+  .frow-l .num { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+  .frow-l .t { font-weight: 500; }
+  .frow-l .r { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow:hidden; text-overflow: ellipsis; }
+  .frow-l .m { color: var(--muted); font-size: 12.5px; }
+
+  /* family page */
+  .fam { display:grid; grid-template-columns: 1fr 300px; gap: 32px; padding: 28px 32px 36px; }
+  .fam h1 { font-family: var(--serif); font-size: 28px; line-height: 1.2; margin: 6px 0 10px; font-weight: 600; letter-spacing: -.01em; }
+  .fam .desc { font-size: 15px; line-height: 1.6; color: var(--text); margin: 0 0 24px; max-width: 720px; }
+  .fam h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+  .ms { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+  .ms .ms-t { font-weight: 600; font-size: 14.5px; }
+  .ms .ms-m { color: var(--muted); font-size: 12.5px; margin: 2px 0 8px; display:flex; gap: 10px; flex-wrap: wrap; }
+  .ms .abs { color: var(--muted); font-size: 13px; line-height: 1.55; max-height: 40px; overflow:hidden; position:relative; }
+  .ms .abs.open { max-height: none; }
+  .ms .abs:not(.open)::after { content:''; position:absolute; left:0; right:0; bottom:0; height: 20px; background: linear-gradient(transparent, var(--bg)); }
+  .ms .ms-f { display:flex; gap: 8px; align-items:center; margin-top: 10px; }
+  .rail .card { margin-bottom: 12px; }
+  .rail .row { display:flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .rail .row span:first-child { color: var(--muted); }
+  .empty { border: 1px dashed var(--border-acc); border-radius: 10px; padding: 26px; text-align:center; color: var(--muted); background: var(--bg-el); }
+  .empty b { color: var(--text); display:block; margin-bottom: 4px; }
+
+  /* overview page */
+  .ov { padding: 28px 40px 36px; max-width: 960px; }
+  .ov h1 { font-family: var(--serif); font-size: 30px; line-height: 1.2; margin: 6px 0 14px; font-weight: 600; letter-spacing: -.01em; }
+  .ov .proves { font-size: 16px; line-height: 1.65; margin: 0 0 24px; }
+  .ov h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+  .ov .main-node { border: 1px solid var(--primary); border-radius: 10px; background: var(--primary-soft); padding: 16px 18px; margin-bottom: 24px; }
+  .ov .main-node .nm { font-weight: 600; font-size: 15px; margin-bottom: 6px; display:flex; gap: 8px; align-items:center; }
+  .ov .main-node .pl { font-size: 14px; margin-bottom: 10px; }
+  .ov .main-node .stmt { background: var(--bg); }
+  .ov .two { display:grid; grid-template-columns: 1fr 300px; gap: 28px; margin-bottom: 24px; }
+  .ov .novel-list { display:flex; flex-direction:column; gap: 8px; }
+  .ov .nv { display:flex; gap: 10px; align-items:flex-start; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; cursor:pointer; }
+  .ov .nv:hover { border-color: var(--primary); }
+  .ov .nv .nm { font-weight: 600; font-size: 13px; }
+  .ov .nv .hl { color: var(--muted); font-size: 12.5px; }
+  .ov .shape { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-el); padding: 8px; height: 100%; display:flex; align-items:center; justify-content:center; }
+  .ov .entries { display:grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  .ov .entry { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; cursor:pointer; display:flex; flex-direction:column; gap: 4px; }
+  .ov .entry:hover { border-color: var(--primary); background: var(--bg-el); }
+  .ov .entry b { font-size: 15px; }
+  .ov .entry span { color: var(--muted); font-size: 12.5px; }
+
+  /* ---------- dashboard layout (explorer, unchanged) ---------- */
+  .dash { display: grid; grid-template-columns: 300px 1fr 340px; height: 680px; }
+  .dash.no-chat { grid-template-columns: 300px 1fr; }
+  .sidebar { border-right: 1px solid var(--border); display:flex; flex-direction: column; min-width: 0; background: var(--bg-el); }
+  .sidebar-h { padding: 10px 12px; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap: 8px; height: 48px; }
+  .paper-switch { flex:1; display:flex; align-items:center; gap: 8px; border: 1px solid var(--border); background: var(--bg); border-radius: 6px; padding: 4px 8px; font-size: 13px; min-width: 0; }
+  .paper-switch b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-tools { padding: 8px 12px; display:flex; gap: 6px; align-items:center; border-bottom: 1px solid var(--border); }
+  .search { flex:1; display:flex; align-items:center; gap: 6px; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; font-size: 12.5px; color: var(--dim); background: var(--bg); }
+  .tree { flex: 1; overflow: auto; padding: 6px 8px; }
+  .tnode { display:flex; align-items:center; gap: 6px; padding: 4px 6px; border-radius: 6px; cursor: pointer; user-select: none; font-size: 13px; min-width: 0; }
+  .tnode:hover { background: var(--bg-acc); }
+  .tnode.sel { background: var(--primary-soft); color: var(--primary-text); }
+  .tnode .lbl { flex:1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tnode .chev { transition: transform .12s; color: var(--dim); }
+  .tnode.open .chev { transform: rotate(90deg); }
+  .tnode .ph { width: 15px; flex:none; }
+  .tnode .mini { font-size: 10px; font-weight: 700; padding: 0 5px; border-radius: 4px; line-height: 16px; }
+  .tnode .mini.novel { background: var(--primary-soft); color: var(--primary-text); }
+  .tsec { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .tkids { display:none; margin-left: 10px; border-left: 1px solid var(--border); padding-left: 4px; }
+  .tkids.open { display:block; }
+  .tnode .k-ico { color: var(--dim); }
+  .tnode.lean-node { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .sidebar-f { border-top: 1px solid var(--border); padding: 8px 12px; font-size: 11.5px; color: var(--dim); display:flex; gap: 10px; }
+  .main { display:flex; flex-direction: column; min-width: 0; }
+  .navbar { height: 48px; border-bottom: 1px solid var(--border); display:flex; align-items:center; padding: 0 16px; gap: 10px; }
+  .crumbs { display:flex; align-items:center; gap: 6px; color: var(--muted); font-size: 13px; min-width: 0; flex: 1; overflow: hidden; }
+  .crumbs span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 180px; }
+  .crumbs .cur { color: var(--text); font-weight: 500; flex: 1; max-width: none; }
+  @media (max-width: 1100px) { .dash { grid-template-columns: 250px 1fr 290px; } .dash.no-chat { grid-template-columns: 250px 1fr; } }
+  .body { flex:1; overflow: auto; padding: 22px 28px 32px; }
+  .chat { border-left: 1px solid var(--border); display:flex; flex-direction: column; min-width: 0; background: var(--bg); }
+  .chat-h { height: 48px; border-bottom: 1px solid var(--border); display:flex; align-items:center; padding: 0 14px; gap: 8px; font-weight: 600; font-size: 13px; }
+  .chat-msgs { flex:1; overflow:auto; padding: 14px; display:flex; flex-direction: column; gap: 12px; }
+  .msg { font-size: 13px; line-height: 1.5; }
+  .msg.user { align-self: flex-end; background: var(--bg-acc); border-radius: 10px; padding: 8px 12px; max-width: 88%; }
+  .msg.ai { max-width: 100%; }
+  .msg.ai p { margin: 0 0 8px; }
+  .msg .nl { display:inline; background: var(--primary-soft); color: var(--primary-text); border-radius: 5px; padding: 1px 6px; font-size: 12px; font-weight: 500; cursor: pointer; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .msg .nl .ico { vertical-align: -2px; margin-right: 2px; }
+  .chat-empty { margin: auto 0; text-align:center; color: var(--muted); padding: 0 8px; }
+  .chat-empty .sugg { display:flex; flex-direction:column; gap: 6px; margin-top: 12px; }
+  .chat-empty .sugg button { text-align:left; }
+  .chat-prompt { border-top: 1px solid var(--border); padding: 10px 12px; }
+  .prompt { border: 1px solid var(--border-acc); border-radius: 8px; background: var(--bg); padding: 8px 10px; display:flex; flex-direction: column; gap: 6px; }
+  .prompt textarea { border: 0; outline: 0; resize: none; font-family: inherit; font-size: 13px; background: transparent; color: var(--text); height: 38px; }
+  .prompt-f { display:flex; justify-content: space-between; align-items:center; }
+  .prompt-f .model { font-size: 11px; color: var(--dim); font-family: var(--mono); }
+  .send { width: 26px; height: 26px; border-radius: 6px; background: var(--primary); color: #fff; display:inline-flex; align-items:center; justify-content:center; border: 0; cursor:pointer; }
+  .shimmer { color: var(--dim); font-size: 12.5px; }
+
+  /* node page */
+  .np-top { display:flex; gap: 8px; flex-wrap: wrap; align-items:center; margin-bottom: 8px; }
+  .np-title { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .np-sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; display:flex; gap: 12px; flex-wrap: wrap; }
+  .np-sub code { color: var(--muted); }
+  .np-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .np-sec { margin-bottom: 18px; }
+  .np-sec h4 { margin: 0 0 6px; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); font-weight: 600; }
+  .stmt { background: var(--bg-el); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-size: 14px; line-height: 1.6; }
+  .stmt .thm { font-weight: 600; font-style: normal; margin-right: 6px; }
+  .deps { display:flex; flex-wrap: wrap; gap: 6px; }
+  .src { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .src .card-b { font-size: 13px; }
+  .src .row { display:flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .src .row span:first-child { color: var(--muted); }
+  .fr { display:flex; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; align-items:flex-start; }
+  .fr .fr-b { flex:1; font-size: 13px; }
+  .fr .fr-b b { font-family: var(--mono); font-weight: 500; font-size: 12px; color: var(--muted); display:block; margin-bottom: 2px; }
+  .rel { position: relative; }
+
+  /* admin */
+  .adm { display:grid; grid-template-columns: 220px 1fr; height: 560px; }
+  .adm .side { border-right: 1px solid var(--border); background: var(--bg-el); padding: 12px 10px; display:flex; flex-direction:column; gap: 2px; }
+  .adm .side .it { display:flex; align-items:center; gap: 8px; padding: 6px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); cursor:pointer; }
+  .adm .side .it.on { background: var(--bg-acc); color: var(--text); font-weight: 500; }
+  .adm .side .it:hover { background: var(--bg-acc); }
+  .adm .side .grp { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); padding: 12px 10px 4px; font-weight: 600; }
+  .login { border: 1px solid var(--border); border-radius: 10px; padding: 22px; width: 300px; background: var(--bg); }
+  .login h3 { margin: 0 0 4px; font-size: 16px; }
+  .login .inp { margin-top: 8px; }
+  .term { background: #0b0f14; color: #d7dde5; font-family: var(--mono); font-size: 12.5px; padding: 16px 18px; line-height: 1.55; }
+  .term .p { color: #7dd3fc; } .term .ok { color: #86efac; } .term .d { color: #64748b; } .term .w { color: #fcd34d; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+  <symbol id="i-lean" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="m8 8 4 4-4 4M13 16h3"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7M12 19V5"/></symbol>
+  <symbol id="i-def" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
+  <symbol id="i-thm" viewBox="0 0 24 24"><path d="m12 3 1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6l-5 3.6 1.9-5.8L4 8.8h6.1z"/></symbol>
+  <symbol id="i-lem" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="i-claim" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-gh" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4m0 0-5.5 6.3M12 11l5.5 6.3"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-5 4 3 5-7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+</svg>
+
+<div class="doc">
+  <div class="doc-head">
+    <div>
+      <h1>OpenAI papers explorer — storyboard</h1>
+      <p>Pivot of Project GPE from an operator tool into a public reading site for the <code>openai/math</code> collection: 721 manuscripts in 373 result families across 17 disciplines, written by an unnamed internal model and released as "raw research data". Our product is the layer that makes one of them readable: a proof map, named nodes with plain-English statements, novel-vs-routine classification, the PDF linked to the map, and a chat that cites nodes. The catalog (every family, every abstract) is complete on day one at zero model cost; deep digests are built progressively, starting with the five already done. Everything about ingesting, runs, review and cost moves behind the existing operator login. The explorer internals do not change; frames 05–06 are copied from the v1 storyboard to say so.</p>
+      <div class="legend">
+        <span><span class="badge ok">Digested</span> full map + chat</span>
+        <span><span class="badge info">Lean</span> top-line result formalized</span>
+        <span><span class="badge unknown">Not yet</span> catalog entry only</span>
+        <span><span class="badge novel">novel</span> where the idea lives</span>
+        <span>· Sprints: <span class="sprint">Landing</span><span class="sprint">Catalog</span><span class="sprint">Overview</span><span class="sprint">Admin</span><span class="sprint none">existing</span></span>
+        <span>· Click things. Filters, tabs, tree, graph and chat work.</span>
+      </div>
+      <div class="namenote"><svg class="ico s" style="color:var(--amber)"><use href="#i-alert"/></svg> <b>Naming is open.</b> "GPE" is a placeholder wordmark throughout; see Open questions at the end.</div>
+    </div>
+    <button class="btn outline theme-toggle" onclick="toggleTheme()"><svg class="ico s"><use href="#i-sun"/></svg> Toggle dark</button>
+  </div>
+
+  <!-- ================= FRAME 1: LANDING ================= -->
+  <section class="frame" id="f1">
+    <div class="frame-head"><span class="frame-num">01</span><h2>Landing <code>/</code></h2><span class="sprint">Landing</span></div>
+    <p class="frame-cap">The front door is for a reader, not an operator. A classical hero (oil painting of a mathematician at a desk; the file is <code>hero/gpt-image-2-a.webp</code>, with a painterly gradient fallback if it is missing) carries a serif headline on the left third and two CTAs. Below it: three featured digests with real stats, a three-step "how a paper reads here", the 17 disciplines as a browse grid with family counts, and a footer that credits <code>openai/math</code> and points agents at <code>/llms.txt</code>. No "New paper" button exists anywhere on the public site.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">gpe.example.com/</div></div>
+      <div class="site-nav"><span class="wm">GPE</span><span class="links"><span class="on">Papers</span><span>Disciplines</span><span>About</span></span><span style="flex:1"></span><div class="search" style="max-width:280px"><svg class="ico s"><use href="#i-search"/></svg>Search 373 results… <span style="flex:1"></span><span class="kbd">⌘K</span></div><button class="btn ghost sm"><svg class="ico s"><use href="#i-sun"/></svg></button><button class="btn ghost sm"><svg class="ico s"><use href="#i-gh"/></svg></button></div>
+      <div class="hero">
+        <img src="hero/gpt-image-2-a.webp" alt="" onerror="this.style.display='none'">
+        <div class="vig"></div><div class="scrim"></div>
+        <div class="copy">
+          <div class="eyebrow">openai/math · 373 results · 17 disciplines</div>
+          <h1>OpenAI wrote 721 math papers. Here they are, <em>made readable</em>.</h1>
+          <p>Every paper broken into a proof map of named steps, each stated in plain English and in math, with the PDF alongside and a chat that answers by pointing at the map.</p>
+          <div class="ctas"><button class="btn white lg" onclick="go('f2')">Browse the papers</button><button class="btn white-ghost lg" onclick="go('f4')">Start with the ETH disproof →</button></div>
+        </div>
+        <div class="credit">hero/gpt-image-2-a.webp</div>
+      </div>
+
+      <div class="psec" style="padding-bottom: 8px">
+        <div class="sec-head"><div><h2 class="serif">Featured digests</h2><p class="lead">Fully mapped papers. Each one took a careful model pass; the rest of the catalog is read-only until it gets its turn.</p></div><button class="btn outline sm" onclick="go('f2')">All digested (5) →</button></div>
+        <div class="grid3">
+          <div class="fcard" onclick="go('f4')">
+            <div class="top"><div style="display:flex; gap:6px; flex-wrap:wrap"><span class="badge disc">Theoretical computer science</span><span class="badge info">Lean ✓</span></div><svg class="mini-g" viewBox="0 0 54 36"><path d="M27 6 12 18M27 6l15 12M12 18 8 30M12 18l10 12M42 18l-8 12M42 18l6 12"/><circle cx="27" cy="6" r="3.2" class="nv"/><circle cx="12" cy="18" r="2.6" class="nv"/><circle cx="42" cy="18" r="2.6"/><circle cx="8" cy="30" r="2.2"/><circle cx="22" cy="30" r="2.2" class="nv"/><circle cx="34" cy="30" r="2.2"/><circle cx="48" cy="30" r="2.2"/></svg></div>
+            <h3>The Exponential Time Hypothesis is False</h3>
+            <div class="meta">Family 378 · Oct 25, 2026 · 67 pp</div>
+            <div class="meta" style="margin-top:-6px">Deterministic exact #k-SAT in time <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> 2<sup>n/(log n)<sup>1/2+o(1)</sup></sup></span>.</div>
+            <div class="stats"><span><b>36</b> statements</span><span><b>5</b> novel</span><span><b>9</b> sections</span></div>
+          </div>
+          <div class="fcard" onclick="go('f3')">
+            <div class="top"><div style="display:flex; gap:6px; flex-wrap:wrap"><span class="badge disc">Theoretical computer science</span></div><svg class="mini-g" viewBox="0 0 54 36"><path d="M27 6 15 16M27 6l12 10M15 16 6 28M15 16l6 12M39 16l-6 12M39 16l9 12M21 28l12-12"/><circle cx="27" cy="6" r="3.2" class="nv"/><circle cx="15" cy="16" r="2.6"/><circle cx="39" cy="16" r="2.6" class="nv"/><circle cx="6" cy="28" r="2.2"/><circle cx="21" cy="28" r="2.2"/><circle cx="33" cy="28" r="2.2" class="nv"/><circle cx="48" cy="28" r="2.2"/></svg></div>
+            <h3>Exact Derandomization of Logarithmic Space: L = RL = BPL</h3>
+            <div class="meta">Family 103 · 108 pp</div>
+            <div class="meta" style="margin-top:-6px">Every randomized log-space algorithm can be made deterministic with no space blow-up.</div>
+            <div class="stats"><span><b>61</b> statements</span><span><b>8</b> novel</span><span><b>14</b> sections</span></div>
+          </div>
+          <div class="fcard" onclick="go('f3')">
+            <div class="top"><div style="display:flex; gap:6px; flex-wrap:wrap"><span class="badge disc">Theoretical computer science</span></div><svg class="mini-g" viewBox="0 0 54 36"><path d="M27 6 10 18M27 6v12M27 6l17 12M10 18v12M27 18l-8 12M27 18l8 12M44 18v12"/><circle cx="27" cy="6" r="3.2" class="nv"/><circle cx="10" cy="18" r="2.6"/><circle cx="27" cy="18" r="2.6" class="nv"/><circle cx="44" cy="18" r="2.6"/><circle cx="10" cy="30" r="2.2"/><circle cx="19" cy="30" r="2.2"/><circle cx="35" cy="30" r="2.2" class="nv"/><circle cx="44" cy="30" r="2.2"/></svg></div>
+            <h3>Integer multiplication below <span class="math">n log n</span></h3>
+            <div class="meta">Family 109 · 73 pp</div>
+            <div class="meta" style="margin-top:-6px">An <span class="math">n</span>-bit multiplication algorithm beating the Harvey–van der Hoeven bound.</div>
+            <div class="stats"><span><b>44</b> statements</span><span><b>6</b> novel</span><span><b>11</b> sections</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="psec">
+        <h2 class="serif">How a paper reads here</h2>
+        <p class="lead">The source PDFs are dense and unsigned. The explorer gives each one three handles.</p>
+        <div class="feat">
+          <div class="f"><div class="num">01</div><h3>The map</h3><p>Every theorem, lemma and in-proof claim becomes a node; "uses" edges are drawn as a layered DAG with the main result on top. Click a node and its whole support lights up.</p>
+            <div class="mock"><svg viewBox="0 0 300 110" style="width:100%; height:100%"><g fill="none" stroke="var(--border-acc)" stroke-width="1.2"><path d="M150 22v16M150 38 80 60M150 38l70 22M80 70v14M220 70v14M150 38v46"/></g><rect x="105" y="8" width="90" height="16" rx="4" fill="var(--primary-soft)" stroke="var(--primary)"/><rect x="40" y="60" width="80" height="14" rx="4" fill="var(--bg)" stroke="var(--border-acc)"/><rect x="180" y="60" width="80" height="14" rx="4" fill="var(--primary-soft)" stroke="var(--primary)"/><rect x="110" y="84" width="80" height="14" rx="4" fill="var(--bg)" stroke="var(--border-acc)"/><rect x="40" y="84" width="60" height="14" rx="4" fill="var(--bg)" stroke="var(--muted)" stroke-dasharray="3 2"/><rect x="200" y="84" width="60" height="14" rx="4" fill="var(--bg)" stroke="var(--border-acc)"/><text x="150" y="20" text-anchor="middle" font-size="8" fill="var(--text)" font-family="var(--sans)">Theorem 1.1</text><text x="80" y="71" text-anchor="middle" font-size="7.5" fill="var(--text)" font-family="var(--sans)">Lemma 6.3</text><text x="220" y="71" text-anchor="middle" font-size="7.5" fill="var(--text)" font-family="var(--sans)">Prop. 5.3</text></svg></div></div>
+          <div class="f"><div class="num">02</div><h3>The node</h3><p>Each step has a name, the paper's statement, a plain-English version, why it is here, and a classification: novel, routine, or a known result with its citation.</p>
+            <div class="mock"><div style="display:flex; gap:5px; margin-bottom:5px"><span class="badge kind" style="font-size:9.5px">lemma</span><span class="badge novel" style="font-size:9.5px">novel</span></div><div style="font-weight:600; font-size:12.5px">Parameter choice balancing the three costs</div><div class="dim" style="font-size:10px; margin-bottom:6px">Lemma 4.7 · §4.7, p. 43</div><div style="font-size:10.5px; color:var(--muted)"><b style="color:var(--dim); font-size:9px; letter-spacing:.05em">IN PLAIN ENGLISH</b><br>You can pick the group size, the number of measurements and the Taylor degree so all three exponential costs are <span class="math">2<sup>O(n log log n/√log n)</sup></span> at once.</div></div></div>
+          <div class="f"><div class="num">03</div><h3>Ask the paper</h3><p>A chat that only knows the map. Every claim in an answer cites a node, and clicking the citation opens that step. It will not assert anything that is not in the map.</p>
+            <div class="mock"><div class="msg user" style="font-size:11px; padding:5px 8px; max-width:80%; margin-left:auto; margin-bottom:6px">Where does the √log n come from?</div><div class="msg ai" style="font-size:11px"><p style="margin:0 0 4px">From balancing three exponential costs, not one lemma. <span class="nl" style="font-size:10px">Prop 3.4</span> gives <span class="math">2<sup>τ</sup>·2<sup>n/r</sup>·2<sup>D</sup></span>; <span class="nl" style="font-size:10px">Lemma 4.7</span> sets the three equal…</p></div></div></div>
+        </div>
+      </div>
+
+      <div class="psec" style="background: var(--bg-el); border-top: 1px solid var(--border)">
+        <div class="sec-head"><div><h2 class="serif">Browse by discipline</h2><p class="lead">373 result families. The count is families; the small purple number is how many are digested so far.</p></div></div>
+        <div class="disc-grid" id="discGrid"></div>
+      </div>
+
+      <div class="footer"><span class="wm">GPE</span><span>Papers from <a href="#">github.com/openai/math</a> · Apache-2.0 manuscripts, read with care: they are machine-written and unreviewed.</span><span style="flex:1"></span><span>For agents: <code>/llms.txt</code> · <code>/api/v1</code> · MCP</span><span>·</span><button class="btn ghost xs"><svg class="ico s"><use href="#i-sun"/></svg> Light</button></div>
+    </div>
+    <p class="onrails">On rails: <code>UHeader</code> + <code>UNavigationMenu</code>, <code>UPageHero</code> (with the <code>#top</code> slot replaced by the full-bleed image; headline in a <code>font-serif</code> override), <code>UPageSection</code> × 3, <code>UPageGrid</code> + <code>UPageCard</code> for featured digests, <code>UPageFeature</code> for the three steps, <code>UPageGrid</code> of small <code>UPageCard</code>s for disciplines, <code>UFooter</code>, <code>UColorModeButton</code>. Data: <code>GET /api/v1/families?digested=1</code> and a static disciplines count. Route <code>/</code> (replaces the operator library, which moves to <code>/admin</code>).</p>
+  </section>
+
+  <!-- ================= FRAME 2: CATALOG ================= -->
+  <section class="frame" id="f2">
+    <div class="frame-head"><span class="frame-num">02</span><h2>Catalog <code>/papers</code></h2><span class="sprint">Catalog</span></div>
+    <p class="frame-cap">All 373 families on one dense page, searchable and filterable, built entirely from the <code>openai/math</code> index (no model cost). Each row is a family: number, title, the result description truncated to one line, discipline, member count, and a status badge. Digested rows get an <b>Open map</b> button; everything else opens the family page with abstracts and PDF links. <b>Try the filters:</b> the Digested and Has Lean toggles and the discipline menu work on these rows.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url" id="urlCat">gpe.example.com/papers</div></div>
+      <div class="site-nav"><span class="wm">GPE</span><span class="links"><span class="on">Papers</span><span>Disciplines</span><span>About</span></span><span style="flex:1"></span><button class="btn ghost sm"><svg class="ico s"><use href="#i-sun"/></svg></button></div>
+      <div class="cat">
+        <div class="ph-head"><div><h1>Papers</h1><p>373 results · 721 papers · 17 disciplines · <span id="catCount">5 digested</span></p></div><div class="sel">Sort: family number <svg class="ico s dim" style="transform:rotate(90deg)"><use href="#i-chev"/></svg></div></div>
+        <div class="filters">
+          <div class="inp"><svg class="ico s"><use href="#i-search"/></svg>Search titles and results…</div>
+          <div class="sel" id="discSel" onclick="cycleDisc()">Discipline: <b id="discVal">all</b> <svg class="ico s dim" style="transform:rotate(90deg)"><use href="#i-chev"/></svg></div>
+          <span class="toggle" id="tgDig" onclick="tg('dig')"><span class="sw"></span>Digested</span>
+          <span class="toggle" id="tgLean" onclick="tg('lean')"><span class="sw"></span>Has Lean</span>
+          <span class="dim" style="font-size:12px; margin-left:auto" id="catShown"></span>
+        </div>
+        <div class="frow-l hd"><span>#</span><span>Result</span><span>Discipline</span><span>Papers</span><span>Status</span><span></span></div>
+        <div id="catRows"></div>
+        <div class="dim" style="font-size:12px; padding: 12px 10px">Showing 1–16 of 373 · <a href="#">Load more</a></div>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UPageHeader</code>, <code>UInput</code> (search, debounced into the URL query), <code>USelectMenu</code> (discipline), two <code>USwitch</code>es, <code>USelectMenu</code> (sort), rows as <code>UTable</code> with custom cells (<code>UBadge</code> status, <code>UButton</code> action). Server: <code>GET /api/v1/families</code> reads a new <code>families</code> + <code>manuscripts</code> table seeded once from the <code>openai/math</code> README/index; digested status is a join on <code>papers.public</code>. Route <code>/papers</code>.</p>
+  </section>
+
+  <!-- ================= FRAME 3: FAMILY ================= -->
+  <section class="frame" id="f3">
+    <div class="frame-head"><span class="frame-num">03</span><h2>Family page <code>/papers/378</code> (digested)</h2><span class="sprint">Catalog</span></div>
+    <p class="frame-cap">One page per result family, the unit OpenAI organizes by. Header, the result description verbatim from the index, then every manuscript in the family with title, date, pages and an expandable abstract. A digested manuscript gets <b>Read the map</b>; everything gets <b>PDF on GitHub</b>. The right rail carries digest stats and the <b>Ask this paper</b> entry point. Click an abstract to expand it.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">gpe.example.com/papers/378</div></div>
+      <div class="site-nav"><span class="wm">GPE</span><span class="links"><span class="on">Papers</span><span>Disciplines</span><span>About</span></span><span style="flex:1"></span><button class="btn ghost sm"><svg class="ico s"><use href="#i-sun"/></svg></button></div>
+      <div class="fam">
+        <div>
+          <div class="crumbs" style="margin-bottom:6px"><span><a href="#f2">Papers</a></span><svg class="ico s dim"><use href="#i-chev"/></svg><span>Theoretical computer science</span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur mono dim">378</span></div>
+          <div style="display:flex; gap:8px; align-items:center"><span class="mono dim">Family 378</span><span class="badge disc">Theoretical computer science</span><span class="badge info"><svg class="ico s"><use href="#i-lean"/></svg> Lean</span><span class="badge ok">Digested</span></div>
+          <h1>The Exponential Time Hypothesis is False</h1>
+          <p class="desc">We give a deterministic algorithm that counts the satisfying assignments of any <span class="math">k</span>-CNF formula on <span class="math">n</span> variables in time <span class="math">2<sup>n/(log n)<sup>1/2+o(1)</sup></sup></span>, refuting the Exponential Time Hypothesis. The algorithm reduces #k-SAT to counting common zeros of sparse low-degree polynomial systems over <span class="math">𝔽<sub>2</sub></span>, and counts those by fixing a small design of linear measurements that factors the sum. Consequences include subexponential MAX-SAT approximation and new circuit lower bounds via the algorithms-to-lower-bounds connection.</p>
+          <h3>Manuscripts in this family · 2</h3>
+          <div class="ms">
+            <div class="ms-t">The Exponential Time Hypothesis is False</div>
+            <div class="ms-m"><span>Oct 25, 2026</span><span>·</span><span>67 pp</span><span>·</span><span class="mono">main_full_version.tex</span><span>·</span><span class="badge ok" style="font-size:10.5px">Digested</span></div>
+            <div class="abs" onclick="this.classList.toggle('open')">We show that for every fixed <span class="math">k ≥ 2</span> there is a deterministic algorithm that, given a <span class="math">k</span>-CNF formula with <span class="math">n</span> variables and <span class="math">m</span> clauses, outputs the number of satisfying assignments in time <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> · 2<sup>n/(log n)<sup>1/2+o(1)</sup></sup></span> and polynomial space. The core is a counting routine for common zeros of sparse polynomial systems whose running time is a product of three exponential terms, each controlled by a different parameter of an explicit combinatorial layout, together with a deterministic sparsification and a greedy choice of parity hashes certified by the counter itself. Appendix D removes a <span class="math">log log n</span> loss at fixed clause density via Boolean tensor contraction.</div>
+            <div class="ms-f"><button class="btn solid sm" onclick="go('f4')"><svg class="ico s"><use href="#i-map"/></svg> Read the map</button><button class="btn outline sm">PDF on GitHub <svg class="ico s"><use href="#i-ext"/></svg></button><span class="dim" style="font-size:12px; margin-left:auto">click abstract to expand</span></div>
+          </div>
+          <div class="ms">
+            <div class="ms-t">The Exponential Time Hypothesis is False (short version)</div>
+            <div class="ms-m"><span>Oct 25, 2026</span><span>·</span><span>14 pp</span><span>·</span><span class="badge unknown" style="font-size:10.5px">Not yet</span></div>
+            <div class="abs" onclick="this.classList.toggle('open')">A condensed account of the main theorem and the counting routine, omitting the exact-arithmetic appendix and the tensor-contraction refinement. Intended as the citable summary; all proofs are deferred to the full version.</div>
+            <div class="ms-f"><button class="btn outline sm">PDF on GitHub <svg class="ico s"><use href="#i-ext"/></svg></button><span class="dim" style="font-size:12px">Covered by the full version's map</span></div>
+          </div>
+        </div>
+        <aside class="rail">
+          <div class="card"><div class="card-h">Digest</div><div class="card-b">
+            <div class="row"><span>Statements mapped</span><span>36</span></div>
+            <div class="row"><span>Sections</span><span>9</span></div>
+            <div class="row"><span>Novel steps</span><span><span class="badge novel">5</span></span></div>
+            <div class="row"><span>Friction flags</span><span>2</span></div>
+            <div class="row"><span>Lean</span><span class="badge info">top-line ✓</span></div>
+            <div class="sep" style="margin:10px 0"></div>
+            <button class="btn solid sm" style="width:100%; justify-content:center" onclick="go('f4')">Open the overview →</button>
+          </div></div>
+          <div class="card"><div class="card-h"><svg class="ico s"><use href="#i-chat"/></svg> Ask this paper</div><div class="card-b">
+            <div class="prompt" style="padding:6px 8px"><textarea placeholder="Why does the exponent have √log n?" style="height:34px"></textarea><div class="prompt-f"><span class="model">cites nodes</span><button class="send" onclick="go('f5')"><svg class="ico s"><use href="#i-send"/></svg></button></div></div>
+            <div class="dim" style="font-size:11.5px; margin-top:8px">Opens the explorer with your question running.</div>
+          </div></div>
+          <div class="card"><div class="card-h">Lean</div><div class="card-b" style="font-size:12.5px"><div class="row"><span>Decl</span><code style="font-size:11px">exact_count_subexponential</code></div><div class="row"><span>Scope</span><span class="muted">main text only</span></div><a href="#" style="font-size:12px">lean/docs/378.md <svg class="ico s"><use href="#i-ext"/></svg></a></div></div>
+        </aside>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UPageHeader</code> (with <code>UBreadcrumb</code>), <code>UPageBody</code> + <code>UPageAside</code> (the right rail), manuscripts as <code>UCard</code>s with <code>UCollapsible</code> abstracts, <code>UButton</code>s, <code>UBadge</code>s; the ask box is <code>UChatPrompt</code> that redirects into the explorer with <code>?q=</code>. Route <code>/papers/[family]</code>; data <code>GET /api/v1/families/378</code>.</p>
+  </section>
+
+  <!-- ================= FRAME 4: OVERVIEW ================= -->
+  <section class="frame" id="f4">
+    <div class="frame-head"><span class="frame-num">04</span><h2>Paper overview <code>/eth</code> (new)</h2><span class="sprint">Overview</span></div>
+    <p class="frame-cap">Today <code>/eth</code> redirects straight into the PDF reader, which is the wrong first screen for a visitor. This page is the digestible front door for one paper: what it proves in three sentences, the main theorem as a node card, the handful of novel steps with one-line headlines, a thumbnail of the proof's shape, a stats row, and three entry doors. Everything on it is already in the digest JSON; no new pipeline output.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">gpe.example.com/eth</div></div>
+      <div class="navbar" style="height:52px; padding:0 24px"><span style="font-weight:700; letter-spacing:-.02em">GPE</span><div class="crumbs" style="margin-left:10px"><span><a href="#f2">Papers</a></span><svg class="ico s dim"><use href="#i-chev"/></svg><span><a href="#f3">378 ETH</a></span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur">Overview</span></div><div class="tabs"><button class="on">Overview</button><button onclick="go('f5')">Tree</button><button onclick="go('f6')">Graph</button><button>Paper</button></div><button class="btn ghost sm" onclick="go('f5')"><svg class="ico s"><use href="#i-chat"/></svg> Ask</button></div>
+      <div class="ov">
+        <div style="display:flex; gap:8px; align-items:center"><span class="mono dim">Family 378</span><span class="badge disc">Theoretical computer science</span><span class="badge info">Lean ✓</span><span class="dim" style="font-size:12.5px">67 pp · Oct 25, 2026</span></div>
+        <h1>The Exponential Time Hypothesis is False</h1>
+        <h3>What this paper proves</h3>
+        <p class="proves">It gives a deterministic algorithm that counts the satisfying assignments of any <span class="math">k</span>-CNF formula faster than <span class="math">2<sup>cn</sup></span> for every <span class="math">c &gt; 0</span>, which the Exponential Time Hypothesis says is impossible. The trick is to turn "count the solutions" into "count the common zeros of a sparse polynomial system", and then to count those by fixing a small set of linear measurements that splits one enormous sum into many independent small ones. Balancing the three costs that fall out of that split is where the <span class="math">√log n</span> in the exponent comes from.</p>
+        <h3>Main theorem</h3>
+        <div class="main-node" onclick="selectNode('thm-main', true)" style="cursor:pointer">
+          <div class="nm"><span class="badge kind">theorem</span><span class="badge novel">novel</span> Main theorem: subexponential exact #k-SAT <span class="dim mono" style="font-weight:400; font-size:11.5px; margin-left:auto">thm:main · p. 2</span></div>
+          <div class="pl">You can count exactly how many assignments satisfy a <span class="math">k</span>-CNF in time that grows slower than any <span class="math">2<sup>cn</sup></span>. That contradicts the Exponential Time Hypothesis, which says 3-SAT needs <span class="math">2<sup>Ω(n)</sup></span> time.</div>
+          <div class="stmt"><span class="thm">Theorem 1.1.</span> For every fixed <span class="math">k ≥ 2</span> there is a deterministic algorithm that, given a <span class="math">k</span>-CNF formula with <span class="math">n</span> variables and <span class="math">m</span> clauses, outputs the number of satisfying assignments in time <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> · 2<sup>n/(log n)<sup>1/2+o(1)</sup></sup></span> and space polynomial in <span class="math">n + m</span>.</div>
+        </div>
+        <div class="two">
+          <div>
+            <h3>Where the new idea lives · 5 novel steps</h3>
+            <div class="novel-list">
+              <div class="nv" onclick="selectNode('lem-measurement-separation', true)"><span class="badge novel">Lem 3.2</span><div><div class="nm">Fixing measurements splits the sum</div><div class="hl">One <span class="math">2<sup>n</sup></span>-term sum becomes a product of small sums, one per variable group.</div></div></div>
+              <div class="nv" onclick="selectNode('prop-general-count', true)"><span class="badge novel">Prop 3.4</span><div><div class="nm">Common counting routine</div><div class="hl">Running time is <span class="math">2<sup>τ</sup>·2<sup>n/r</sup>·2<sup>D</sup></span>; three costs, three knobs.</div></div></div>
+              <div class="nv" onclick="selectNode('lem-incidence-parameters', true)"><span class="badge novel">Lem 4.7</span><div><div class="nm">Parameter choice balancing the three costs</div><div class="hl">Set the three equal and the exponent lands at <span class="math">n log log n/√log n</span>.</div></div></div>
+              <div class="nv" onclick="selectNode('lem-greedy-hashes', true)"><span class="badge novel">Lem 6.2</span><div><div class="nm">Greedy choice of parity hashes</div><div class="hl">The counter certifies each hash, which is what makes the algorithm deterministic.</div></div></div>
+              <div class="nv" onclick="selectNode('thm-tensor-contraction', true)"><span class="badge novel">Thm D.1</span><div><div class="nm">Boolean tensor contraction</div><div class="hl">Removes the <span class="math">log log n</span> loss at fixed clause density.</div></div></div>
+            </div>
+          </div>
+          <div>
+            <h3>Shape of the proof</h3>
+            <div class="shape"><svg id="ovShape" viewBox="0 0 280 230" style="width:100%; height:auto"></svg></div>
+          </div>
+        </div>
+        <div class="stat-row" style="margin-bottom:22px">
+          <div class="stat"><div class="v">36</div><div class="l">statements mapped</div></div>
+          <div class="stat"><div class="v">9</div><div class="l">sections</div></div>
+          <div class="stat"><div class="v">5</div><div class="l">novel steps</div></div>
+          <div class="stat"><div class="v">2</div><div class="l">friction flags <span class="dim">(paper vs. Lean)</span></div></div>
+        </div>
+        <div class="entries">
+          <div class="entry" onclick="go('f6')"><svg class="ico" style="color:var(--primary)"><use href="#i-map"/></svg><b>Map</b><span>The proof as a tree and a DAG. Start at the top and click down.</span></div>
+          <div class="entry"><svg class="ico" style="color:var(--primary)"><use href="#i-file"/></svg><b>Read the paper</b><span>The PDF with the map beside it; every statement is linked.</span></div>
+          <div class="entry" onclick="go('f5')"><svg class="ico" style="color:var(--primary)"><use href="#i-chat"/></svg><b>Ask</b><span>Questions answered with node citations you can click.</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UDashboardNavbar</code> (shared with the explorer; <code>UBreadcrumb</code> + <code>UTabs</code> view switcher), <code>UPageHeader</code>, <code>UPageSection</code>s, the main-theorem card and novel list as <code>UCard</code>/<code>UPageCard</code>, <code>UPageGrid</code> of three <code>UPageCard</code>s for the entries; the shape thumbnail reuses <code>ProofGraph.vue</code> in a static, no-labels mode. Route <code>/[paper]/index.vue</code> renders this instead of redirecting; the "What this paper proves" paragraph is a new <code>summary</code> field on the digest, generated once in the finalize step (one short model call; back-filled for the five existing digests).</p>
+  </section>
+
+  <!-- ================= FRAME 5: EXPLORER TREE (unchanged) ================= -->
+  <section class="frame" id="f5">
+    <div class="frame-head"><span class="frame-num">05</span><h2>Explorer: tree + node + chat <code>/eth/thm-main</code></h2><span class="sprint none">existing · unchanged</span></div>
+    <p class="frame-cap"><b>Copied from the v1 storyboard; the product here does not change.</b> The only new thing is the top bar: a breadcrumb back through <i>Papers / 378 ETH / Overview</i> and a view switcher <i>Tree · Graph · Paper</i> that replaces the bare Node/Graph toggle. Three panels: the paper's structure as a collapsible tree, the node page for the selection, and the chat. Expand §6, then <i>Sparsification</i>, then click a claim. The suggested questions are wired.</p>
+    <div class="browser rel">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url" id="url2">gpe.example.com/eth/thm-main</div></div>
+      <div class="dash" id="dash2">
+        <aside class="sidebar">
+          <div class="sidebar-h">
+            <div class="paper-switch"><svg class="ico s muted"><use href="#i-book"/></svg><b>ETH is False</b><span style="flex:1"></span><svg class="ico s dim" style="transform:rotate(90deg)"><use href="#i-chev"/></svg></div>
+          </div>
+          <div class="sidebar-tools">
+            <div class="search"><svg class="ico s"><use href="#i-search"/></svg>Find a node… <span style="flex:1"></span><span class="kbd">⌘K</span></div>
+            <button class="btn ghost xs" title="Expand all" onclick="expandAll(true)">+</button><button class="btn ghost xs" title="Collapse all" onclick="expandAll(false)">−</button>
+          </div>
+          <div class="tree" id="tree2"></div>
+          <div class="sidebar-f"><span>36 statements</span><span>·</span><span>5 novel</span><span>·</span><a href="#" style="color:var(--amber)">2 friction</a></div>
+        </aside>
+        <div class="main">
+          <div class="navbar">
+            <div class="crumbs" id="crumbs2"><span>Papers</span><svg class="ico s dim"><use href="#i-chev"/></svg><span>378 ETH</span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur">Main theorem</span></div>
+            <div class="tabs" style="margin-right:4px"><button onclick="go('f4')">Overview</button><button class="on">Tree</button><button onclick="go('f6')">Graph</button><button>Paper</button></div>
+            <button class="btn ghost sm"><svg class="ico s"><use href="#i-link"/></svg> Share</button>
+            <button class="btn ghost sm active" id="chatToggle" onclick="toggleChat()"><svg class="ico s"><use href="#i-panel"/></svg> Chat</button>
+          </div>
+          <div class="body" id="node2"></div>
+        </div>
+        <aside class="chat" id="chat2">
+          <div class="chat-h"><svg class="ico s"><use href="#i-chat"/></svg> Ask the paper <span style="flex:1"></span><span class="dim" style="font-weight:400; font-size:11.5px">context: 36 nodes</span></div>
+          <div class="chat-msgs" id="msgs2">
+            <div class="chat-empty">
+              <div style="font-weight:600; color:var(--text)">Ask about the proof</div>
+              <div style="font-size:12.5px; margin-top:2px">Answers cite nodes. It won't assert anything that isn't in the map.</div>
+              <div class="sugg">
+                <button class="btn outline sm" onclick="ask(0)">Where does the √log n come from?</button>
+                <button class="btn outline sm" onclick="ask(1)">Which nodes contain the new idea?</button>
+                <button class="btn outline sm" onclick="ask(2)">What does the Lean actually prove?</button>
+              </div>
+            </div>
+          </div>
+          <div class="chat-prompt">
+            <div class="prompt">
+              <textarea placeholder="Ask about the proof…" id="ta2"></textarea>
+              <div class="prompt-f"><span class="model">anthropic/claude-sonnet-5.5</span><button class="send" onclick="askFree()"><svg class="ico s"><use href="#i-send"/></svg></button></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+    <p class="onrails">On rails (as before): <code>UDashboardGroup</code> → <code>UDashboardSidebar</code> (<code>UTree</code>) + <code>UDashboardPanel</code> (<code>UDashboardNavbar</code> with <code>UBreadcrumb</code> + <code>UTabs</code>) + chat <code>UDashboardPanel</code>. Route <code>/[paper]/[node]</code>. Only the navbar's breadcrumb items and tab list change.</p>
+  </section>
+
+  <!-- ================= FRAME 6: GRAPH + CHAT (unchanged) ================= -->
+  <section class="frame" id="f6">
+    <div class="frame-head"><span class="frame-num">06</span><h2>Explorer: graph view with a chat answer citing nodes <code>?view=graph</code></h2><span class="sprint none">existing · unchanged</span></div>
+    <p class="frame-cap"><b>Copied from the v1 storyboard; unchanged.</b> The center panel becomes the dependency DAG, main theorem on top; click a node and its support lights up. Right panel here shows the chat mid-conversation so the citation handoff is visible: every chip in the answer selects that node in the graph. <i>Whole paper / Focus</i>, <i>claims</i>, and color-by controls as before.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url" id="urlG">gpe.example.com/eth/thm-main?view=graph</div></div>
+      <div class="dash" style="grid-template-columns: 44px 1fr 340px; height: 700px">
+        <aside class="sidebar" style="align-items:center; padding-top:10px; gap:10px">
+          <button class="btn ghost sm" title="Expand sidebar">☰</button>
+          <button class="btn ghost sm" title="Search"><svg class="ico s"><use href="#i-search"/></svg></button>
+        </aside>
+        <div class="main">
+          <div class="navbar">
+            <div class="crumbs"><span>Papers</span><svg class="ico s dim"><use href="#i-chev"/></svg><span>378 ETH</span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur">Graph</span></div>
+            <div class="tabs" style="margin-right:4px"><button onclick="go('f4')">Overview</button><button onclick="go('f5')">Tree</button><button class="on">Graph</button><button>Paper</button></div>
+            <div class="tabs" id="gmode"><button class="on" onclick="gMode('all',this)">Whole paper</button><button onclick="gMode('focus',this)">Focus</button></div>
+            <label class="muted" style="font-size:12px; display:flex; align-items:center; gap:4px"><input type="checkbox" id="gClaims" onchange="renderGraph()"> claims</label>
+            <div class="tabs" id="gcolor"><button class="on" onclick="gColor('cls',this)">by class</button><button onclick="gColor('sec',this)">by section</button></div>
+            <button class="btn ghost sm" onclick="gFit()">Fit</button>
+          </div>
+          <div class="body" id="gwrap" style="padding:0; overflow:auto; background: var(--bg-el)">
+            <svg id="gsvg" xmlns="http://www.w3.org/2000/svg" style="display:block"></svg>
+          </div>
+          <div style="border-top:1px solid var(--border); padding:6px 14px; display:flex; gap:14px; font-size:11.5px; color:var(--muted); align-items:center">
+            <span><span class="dot" style="background:var(--primary)"></span> novel</span><span><span class="dot" style="background:var(--border-acc)"></span> routine</span><span><span class="dot" style="background:transparent; border:1px dashed var(--muted)"></span> standard</span><span style="margin-left:auto" id="gstat"></span>
+          </div>
+        </div>
+        <aside class="chat">
+          <div class="chat-h"><svg class="ico s"><use href="#i-chat"/></svg> Ask the paper <span style="flex:1"></span><span class="dim" style="font-weight:400; font-size:11.5px" id="gside-h">selected: Main theorem</span></div>
+          <div class="chat-msgs" id="msgsG"></div>
+          <div class="chat-prompt"><div class="prompt"><textarea placeholder="Ask about the proof…" style="height:30px"></textarea><div class="prompt-f"><span class="model">anthropic/claude-sonnet-5.5</span><button class="send"><svg class="ico s"><use href="#i-send"/></svg></button></div></div></div>
+        </aside>
+      </div>
+    </div>
+    <p class="onrails">Off rails, on purpose (as before): <code>ProofGraph.vue</code> is the one custom component (<code>@dagrejs/dagre</code> layout, inline SVG). Chat is <code>UChatMessages</code> + <code>UChatPrompt</code> with <code>useChat</code>; citations render as chips that call the same <code>selectNode</code> the tree uses. Nothing new in this frame.</p>
+  </section>
+
+  <!-- ================= FRAME 7: NOT-YET-DIGESTED ================= -->
+  <section class="frame" id="f7">
+    <div class="frame-head"><span class="frame-num">07</span><h2>Family page, not yet digested <code>/papers/185</code></h2><span class="sprint">Catalog</span></div>
+    <p class="frame-cap">The same family page for the 368 families without a map. Everything from the index is still here (description, manuscripts, abstracts, PDFs, Lean status), and in place of the digest rail there is a calm empty state. <b>Request a map</b> is a mailto, not a queue UI; demand gets tallied by hand until it is worth more.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">gpe.example.com/papers/185</div></div>
+      <div class="site-nav"><span class="wm">GPE</span><span class="links"><span class="on">Papers</span><span>Disciplines</span><span>About</span></span><span style="flex:1"></span><button class="btn ghost sm"><svg class="ico s"><use href="#i-sun"/></svg></button></div>
+      <div class="fam" style="padding-bottom:28px">
+        <div>
+          <div class="crumbs" style="margin-bottom:6px"><span><a href="#f2">Papers</a></span><svg class="ico s dim"><use href="#i-chev"/></svg><span>Combinatorics</span><svg class="ico s dim"><use href="#i-chev"/></svg><span class="cur mono dim">185</span></div>
+          <div style="display:flex; gap:8px; align-items:center"><span class="mono dim">Family 185</span><span class="badge disc">Combinatorics</span><span class="badge unknown">No Lean</span><span class="badge unknown">Not yet digested</span></div>
+          <h1>Counterexamples to infinite matroid intersection and packing/covering</h1>
+          <p class="desc">We construct infinite matroids for which the natural infinite analogues of Edmonds' matroid intersection theorem and the matroid packing/covering conjecture fail. The constructions use a tree-like independence structure in which every finite restriction behaves well but no global common independent set of the required size exists.</p>
+          <h3>Manuscripts in this family · 1</h3>
+          <div class="ms">
+            <div class="ms-t">Counterexamples to infinite matroid intersection and packing/covering</div>
+            <div class="ms-m"><span>Sep 30, 2026</span><span>·</span><span>21 pp</span></div>
+            <div class="abs" onclick="this.classList.toggle('open')">The infinite matroid intersection conjecture of Nash-Williams and the packing/covering conjecture of Bowler and Carmesin have been open since the modern axiomatization of infinite matroids. We give explicit counterexamples to both. The matroids are constructed from a rooted tree of countable branching whose independence relation is determined by a finite-to-one labelling; we show that every pair of finite minors admits the required intersection while the full structure does not, using a diagonalization against candidate common independent sets.</div>
+            <div class="ms-f"><button class="btn outline sm">PDF on GitHub <svg class="ico s"><use href="#i-ext"/></svg></button><button class="btn ghost sm">LaTeX source <svg class="ico s"><use href="#i-ext"/></svg></button></div>
+          </div>
+        </div>
+        <aside class="rail">
+          <div class="empty">
+            <svg class="ico" style="color:var(--dim); width:22px; height:22px; margin-bottom:6px"><use href="#i-map"/></svg>
+            <b>This paper hasn't been mapped yet</b>
+            Five of 373 families have a full digest so far. The abstract and PDF are here; the map, node pages and chat are not.
+            <div style="margin-top:12px"><a href="mailto:hello@example.com?subject=Map%20request%3A%20family%20185" class="btn outline sm">Request a map</a></div>
+          </div>
+          <div class="card" style="margin-top:12px"><div class="card-h">Lean</div><div class="card-b" style="font-size:12.5px; color:var(--muted)">No formalization for this family in <code>openai/math/lean</code>. About 42% of top-line results have one.</div></div>
+        </aside>
+      </div>
+    </div>
+    <p class="onrails">On rails: identical component tree to frame 03; the rail swaps <code>UCard</code> stats for a <code>UEmpty</code>-style card (plain <code>UCard</code> with dashed border) and a <code>UButton</code> link. Same route and API; the branch is <code>family.digested_count === 0</code>.</p>
+  </section>
+
+  <!-- ================= FRAME 8: ADMIN ================= -->
+  <section class="frame" id="f8">
+    <div class="frame-head"><span class="frame-num">08</span><h2>Admin <code>/admin</code> (operator only)</h2><span class="sprint">Admin</span></div>
+    <p class="frame-cap"><b>Everything here already exists</b>; it moves behind the login and off every public link. The old library (<code>/</code>) becomes <code>/admin</code>, the old <code>/papers/new</code> becomes <code>/admin/papers/new</code>, run pages and the review queue sit under <code>/admin/runs</code>, the eval table under <code>/admin/corpus</code>, and the agent-request log under <code>/admin/agents</code>. New on this screen: a <b>public</b> toggle per paper (the <code>papers.public</code> flag that already exists, surfaced), and a family-number column so a digest attaches to its catalog row. Inset: <code>/login</code>, unchanged.</p>
+    <div style="display:grid; grid-template-columns: 1fr 320px; gap: 16px; align-items:start">
+      <div class="browser">
+        <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">gpe.example.com/admin</div></div>
+        <div class="adm">
+          <aside class="side">
+            <div style="display:flex; align-items:center; gap:8px; padding: 4px 10px 10px"><span style="font-weight:700; letter-spacing:-.02em">GPE</span><span class="badge warn" style="font-size:10px"><svg class="ico s"><use href="#i-lock"/></svg> admin</span></div>
+            <div class="it on"><svg class="ico s"><use href="#i-grid"/></svg> Papers</div>
+            <div class="it"><svg class="ico s"><use href="#i-play"/></svg> Runs <span class="badge info" style="margin-left:auto; font-size:10px">1 live</span></div>
+            <div class="it"><svg class="ico s"><use href="#i-check"/></svg> Review queue <span class="badge warn" style="margin-left:auto; font-size:10px">1</span></div>
+            <div class="it"><svg class="ico s"><use href="#i-file"/></svg> Corpus</div>
+            <div class="it"><svg class="ico s"><use href="#i-plus"/></svg> New paper</div>
+            <div class="grp">Agent API</div>
+            <div class="it"><svg class="ico s"><use href="#i-chart"/></svg> Agent stats</div>
+            <div style="margin-top:auto; padding: 8px 10px; font-size: 11.5px; color: var(--dim)">kyle · <a href="#">sign out</a> · <a href="#f1">view site →</a></div>
+          </aside>
+          <div style="display:flex; flex-direction:column; min-width:0">
+            <div class="navbar" style="padding:0 20px"><div class="crumbs"><span class="cur">Papers</span></div><span class="dim" style="font-size:12px">spend this month: <b style="color:var(--text)">$38.20</b> · cap $150</span><button class="btn solid sm">+ New paper</button></div>
+            <div style="padding: 14px 20px; overflow:auto">
+              <table>
+                <thead><tr><th>Paper</th><th>Family</th><th>Pages</th><th>State</th><th>Cost · wallclock</th><th>Public</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td><b>The Exponential Time Hypothesis is False</b><div class="dim mono" style="font-size:11px">eth</div></td><td class="mono">378</td><td>67</td><td><span class="badge ok">digested</span> <span class="dim" style="font-size:11.5px">36 nodes</span></td><td>$4.10 · 6m 40s</td><td><span class="toggle on" onclick="this.classList.toggle('on')"><span class="sw"></span></span></td><td><a href="#f4">open</a> · <a href="#">re-run</a></td></tr>
+                  <tr><td><b>Exact Derandomization of Logarithmic Space: L = RL = BPL</b><div class="dim mono" style="font-size:11px">l-rl-bpl</div></td><td class="mono">103</td><td>108</td><td><span class="badge ok">digested</span> <span class="dim" style="font-size:11.5px">61 nodes</span></td><td>$9.80 · 14m</td><td><span class="toggle on" onclick="this.classList.toggle('on')"><span class="sw"></span></span></td><td><a href="#">open</a> · <a href="#">re-run</a></td></tr>
+                  <tr><td><b>Integer multiplication below n log n</b><div class="dim mono" style="font-size:11px">intmul</div></td><td class="mono">109</td><td>73</td><td><span class="badge ok">digested</span> <span class="dim" style="font-size:11.5px">44 nodes</span></td><td>$5.60 · 9m</td><td><span class="toggle on" onclick="this.classList.toggle('on')"><span class="sw"></span></span></td><td><a href="#">open</a> · <a href="#">re-run</a></td></tr>
+                  <tr><td><b>A power saving for planar unit distances</b><div class="dim mono" style="font-size:11px">unit-distances</div></td><td class="mono">167</td><td>53</td><td><span class="badge ok">digested</span> <span class="dim" style="font-size:11.5px">29 nodes</span></td><td>$3.90 · 6m</td><td><span class="toggle on" onclick="this.classList.toggle('on')"><span class="sw"></span></span></td><td><a href="#">open</a> · <a href="#">re-run</a></td></tr>
+                  <tr><td><b>An explicit noncoordinate polynomial with affine three-space zero fibre</b><div class="dim mono" style="font-size:11px">noncoordinate</div></td><td class="mono">049</td><td>6</td><td><span class="badge ok">digested</span> <span class="dim" style="font-size:11.5px">8 nodes</span></td><td>$0.40 · 1m 10s</td><td><span class="toggle on" onclick="this.classList.toggle('on')"><span class="sw"></span></span></td><td><a href="#">open</a> · <a href="#">re-run</a></td></tr>
+                  <tr><td><b>A Direct Proof of Optimal Max-Cut Hardness</b><div class="dim mono" style="font-size:11px">maxcut</div></td><td class="mono">362</td><td>41</td><td><span class="badge info"><span class="spin" style="width:9px;height:9px;border-width:1.5px;margin-right:4px"></span>running · annotate 40/89</span></td><td>$2.10 · 5m 02s</td><td><span class="toggle" style="opacity:.5"><span class="sw"></span></span></td><td><a href="#">run</a> · <a href="#">cancel</a></td></tr>
+                  <tr><td><b>A Counterexample to Ryser's Covering Conjecture</b><div class="dim mono" style="font-size:11px">ryser</div></td><td class="mono">177</td><td>29</td><td><span class="badge high">failed · budget</span> <span class="dim" style="font-size:11.5px">extract §4</span></td><td>$6.00 · 11m</td><td><span class="toggle" style="opacity:.5"><span class="sw"></span></span></td><td><a href="#">run</a> · <a href="#">retry stage</a></td></tr>
+                  <tr style="opacity:.6"><td><b>Induced subgraphs of hypercubes… (Sensitivity)</b><div class="dim mono" style="font-size:11px">sensitivity · arXiv fixture</div></td><td class="dim">—</td><td>6</td><td><span class="badge ok">digested</span></td><td>$0.21 · 1m 12s</td><td><span class="toggle" onclick="this.classList.toggle('on')"><span class="sw"></span></span></td><td><a href="#">open</a> · <a href="#">delete</a></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="browser">
+        <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">gpe.example.com/login</div></div>
+        <div style="height:560px; display:flex; align-items:center; justify-content:center; background: var(--bg-el)">
+          <div class="login">
+            <h3>Operator sign-in</h3>
+            <div class="muted" style="font-size:12.5px">Admin, runs and ingestion. Readers don't need an account.</div>
+            <div class="inp dim">operator passphrase</div>
+            <button class="btn solid sm" style="width:100%; justify-content:center; margin-top:10px">Sign in</button>
+            <div class="dim" style="font-size:11.5px; margin-top:12px">Unchanged from today's <code>/login</code>. Session cookie; every <code>/api</code> write and every <code>/admin</code> route checks it.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="onrails">On rails: <code>UDashboardGroup</code> → <code>UDashboardSidebar</code> (<code>UNavigationMenu</code>) + <code>UDashboardPanel</code>; the table is the existing library's data in a <code>UTable</code> with a <code>USwitch</code> cell bound to <code>PATCH /api/papers/:slug/public</code> (the operator-only endpoint from the last commit). Routes move under <code>/admin/**</code> with a route middleware that requires the operator session; existing page components are moved, not rewritten. Public pages never link here except the footer's small "operator" link.</p>
+  </section>
+
+  <!-- ================= FRAME 9: FOOTER / AGENTS ================= -->
+  <section class="frame" id="f9">
+    <div class="frame-head"><span class="frame-num">09</span><h2>Footer / for agents</h2><span class="sprint">Landing</span></div>
+    <p class="frame-cap">The agent API from the last sprints stays exactly as is and gets one quiet line in the footer. <code>/llms.txt</code> explains the site to a model, <code>/api/v1</code> is the JSON read API, <code>/api/mcp</code> is the read-only MCP server. The catalog tables become new endpoints under the same prefix.</p>
+    <div class="browser">
+      <div class="browser-bar"><div class="dots"><span></span><span></span><span></span></div><div class="url">gpe.example.com/llms.txt · /api/v1/papers</div></div>
+      <div class="footer"><span class="wm">GPE</span><span>Papers from <a href="#">github.com/openai/math</a></span><span>·</span><span>Digests are model-generated and may be wrong; the PDF is the source of truth.</span><span style="flex:1"></span><span>For agents: <a href="#">/llms.txt</a> · <a href="#">/api/v1</a> · <a href="#">MCP</a></span><span>·</span><a href="#f8" class="dim">operator</a><span>·</span><button class="btn ghost xs"><svg class="ico s"><use href="#i-sun"/></svg> Light</button></div>
+      <div class="term"><span class="p">$</span> curl -s https://gpe.example.com/api/v1/papers | jq '.papers[0]'
+<span class="d">{</span>
+  <span class="d">"slug":</span> <span class="ok">"eth"</span>,
+  <span class="d">"family":</span> <span class="w">378</span>,
+  <span class="d">"title":</span> <span class="ok">"The Exponential Time Hypothesis is False"</span>,
+  <span class="d">"discipline":</span> <span class="ok">"Theoretical computer science"</span>,
+  <span class="d">"pages":</span> <span class="w">67</span>, <span class="d">"nodes":</span> <span class="w">36</span>, <span class="d">"novel":</span> <span class="w">5</span>, <span class="d">"lean":</span> <span class="w">true</span>,
+  <span class="d">"links": { "overview": "/eth", "nodes": "/api/v1/papers/eth/nodes", "pdf": "https://github.com/openai/math/…" }</span>
+<span class="d">}</span>
+<span class="p">$</span> curl -s https://gpe.example.com/api/v1/families?discipline=combinatorics&amp;digested=false | jq '.total'
+<span class="w">43</span></div>
+    </div>
+    <p class="onrails">On rails: <code>UFooter</code> with <code>UFooterColumns</code> collapsed to one row. Server: existing <code>server/routes/llms.txt.ts</code> gains a paragraph about families; <code>GET /api/v1/families</code> and <code>GET /api/v1/families/:n</code> are new, read-only, and cached.</p>
+  </section>
+
+  <div class="notes" id="oq">
+    <h3>Open questions</h3>
+    <ol>
+      <li><b>Scope of digests.</b> Curate ~20 flagship families first (the five done plus the headline TCS and geometry results), or crawl all 721? At the careful profile's $5–25 per paper, 721 papers is roughly <b>$4k–18k</b> and weeks of wallclock; 20 families (~40 manuscripts) is <b>$200–1,000</b> and a weekend. Proposal: flagship first, "Request a map" tallies demand.</li>
+      <li><b>Product name.</b> "GPE" is a placeholder. Needs a name that reads as a reading room, not a dev tool. Not "Proof Atlas" (taken).</li>
+      <li><b>Human-written fixtures.</b> The arXiv papers already in the DB (pfr, sensitivity, sunflowers) are not in <code>openai/math</code>. Keep as hidden admin fixtures (<code>public=false</code>, no family), or delete?</li>
+      <li><b>Hero image.</b> Direction is a classical oil painting of a mathematician at a desk; candidates in <code>hero/README.md</code>. Pick one, or shoot a different direction (engraving, plate from a 19th-century treatise).</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+/* ---------------- helpers ---------------- */
+function go(id){ document.getElementById(id).scrollIntoView({behavior:'smooth', block:'start'}); }
+function ico(id, cls){ return `<svg class="ico s ${cls||''}"><use href="#${id}"/></svg>`; }
+
+/* ---------------- disciplines (counts sum to 373) ---------------- */
+const DISC = [
+  ['Theoretical computer science', 48, 4], ['Combinatorics', 44, 1], ['Number theory', 34, 0], ['Algebraic and complex geometry', 28, 0],
+  ['Algebra', 26, 0], ['Differential geometry', 24, 0], ['Topology', 22, 0], ['Group theory', 20, 0],
+  ['Probability and statistical mechanics', 20, 0], ['Partial differential equations', 18, 0], ['Dynamical systems and ergodic theory', 18, 0], ['Convex and metric geometry', 16, 0],
+  ['Real and complex analysis', 16, 0], ['Functional analysis', 14, 0], ['Mathematical logic', 12, 0], ['Operator algebras', 8, 0], ['Mathematical physics', 5, 0]
+];
+document.getElementById('discGrid').innerHTML = DISC.map(([n,c,d]) => `<div class="disc" onclick="go('f2')"><span>${n}${d?`<span class="d">${d}</span>`:''}</span><span class="c">${c}</span></div>`).join('')
+  + `<div class="disc" style="border-style:dashed; color:var(--muted)" onclick="go('f2')"><span>All results</span><span class="c">373</span></div>`;
+
+/* ---------------- catalog ---------------- */
+const FAM = [
+  {n:'001', t:"Milne's rationality conjecture and algebraic specialization", r:'Milne’s conjecture on rationality of the zeta function of a motive holds after algebraic specialization.', d:'Algebraic and complex geometry', m:2, dig:0, lean:1},
+  {n:'002', t:'The full BSD formula from low Selmer corank', r:'The full Birch–Swinnerton-Dyer formula for elliptic curves over ℚ with Selmer corank at most one.', d:'Number theory', m:3, dig:0, lean:0},
+  {n:'019', t:'The p-adic section conjecture', r:'Grothendieck’s section conjecture for hyperbolic curves over p-adic fields.', d:'Algebraic and complex geometry', m:4, dig:0, lean:0},
+  {n:'064', t:'The μ-constant problem for surface singularities', r:'μ-constant families of isolated surface singularities are topologically trivial.', d:'Algebraic and complex geometry', m:2, dig:0, lean:1},
+  {n:'049', t:'An explicit noncoordinate polynomial with affine three-space zero fibre', r:'A polynomial on 𝔸⁴ whose zero fibre is 𝔸³ but which is not a coordinate.', d:'Algebra', m:1, dig:1, lean:1},
+  {n:'177', t:"A counterexample to Ryser's covering conjecture", r:'A hypergraph family violating Ryser’s conjectured bound on cover number by matching number.', d:'Combinatorics', m:1, dig:0, lean:0},
+  {n:'185', t:'Counterexamples to infinite matroid intersection and packing/covering', r:'Infinite matroids for which the intersection and packing/covering conjectures both fail.', d:'Combinatorics', m:1, dig:0, lean:0},
+  {n:'193', t:"Serre's intersection-multiplicity conjecture", r:'Nonnegativity and vanishing of Serre’s intersection multiplicities over all regular local rings.', d:'Algebra', m:2, dig:0, lean:1},
+  {n:'254', t:'Classifying spaces and geometric obstructions for Artin groups', r:'The K(π,1) conjecture for all Artin groups, via a geometric obstruction theory.', d:'Group theory', m:3, dig:0, lean:0},
+  {n:'337', t:'Cartan–Hadamard isoperimetry and CAT(0) fillings', r:'The Cartan–Hadamard isoperimetric conjecture in all dimensions, with a filling inequality for CAT(0) spaces.', d:'Differential geometry', m:2, dig:0, lean:1},
+  {n:'338', t:"Yau's uniformization conjecture", r:'Complete noncompact Kähler manifolds of positive bisectional curvature are biholomorphic to ℂⁿ.', d:'Differential geometry', m:2, dig:0, lean:0},
+  {n:'339', t:"Katok's entropy rigidity conjecture", r:'Equality in Katok’s entropy inequality forces a locally symmetric metric.', d:'Dynamical systems and ergodic theory', m:1, dig:0, lean:0},
+  {n:'340', t:'A counterexample to the nearby Lagrangian conjecture', r:'A closed exact Lagrangian in a cotangent bundle not Hamiltonian isotopic to the zero section.', d:'Topology', m:2, dig:0, lean:0},
+  {n:'167', t:'A power saving for planar unit distances', r:'The number of unit distances among n points in the plane is O(n^{4/3−c}) for an explicit c > 0.', d:'Combinatorics', m:1, dig:1, lean:1},
+  {n:'356', t:"Gigli's characterization of Alexandrov curvature", r:'Alexandrov curvature bounds are equivalent to Gigli’s metric-measure condition.', d:'Convex and metric geometry', m:1, dig:0, lean:0},
+  {n:'358', t:'A three-manifold with no conjugate points and no nonpositively curved metric', r:'A closed 3-manifold admitting a metric without conjugate points but no nonpositively curved metric.', d:'Differential geometry', m:1, dig:0, lean:1},
+  {n:'109', t:'Integer multiplication below n log n', r:'An n-bit integer multiplication algorithm running in o(n log n) bit operations.', d:'Theoretical computer science', m:3, dig:1, lean:0},
+  {n:'103', t:'Exact derandomization of logarithmic space: L = RL = BPL', r:'Every randomized logspace algorithm has a deterministic logspace equivalent.', d:'Theoretical computer science', m:4, dig:1, lean:0},
+  {n:'378', t:'The Exponential Time Hypothesis is False', r:'Deterministic exact #k-SAT in time 2^{n/(log n)^{1/2+o(1)}}, refuting ETH.', d:'Theoretical computer science', m:2, dig:1, lean:1}
+];
+const DISC_CYCLE = ['all','Theoretical computer science','Combinatorics','Algebraic and complex geometry','Differential geometry'];
+let F = { dig:false, lean:false, disc:'all' };
+function catRow(f){
+  const st = f.dig ? '<span class="badge ok">Digested</span>' : f.lean ? '<span class="badge info">Lean</span>' : '<span class="badge unknown">Not yet</span>';
+  const act = f.dig ? `<button class="btn soft xs" onclick="go('${f.n==='378'?'f4':'f3'}')">Open map →</button>` : `<button class="btn ghost xs" onclick="go('f7')">Abstract · PDF</button>`;
+  return `<div class="frow-l" data-dig="${f.dig}" data-lean="${f.lean}" data-disc="${f.d}" onclick="go('${f.dig?(f.n==='378'?'f3':'f3'):'f7'}')"><span class="num">${f.n}</span><div><div class="t">${f.t}${f.lean?` <span class="badge info" style="font-size:10px; margin-left:4px">Lean</span>`:''}</div><div class="r">${f.r}</div></div><span><span class="badge disc" style="max-width:100%; overflow:hidden; text-overflow:ellipsis; display:inline-block">${f.d}</span></span><span class="m">${f.m}</span><span>${st}</span><span onclick="event.stopPropagation()">${act}</span></div>`;
+}
+document.getElementById('catRows').innerHTML = FAM.map(catRow).join('');
+function applyCat(){
+  let shown = 0;
+  document.querySelectorAll('#catRows .frow-l').forEach(r => {
+    const ok = (!F.dig || r.dataset.dig==='1') && (!F.lean || r.dataset.lean==='1') && (F.disc==='all' || r.dataset.disc===F.disc);
+    r.classList.toggle('hid', !ok); if(ok) shown++;
+  });
+  document.getElementById('tgDig').classList.toggle('on', F.dig); document.getElementById('tgLean').classList.toggle('on', F.lean);
+  document.getElementById('discVal').textContent = F.disc;
+  const q = []; if(F.disc!=='all') q.push('discipline='+F.disc.toLowerCase().replace(/ /g,'-')); if(F.dig) q.push('digested=1'); if(F.lean) q.push('lean=1');
+  document.getElementById('urlCat').textContent = 'gpe.example.com/papers' + (q.length?'?'+q.join('&'):'');
+  document.getElementById('catShown').textContent = `${shown} of ${FAM.length} sample rows shown`;
+}
+function tg(k){ F[k] = !F[k]; applyCat(); }
+function cycleDisc(){ F.disc = DISC_CYCLE[(DISC_CYCLE.indexOf(F.disc)+1) % DISC_CYCLE.length]; applyCat(); }
+applyCat();
+
+/* ---------------- explorer data (copied from v1 storyboard) ---------------- */
+const SECTIONS = [
+  { id:'s1', label:'1 · Introduction', nodes:['thm-main','cor-max-sat','cor-graph-counting','cor-quantitative-circuits'] },
+  { id:'s2', label:'2 · Technique overview', nodes:['def-design','thm-overview-sparse'] },
+  { id:'s3', label:'3 · Fast counting via shared linear summaries', nodes:['def-layout','lem-measurement-separation','lem-boolean-differences','prop-general-count'] },
+  { id:'s4', label:'4 · Constructing low-degree replacement forms', nodes:['lem-swaps-matrix','lem-swaps-forms','lem-incidence-labels','lem-row-coefficients','lem-layout','lem-incidence-parameters'] },
+  { id:'s5', label:'5 · Counting common zeros of sparse systems', nodes:['lem-rational-idempotent','lem-total-order','prop-count'] },
+  { id:'s6', label:'6 · Reducing #k-SAT to common zeros', nodes:['lem-sparse-checks','lem-greedy-hashes','lem-sparsify','prop-interpolation-bound'] },
+  { id:'sA', label:'A · Partitioning the satisfying assignments', nodes:['lem-spar-branch','lem-spar-insertion-bound'] },
+  { id:'sB', label:'B · Exact arithmetic and space', nodes:['lem-rational-lift-height'] },
+  { id:'sD', label:'D · A sharper bound via tensor contraction', nodes:['thm-tensor-contraction','lem-tensor-sparse-query','lem-tapered-hermite'] }
+];
+const KIND_ICO = { theorem:'i-thm', corollary:'i-thm', lemma:'i-lem', proposition:'i-lem', definition:'i-def', claim:'i-claim' };
+const N = {};
+function n(id, o){ N[id] = Object.assign({ id, kind:'lemma', cls:'routine', uses:[], friction:[], claims:[], lean:null, leanHelpers:[] }, o); }
+
+n('thm-main', { name:'Main theorem: subexponential exact #k-SAT', kind:'theorem', cls:'novel', label:'thm:main', ref:'Theorem 1.1', sec:'§1 Introduction', page:2, section:'s1',
+  stmt:'<span class="thm">Theorem 1.1.</span> For every fixed <span class="math">k ≥ 2</span> there is a deterministic algorithm that, given a <span class="math">k</span>-CNF formula with <span class="math">n</span> variables and <span class="math">m</span> clauses, outputs the number of satisfying assignments in time <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> · 2<sup>n/(log n)<sup>1/2+o(1)</sup></sup></span> and space polynomial in <span class="math">n + m</span>.',
+  plain:'You can count exactly how many assignments satisfy a k-CNF in time that grows slower than any 2^{cn}. That contradicts the Exponential Time Hypothesis, which says 3-SAT needs 2^{Ω(n)} time.',
+  why:'This is the root. Everything in the paper exists to make the exponent n/(log n)^{1/2+o(1)} land: a reduction to counting common zeros of sparse polynomial systems (§6), a counting routine for those systems with three separately-controlled exponential costs (§3, §5), and an explicit construction that balances the three (§4).',
+  uses:['prop-interpolation-bound','lem-sparsify','prop-count'],
+  lean:{ file:'lean/ComparatorChallenges/SubexponentialSAT.lean', decl:'OAI.Algorithms.SubexponentialSAT.exact_count_subexponential', line:212 },
+  friction:[ {kind:'weaker_in_lean', sev:'high', note:'Lean proves (L+1)^{O_k(1)} 2^{O_k(n (log log n)^2/√log n)} in the encoding length L; the paper states (n+m)^{O_k(1)} 2^{O_k(n log log n/√log n)}. One extra log log n factor and a different size parameter.'} ] });
+n('cor-max-sat', { name:'MAX-SAT approximation in subexponential time', kind:'corollary', cls:'routine', label:'cor:max-sat-approximation', ref:'Corollary 1.2', sec:'§1', page:3, section:'s1', uses:['thm-main'], plain:'The counting algorithm gives a subexponential approximation scheme for MAX-k-SAT.', why:'A direct consequence; included because it is a headline implication, not because it carries new ideas.' });
+n('cor-graph-counting', { name:'Counting graph homomorphisms and colorings', kind:'corollary', cls:'routine', label:'cor:graph-counting', ref:'Corollary 1.3', sec:'§1', page:4, section:'s1', uses:['thm-main'], plain:'Standard encodings turn graph counting problems into #k-SAT, so they inherit the bound.', why:'Consequence listing; mechanical.' });
+n('cor-quantitative-circuits', { name:'Superlinear circuit lower bounds for E^NP', kind:'corollary', cls:'standard', label:'cor:quantitative-circuits', ref:'Corollary 1.4', sec:'§1', page:5, section:'s1', uses:['thm-main'], plain:'Via Williams’ algorithms-to-lower-bounds connection, a fast #SAT algorithm yields circuit lower bounds on infinitely many input lengths.', why:'Applies a known framework (Williams 2013) to the main theorem; the novelty is upstream.', cite:'Williams, "Improving exhaustive search implies superpolynomial lower bounds", 2013' });
+n('def-design', { name:'(r, τ, D)-design', kind:'definition', cls:'novel', label:'def:overview-measurement-structure', ref:'Definition 2.1', sec:'§2.4', page:12, section:'s2', plain:'A family of linear "measurements" on the variables such that fixing their values splits the big sum into independent small sums.', why:'The overview-level version of the Layout definition in §3; introduced early so the technique overview can be read standalone.' });
+n('thm-overview-sparse', { name:'Counting common zeros of sparse polynomials (overview statement)', kind:'theorem', cls:'novel', label:'thm:overview-sparse-polynomials', ref:'Theorem 2.2', sec:'§2.9', page:22, section:'s2', uses:['prop-count'], plain:'Informal statement of the §5 result: common zeros of a sparse low-degree system over F_2 can be counted in subexponential time.', why:'Bridges the overview to the full argument.' });
+n('def-layout', { name:'Layout: rows, partitions, and measurements', kind:'definition', cls:'novel', label:'def:layout', ref:'Definition 3.1', sec:'§3.2', page:24, section:'s3', plain:'The exact bookkeeping object the counting routine consumes: a list of linear rows, a partition of the variables into groups, and a set of measurements per group.', why:'Everything in §3 is stated relative to a Layout; §4 constructs one with good parameters.' });
+n('lem-measurement-separation', { name:'Fixing measurements splits the sum', cls:'novel', label:'lem:measurement-separation', ref:'Lemma 3.2', sec:'§3.3', page:26, section:'s3', uses:['def-layout'],
+  stmt:'<span class="thm">Lemma 3.2.</span> Let <span class="math">𝓛</span> be a layout. For every assignment of values to the measurements, the sum over Boolean assignments factors as a product over variable groups of sums over the group’s assignments consistent with the fixed measurement values.',
+  plain:'Once you decide what each linear measurement evaluates to, the giant sum over all 2^n assignments becomes a product of much smaller sums, one per variable group.', why:'This is the separation step that makes the whole thing tractable: it converts one exponential sum into many independent ones that can be computed and multiplied.' });
+n('lem-boolean-differences', { name:'Taylor coefficients from Boolean differences', cls:'standard', label:'lem:boolean-differences', ref:'Lemma 3.3', sec:'§3.4', page:28, section:'s3', plain:'Hasse derivatives of a polynomial at a Boolean point can be read off from finite differences over Boolean substitutions.', why:'Lets the routine recover Taylor coefficients by evaluating at Boolean points only, which is what the group sums give.', cite:'standard finite-difference / Hasse-derivative identity' });
+n('prop-general-count', { name:'Common counting routine (three exponential costs)', kind:'proposition', cls:'novel', label:'prop:general-count', ref:'Proposition 3.4', sec:'§3.5', page:31, section:'s3', uses:['lem-measurement-separation','lem-boolean-differences','def-layout'],
+  stmt:'<span class="thm">Proposition 3.4.</span> Given a layout with parameters <span class="math">(r, τ, D)</span>, the count can be computed in time <span class="math">poly(n+m) · (2<sup>τ</sup> · 2<sup>n/r</sup> · 2<sup>D</sup>)</span> and polynomial space.',
+  plain:'The running time is a product of three exponential terms: one for enumerating measurement values, one for the largest group, one for the Taylor degree. Each is controlled by a different layout parameter.', why:'Everything downstream is about choosing a layout so that all three terms are 2^{o(n)} simultaneously. The √log n appears when these are balanced in Lemma 4.7.' });
+n('lem-swaps-matrix', { name:'The swap matrix has the required support', label:'lem:swaps-matrix', ref:'Lemma 4.1', sec:'§4.2', page:35, section:'s4', plain:'The matrix built from partial swaps has nonzero entries only where the construction needs them.', why:'Structural fact used to control coefficient growth in the replacement forms.' });
+n('lem-swaps-forms', { name:'Replacement forms from swap rows', label:'lem:swaps-forms', ref:'Lemma 4.3', sec:'§4.3', page:37, section:'s4', uses:['lem-swaps-matrix'], plain:'Each row of the swap matrix defines a low-degree linear form that can replace a high-degree incidence term.', why:'These forms are what get plugged into the layout.' });
+n('lem-incidence-labels', { name:'Balanced labelling of variables and factors', label:'lem:incidence-labels', ref:'Lemma 4.4', sec:'§4.4', page:39, section:'s4', plain:'Variables and clauses can be assigned to groups so every group sees roughly equal incidence.', why:'Without balance one group dominates the 2^{n/r} cost.' });
+n('lem-row-coefficients', { name:'Coefficient bounds for the rows', label:'lem:row-coefficients', ref:'Lemma 4.5', sec:'§4.6', page:41, section:'s4', uses:['lem-swaps-forms'], plain:'The integer coefficients in the replacement rows stay polynomially bounded.', why:'Needed for exact arithmetic in Appendix B.' });
+n('lem-layout', { name:'The completed construction is a layout', label:'lem:layout', ref:'Lemma 4.6', sec:'§4.6', page:42, section:'s4', uses:['lem-swaps-forms','lem-incidence-labels','lem-row-coefficients','def-layout'], plain:'Putting the pieces together satisfies Definition 3.1.', why:'Hands §4’s object to §3’s routine.' });
+n('lem-incidence-parameters', { name:'Parameter choice balancing the three costs', cls:'novel', label:'lem:incidence-parameters', ref:'Lemma 4.7', sec:'§4.7', page:43, section:'s4', uses:['lem-layout','prop-general-count'],
+  stmt:'<span class="thm">Lemma 4.7.</span> For a bounded-occurrence formula on <span class="math">n</span> variables there is a layout with <span class="math">τ, n/r, D = O(n log log n / √log n)</span>, constructible in polynomial time.',
+  plain:'You can pick the group size, the number of measurements, and the Taylor degree so that all three exponential costs are 2^{O(n log log n/√log n)} at once.', why:'This is where the exponent comes from. Each cost shrinks as a different parameter grows, and they trade off against each other; setting them equal gives the square-root-log saving. The log log n loss is removed at fixed clause density in Appendix D.' });
+n('lem-rational-idempotent', { name:'Integer lift of a clause indicator', cls:'standard', label:'lem:rational-idempotent', ref:'Lemma 5.1', sec:'§5.1', page:46, section:'s5', plain:'The 0/1 indicator of "this clause is satisfied" is a low-degree integer polynomial in the variables.', why:'Turns a Boolean condition into something the algebraic routine can multiply.', cite:'standard; cf. Lemma 2.1 in Williams 2013' });
+n('lem-total-order', { name:'Keeping the product degree linear', label:'lem:total-order', ref:'Lemma 5.2', sec:'§5.2', page:48, section:'s5', uses:['lem-rational-idempotent'], plain:'Multiplying all the clause indicators gives a polynomial whose degree is linear in n, not quadratic.', why:'Degree feeds the 2^D cost directly.' });
+n('prop-count', { name:'Counting common zeros with supplied forms', kind:'proposition', cls:'novel', label:'prop:count', ref:'Proposition 5.3', sec:'§5.4', page:50, section:'s5', uses:['prop-general-count','lem-total-order','lem-incidence-parameters'],
+  stmt:'<span class="thm">Proposition 5.3.</span> Common zeros of a system of <span class="math">m</span> sparse polynomials of degree at most <span class="math">d</span> over <span class="math">𝔽<sub>2</sub></span> in <span class="math">n</span> variables can be counted in time <span class="math">(n+m)<sup>O<sub>d</sub>(1)</sup> 2<sup>O<sub>d</sub>(n log log n/√log n)</sup></span>.',
+  plain:'The general-purpose result: count solutions to a sparse low-degree polynomial system in subexponential time.', why:'#k-SAT is reduced to this in §6; this is the theorem a reader should take away if they only read one.' });
+n('lem-sparse-checks', { name:'Cheap tests ruling out small violation sets', label:'lem:sparse-checks', ref:'Lemma 6.1', sec:'§6.1', page:53, section:'s6', plain:'Before hashing, a polynomial-time test handles assignments that violate only a few clauses.', why:'Removes a corner case that would otherwise break the hash argument.' });
+n('lem-greedy-hashes', { name:'Greedy choice of parity hashes', cls:'novel', label:'lem:greedy-hashes', ref:'Lemma 6.2', sec:'§6.2', page:56, section:'s6', uses:['prop-count','lem-sparse-checks'], plain:'Parity constraints can be chosen one at a time, each time using the counting routine to confirm the constraint cuts the solution set the way a random one would.', why:'Derandomizes the hashing step; this is why the algorithm is deterministic.' });
+n('lem-sparsify', { name:'Sparsification: reduce to bounded clause density', cls:'routine', label:'lem:sparsify', ref:'Lemma 6.3', sec:'§6.4', page:58, section:'s6', uses:['lem-spar-branch','lem-spar-insertion-bound'],
+  stmt:'<span class="thm">Lemma 6.3.</span> Every <span class="math">k</span>-CNF on <span class="math">n</span> variables can be written, in time <span class="math">2<sup>O(n/√log n)</sup></span>, as a disjoint union of at most <span class="math">2<sup>O(n log log n/√log n)</sup></span> <span class="math">k</span>-CNFs each with at most <span class="math">O<sub>k</sub>(n · polylog n)</span> clauses, whose solution sets partition the original’s.',
+  plain:'Any formula can be split into subexponentially many formulas that each have few clauses relative to variables, and the solution counts add up.', why:'The counting routine’s cost depends on clause density; this step pays a subexponential factor to make density bounded. It is where the extra log log n enters the main bound.',
+  claims:[ {id:'claim-branch-tree', name:'Branching on a high-occurrence variable yields a tree of bounded depth'}, {id:'claim-leaf-density', name:'Every leaf has clause density O(polylog n)'} ],
+  leanHelpers:['Sparsify.branch_count_le','Sparsify.leaf_density_bound','Sparsify.partition_disjoint'] });
+n('prop-interpolation-bound', { name:'Assembling the #k-SAT bound', kind:'proposition', cls:'routine', label:'prop:interpolation-bound', ref:'Proposition 6.4', sec:'§6.5', page:60, section:'s6', uses:['lem-sparsify','lem-greedy-hashes','prop-count'], plain:'Combine sparsification, hashing and the counting routine; the costs multiply to the main theorem’s bound.', why:'Final assembly for Theorem 1.1.' });
+n('lem-spar-branch', { name:'Branching rule', label:'lem:spar-branch', ref:'Lemma A.1', sec:'App. A', page:63, section:'sA', plain:'Branching on a variable that appears in many clauses strictly reduces a potential function.', why:'Drives the sparsification tree.' });
+n('lem-spar-insertion-bound', { name:'Bound on the number of insertions', label:'lem:spar-insertion-bound', ref:'Lemma A.3', sec:'App. A', page:64, section:'sA', uses:['lem-spar-branch'], plain:'The tree created by branching has at most 2^{O(n log log n/√log n)} leaves.', why:'This is the count that becomes the sparsification overhead.' });
+n('lem-rational-lift-height', { name:'Coefficient height of the lifted indicator', cls:'standard', label:'lem:rational-lift-height', ref:'Lemma B.1', sec:'App. B', page:66, section:'sB', uses:['lem-rational-idempotent'], plain:'The integer coefficients stay small enough that exact arithmetic is polynomial.', why:'Justifies the polynomial-space claim.' });
+n('thm-tensor-contraction', { name:'Boolean tensor contraction', kind:'theorem', cls:'novel', label:'thm:tensor-contraction', ref:'Theorem D.1', sec:'App. D', page:70, section:'sD', uses:['lem-tapered-hermite'],
+  stmt:'<span class="thm">Theorem D.1.</span> A Boolean tensor network with <span class="math">n</span> wires and bounded arity can be contracted exactly in time <span class="math">2<sup>O(n/√log n)</sup></span>.',
+  plain:'A sharper counting primitive that removes the log log n loss when the formula has bounded clause density.', why:'Gives the fixed-density bound 2^{O(n/√log n)}; not needed for the main theorem as stated in §1.',
+  friction:[ {kind:'missing_in_lean', sev:'high', note:'No Lean counterpart; the formalization covers the main-text argument only (lean/docs/378.md).'} ] });
+n('lem-tensor-sparse-query', { name:'Counting sparse systems by contraction', label:'lem:tensor-sparse-query', ref:'Lemma D.2', sec:'App. D', page:72, section:'sD', uses:['thm-tensor-contraction'], plain:'Rewrites the sparse-polynomial counting as a tensor contraction.', why:'Connects Appendix D back to §5.' });
+n('lem-tapered-hermite', { name:'Tapered Hermite recovery', cls:'routine', label:'lem:tapered-hermite', ref:'Lemma D.4', sec:'App. D', page:74, section:'sD', plain:'Recover exact integer coefficients from approximate evaluations with a tapered weight.', why:'Numerical core of the contraction theorem.' });
+n('claim-branch-tree', { name:'Branching on a high-occurrence variable yields a tree of bounded depth', kind:'claim', cls:'routine', label:'lem:sparsify · claim 1', ref:'inside proof of Lemma 6.3', sec:'§6.4', page:58, section:'s6', parent:'lem-sparsify', uses:['lem-spar-branch'], plain:'Repeatedly picking the most frequent variable and branching on both values terminates after O(n/√log n) levels.', why:'First half of the sparsification proof.' });
+n('claim-leaf-density', { name:'Every leaf has clause density O(polylog n)', kind:'claim', cls:'routine', label:'lem:sparsify · claim 2', ref:'inside proof of Lemma 6.3', sec:'§6.4', page:59, section:'s6', parent:'lem-sparsify', uses:['claim-branch-tree','lem-spar-insertion-bound'], plain:'At a leaf no variable appears in many clauses, so the clause count is near-linear.', why:'Second half; gives the density bound the counting routine needs.' });
+
+Object.values(N).forEach(x => x.usedBy = []);
+Object.values(N).forEach(x => x.uses.forEach(u => N[u] && N[u].usedBy.push(x.id)));
+const SEC_OF = {}; SECTIONS.forEach(s => s.nodes.forEach(id => SEC_OF[id] = s));
+
+/* ---------------- tree ---------------- */
+function treeNodeHtml(id){
+  const x = N[id];
+  const hasKids = x.claims.length || x.leanHelpers.length;
+  return `<div class="tnode" data-id="${id}" onclick="selectNode('${id}')">
+      ${hasKids ? `<span class="chev" onclick="event.stopPropagation(); toggleKids('${id}')">${ico('i-chev')}</span>` : '<span class="ph"></span>'}
+      ${ico(KIND_ICO[x.kind]||'i-lem','k-ico')}
+      <span class="lbl" title="${x.name}">${x.name}</span>
+      ${x.friction.length ? `<span class="dot ${x.friction[0].sev}" title="friction"></span>` : ''}
+      ${x.cls==='novel' ? '<span class="mini novel">novel</span>' : ''}
+    </div>
+    ${hasKids ? `<div class="tkids" data-kids="${id}">
+      ${x.claims.map(c => `<div class="tnode" data-id="${c.id}" onclick="selectNode('${c.id}')"><span class="ph"></span>${ico('i-claim','k-ico')}<span class="lbl" title="${c.name}">${c.name}</span></div>`).join('')}
+      ${x.leanHelpers.length ? `<div class="tnode lean-node" onclick="event.stopPropagation(); toggleKids('${id}-lean')"><span class="chev">${ico('i-chev')}</span>${ico('i-lean','k-ico')}<span class="lbl">${x.leanHelpers.length} Lean helpers</span></div>
+        <div class="tkids" data-kids="${id}-lean">${x.leanHelpers.map(h => `<div class="tnode lean-node"><span class="ph"></span><span class="lbl">${h}</span></div>`).join('')}</div>` : ''}
+    </div>` : ''}`;
+}
+function renderTree(el, openSecs){
+  el.innerHTML = SECTIONS.map(s => `
+    <div class="tnode tsec ${openSecs.includes(s.id)?'open':''}" onclick="toggleKids('${s.id}')"><span class="chev">${ico('i-chev')}</span><span class="lbl">${s.label}</span><span class="dim" style="font-weight:400">${s.nodes.length}</span></div>
+    <div class="tkids ${openSecs.includes(s.id)?'open':''}" data-kids="${s.id}">${s.nodes.map(id => treeNodeHtml(id)).join('')}</div>`).join('');
+}
+function toggleKids(id){
+  document.querySelectorAll(`#tree2 [data-kids="${id}"]`).forEach(k => { k.classList.toggle('open'); const h = k.previousElementSibling; h && h.classList.toggle('open'); });
+}
+function expandAll(open){
+  document.querySelectorAll('#tree2 .tkids').forEach(k => { k.classList.toggle('open', open); k.previousElementSibling.classList.toggle('open', open); });
+}
+
+/* ---------------- node page ---------------- */
+function chip(id){ const x = N[id]; if(!x) return `<span class="chip"><span class="k">?</span>${id}</span>`; return `<span class="chip" title="${x.name}" onclick="selectNode('${id}', true)"><span class="k">${x.kind.slice(0,3)}</span><span class="n">${x.name}</span></span>`; }
+function nodeHtml(id, compact){
+  const x = N[id];
+  const fr = x.friction.map(f => `<div class="fr"><span class="badge ${f.sev}">${f.sev}</span><div class="fr-b"><b>${f.kind}</b>${f.note}</div></div>`).join('');
+  return `
+    <div class="np-top"><span class="badge kind">${x.kind}</span><span class="badge ${x.cls}">${x.cls}</span>${x.friction.map(f=>`<span class="badge ${f.sev}">${ico('i-alert')} ${f.kind}</span>`).join('')}</div>
+    <h1 class="np-title">${x.name}</h1>
+    <div class="np-sub"><span>${x.ref}</span><span>·</span><code>${x.label}</code><span>·</span><span>${x.sec}${x.page?`, p. ${x.page}`:''}</span>${x.parent?`<span>·</span><span>inside ${chip(x.parent)}</span>`:''}</div>
+    ${x.stmt ? `<div class="np-sec"><h4>Statement (paper)</h4><div class="stmt">${x.stmt}</div></div>` : ''}
+    <div class="np-sec"><h4>In plain English</h4><div>${x.plain||'<span class="dim">—</span>'}</div></div>
+    <div class="np-sec"><h4>Why it’s here</h4><div>${x.why||'<span class="dim">—</span>'}</div>${x.cite?`<div class="dim" style="font-size:12px; margin-top:4px">Classification cites: ${x.cite}</div>`:''}</div>
+    ${compact ? '' : `<div class="np-grid">
+      <div class="np-sec"><h4>Uses</h4><div class="deps">${x.uses.length ? x.uses.map(chip).join('') : '<span class="dim">nothing in the paper</span>'}</div></div>
+      <div class="np-sec"><h4>Used by</h4><div class="deps">${x.usedBy.length ? x.usedBy.map(chip).join('') : '<span class="dim">—</span>'}</div></div>
+    </div>`}
+    ${x.claims.length ? `<div class="np-sec"><h4>Inside the proof</h4><div class="deps">${x.claims.map(c=>chip(c.id)).join('')}</div></div>` : ''}
+    ${compact ? '' : `<div class="np-sec"><h4>Sources</h4><div class="src">
+      <div class="card"><div class="card-h">${ico('i-file')} Paper <button class="btn soft xs">Open in reader ${ico('i-ext')}</button></div><div class="card-b"><div class="row"><span>Section</span><span>${x.sec}</span></div><div class="row"><span>Page</span><span>${x.page||'—'}</span></div><div class="row"><span>Label</span><code>${x.label}</code></div></div></div>
+      <div class="card"><div class="card-h">${ico('i-lean')} Lean ${x.lean?`<button class="btn soft xs">GitHub ${ico('i-ext')}</button>`:'<span class="badge unknown">not aligned</span>'}</div><div class="card-b">${x.lean?`<div class="row"><span>File</span><code>${x.lean.file.split('/').pop()}</code></div><div class="row"><span>Decl</span><code style="font-size:11px">${x.lean.decl.split('.').pop()}</code></div><div class="row"><span>Line</span><span>${x.lean.line}</span></div>`:`<div class="dim" style="font-size:12.5px">Only the top-line theorem is aligned to <code>openai/math/lean</code>.</div>`}</div></div>
+    </div></div>`}
+    ${fr ? `<div class="np-sec"><h4>Friction</h4>${fr}</div>` : ''}`;
+}
+let cur2 = 'thm-main';
+function selectNode(id, scroll){
+  cur2 = id;
+  document.getElementById('node2').innerHTML = nodeHtml(id);
+  document.querySelectorAll('#tree2 .tnode').forEach(t => t.classList.toggle('sel', t.dataset.id === id));
+  const x = N[id]; const sec = SEC_OF[id] || SEC_OF[x.parent];
+  document.getElementById('url2').textContent = `gpe.example.com/eth/${id}`;
+  document.getElementById('crumbs2').innerHTML = `<span>Papers</span>${ico('i-chev','dim')}<span>378 ETH</span>${ico('i-chev','dim')}<span>${sec.label.replace(' · ',' ')}</span>${ico('i-chev','dim')}<span class="cur">${x.name}</span>`;
+  const k = document.querySelector(`#tree2 [data-kids="${sec.id}"]`); if(k && !k.classList.contains('open')) toggleKids(sec.id);
+  if(x.parent){ const pk = document.querySelector(`#tree2 [data-kids="${x.parent}"]`); if(pk && !pk.classList.contains('open')) toggleKids(x.parent); }
+  if(scroll) go('f5');
+  document.getElementById('node2').scrollTop = 0;
+}
+function toggleChat(){ const d = document.getElementById('dash2'); d.classList.toggle('no-chat'); document.getElementById('chat2').style.display = d.classList.contains('no-chat') ? 'none' : 'flex'; document.getElementById('chatToggle').classList.toggle('active'); }
+
+/* ---------------- chat ---------------- */
+const QA = [
+  { q:'Where does the √log n come from?', a:`<p>It comes from balancing three exponential costs, not from any single lemma.</p>
+<p>The counting routine [[prop-general-count]] runs in time <span class="math">2<sup>τ</sup>·2<sup>n/r</sup>·2<sup>D</sup></span>: enumerating measurement values, the largest variable group, and the Taylor degree. Each term shrinks as a different layout parameter grows, and they trade off.</p>
+<p>[[lem-incidence-parameters]] makes the choice: setting the three equal gives <span class="math">τ, n/r, D = O(n log log n/√log n)</span>. That is the exponent in [[prop-count]] and hence in [[thm-main]].</p>
+<p>The <span class="math">log log n</span> factor is paid by [[lem-sparsify]]; Appendix D removes it at fixed clause density via [[thm-tensor-contraction]].</p>` },
+  { q:'Which nodes contain the new idea?', a:`<p>Three places, in dependency order:</p>
+<p>1. [[lem-measurement-separation]] — fixing linear measurements factors one <span class="math">2<sup>n</sup></span>-term sum into a product of small sums.</p>
+<p>2. [[lem-incidence-parameters]] — the explicit layout whose three costs balance at <span class="math">n/√log n</span>.</p>
+<p>3. [[lem-greedy-hashes]] — choosing parity hashes greedily, using the counter itself to certify each one, which is what makes the algorithm deterministic.</p>
+<p>Everything else is classified routine or standard; [[cor-quantitative-circuits]] for instance applies Williams 2013 unchanged.</p>` },
+  { q:'What does the Lean actually prove?', a:`<p>A weaker statement than [[thm-main]] as written.</p>
+<p>The Lean declaration <code>exact_count_subexponential</code> bounds time by <span class="math">(L+1)<sup>O<sub>k</sub>(1)</sup> 2<sup>O<sub>k</sub>(n (log log n)<sup>2</sup>/√log n)</sup></span> where <span class="math">L</span> is the length of a canonical encoding of the formula. The paper states <span class="math">(n+m)<sup>O<sub>k</sub>(1)</sup> 2<sup>O<sub>k</sub>(n log log n/√log n)</sup></span>. Two differences: an extra <span class="math">log log n</span>, and size measured by encoding length rather than <span class="math">(n, m)</span>.</p>
+<p>The sharper Appendix D bound [[thm-tensor-contraction]] has no Lean counterpart at all. Both are flagged as friction on their nodes.</p>` }
+];
+function linkify(html, fn){ return html.replace(/\[\[([a-z0-9-]+)\]\]/g, (m, id) => `<span class="nl" onclick="${fn||'selectNode'}('${id}', true)">${ico('i-link')} ${N[id] ? N[id].name : id}</span>`); }
+function ask(i){
+  const m = document.getElementById('msgs2'); const e = m.querySelector('.chat-empty'); if(e) e.remove();
+  m.insertAdjacentHTML('beforeend', `<div class="msg user">${QA[i].q}</div><div class="msg ai shimmer" id="pend">Thinking…</div>`); m.scrollTop = m.scrollHeight;
+  setTimeout(() => { const p = document.getElementById('pend'); p.classList.remove('shimmer'); p.id=''; p.innerHTML = linkify(QA[i].a); m.scrollTop = m.scrollHeight; }, 700);
+}
+function askFree(){ const ta = document.getElementById('ta2'); if(!ta.value.trim()) return; const m = document.getElementById('msgs2'); const e = m.querySelector('.chat-empty'); if(e) e.remove(); m.insertAdjacentHTML('beforeend', `<div class="msg user">${ta.value}</div><div class="msg ai"><p class="dim">(storyboard: free-form questions aren't wired; the three suggested ones are)</p></div>`); ta.value=''; m.scrollTop = m.scrollHeight; }
+document.getElementById('ta2').addEventListener('keydown', e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); askFree(); } });
+// graph-frame chat: pre-answered, chips drive the graph
+document.getElementById('msgsG').innerHTML = `<div class="msg user">${QA[0].q}</div><div class="msg ai">${linkify(QA[0].a, 'gSelectScroll')}</div><div class="msg user">${QA[1].q}</div><div class="msg ai">${linkify(QA[1].a, 'gSelectScroll')}</div>`;
+
+/* ---------------- graph ---------------- */
+let curG = 'thm-main', gModeV = 'all', gColorV = 'cls';
+const SEC_COLORS = ['#6366f1','#0ea5e9','#10b981','#f59e0b','#ef4444','#8b5cf6','#14b8a6','#f97316','#ec4899'];
+function gMode(m, b){ gModeV = m; document.querySelectorAll('#gmode button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); renderGraph(); }
+function gColor(c, b){ gColorV = c; document.querySelectorAll('#gcolor button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); renderGraph(); }
+function closure(id, dir, within){ const out = new Set(); const st=[id]; while(st.length){ const x = st.pop(); (N[x][dir]||[]).forEach(y => { if(within.has(y) && !out.has(y)){ out.add(y); st.push(y); } }); } return out; }
+function layout(ids, W, H, GX, GY){
+  const depth = {}; const d = id => { if (depth[id] != null) return depth[id]; const us = N[id].uses.filter(u => ids.includes(u)); depth[id] = us.length ? 1 + Math.max(...us.map(d)) : 0; return depth[id]; };
+  ids.forEach(d); const maxD = Math.max(0, ...ids.map(id => depth[id]));
+  const layers = []; for (let k = 0; k <= maxD; k++) layers.push(ids.filter(id => depth[id] === k));
+  const pos = {}; layers[0].forEach((id, i) => pos[id] = i);
+  const bary = (id, key) => { const a = N[id][key].filter(u => ids.includes(u) && pos[u] != null); return a.length ? a.reduce((s, u) => s + pos[u], 0) / a.length : (pos[id] ?? 0); };
+  for (let k = 1; k <= maxD; k++) { layers[k].sort((a, b) => bary(a, 'uses') - bary(b, 'uses')); layers[k].forEach((id, i) => pos[id] = i); }
+  for (let k = maxD - 1; k >= 0; k--) { layers[k].sort((a, b) => bary(a, 'usedBy') - bary(b, 'usedBy')); layers[k].forEach((id, i) => pos[id] = i); }
+  const widest = Math.max(...layers.map(l => l.length));
+  const totalW = widest * (W + GX) + 40, totalH = (maxD + 1) * (H + GY) + 20;
+  const xy = {};
+  layers.forEach((l, k) => { const rowW = l.length * (W + GX) - GX; l.forEach((id, i) => { xy[id] = { x: (totalW - rowW) / 2 + i * (W + GX), y: 20 + (maxD - k) * (H + GY) }; }); });
+  return { xy, totalW, totalH, maxD };
+}
+const GRAPH_IDS = () => SECTIONS.flatMap(s => s.nodes).filter(id => id !== 'thm-overview-sparse' && id !== 'def-design');
+function renderGraph(){
+  const showClaims = document.getElementById('gClaims').checked;
+  let ids = GRAPH_IDS();
+  if (showClaims) ids = ids.concat(Object.keys(N).filter(id => N[id].kind === 'claim'));
+  const within = new Set(ids);
+  const down = closure(curG, 'uses', within), up = closure(curG, 'usedBy', within);
+  const lit = new Set([curG, ...down, ...up]);
+  if (gModeV === 'focus') { ids = ids.filter(id => lit.has(id)); }
+  const W = 150, H = 40, GX = 18, GY = 62;
+  const { xy, totalW, totalH, maxD } = layout(ids, W, H, GX, GY);
+  const secIdx = id => SECTIONS.findIndex(s => s === (SEC_OF[id] || SEC_OF[N[id].parent]));
+  let edges = '', nodes = '';
+  ids.forEach(id => N[id].uses.filter(u => ids.includes(u)).forEach(u => {
+    const a = xy[id], b = xy[u]; const on = lit.has(id) && lit.has(u);
+    const x1 = a.x + W / 2, y1 = a.y + H, x2 = b.x + W / 2, y2 = b.y; const my = (y1 + y2) / 2;
+    edges += `<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}" fill="none" stroke="${on ? 'var(--primary)' : 'var(--border-acc)'}" stroke-width="${on ? 1.6 : 1}" opacity="${on ? .9 : .45}" marker-end="url(#arr${on ? 'On' : ''})"/>`;
+  }));
+  ids.forEach(id => {
+    const x = N[id], p = xy[id]; const on = lit.has(id), sel = id === curG;
+    let fill = 'var(--bg)', stroke = 'var(--border-acc)', dash = '';
+    if (gColorV === 'cls') { if (x.cls === 'novel') { fill = 'var(--primary-soft)'; stroke = 'var(--primary)'; } else if (x.cls === 'standard') { dash = 'stroke-dasharray="4 3"'; stroke = 'var(--muted)'; } }
+    else { stroke = SEC_COLORS[secIdx(id) % SEC_COLORS.length]; }
+    if (sel) { stroke = 'var(--primary)'; }
+    const name = x.name.length > 24 ? x.name.slice(0, 23) + '…' : x.name;
+    nodes += `<g transform="translate(${p.x},${p.y})" opacity="${on ? 1 : .28}" style="cursor:pointer" onclick="gSelect('${id}')"><title>${x.name} — ${x.ref}</title>
+      <rect width="${W}" height="${H}" rx="7" fill="${fill}" stroke="${stroke}" stroke-width="${sel ? 2.5 : 1.2}" ${dash}/>
+      <text x="9" y="16" font-size="9.5" fill="var(--dim)" font-family="var(--mono)">${x.ref}${x.friction.length ? '  •' : ''}</text>
+      <text x="9" y="30" font-size="11.5" font-weight="${sel ? 600 : 500}" fill="var(--text)" font-family="var(--sans)">${name}</text>
+    </g>`;
+  });
+  const svg = document.getElementById('gsvg');
+  svg.setAttribute('width', totalW); svg.setAttribute('height', totalH); svg.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`); svg.dataset.w = totalW; svg.dataset.h = totalH;
+  svg.innerHTML = `<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--border-acc)"/></marker><marker id="arrOn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--primary)"/></marker></defs>${edges}${nodes}`;
+  document.getElementById('gstat').textContent = `${ids.length} nodes · ${maxD + 1} levels · focus: ${down.size} below, ${up.size} above`;
+  document.getElementById('gside-h').textContent = `selected: ${N[curG].name}`;
+  document.getElementById('urlG').textContent = `gpe.example.com/eth/${curG}?view=graph${gModeV === 'focus' ? '&mode=focus' : ''}`;
+  if (gModeV === 'all') { const wrap = document.getElementById('gwrap'); wrap.scrollLeft = Math.max(0, (xy[curG].x + W / 2) - wrap.clientWidth / 2); wrap.scrollTop = Math.max(0, xy[curG].y - 40); }
+}
+function gSelect(id){ curG = id; renderGraph(); }
+function gSelectScroll(id){ gSelect(id); }
+function gFit(){ const svg = document.getElementById('gsvg'), wrap = document.getElementById('gwrap'); const fit = svg.getAttribute('width') == wrap.clientWidth; if (fit) { svg.setAttribute('width', svg.dataset.w); svg.setAttribute('height', svg.dataset.h); } else { const s = wrap.clientWidth / svg.dataset.w; svg.setAttribute('width', wrap.clientWidth); svg.setAttribute('height', svg.dataset.h * s); } }
+
+/* overview thumbnail: same layout, no labels */
+(function(){
+  const ids = GRAPH_IDS(); const W = 26, H = 12, GX = 6, GY = 22;
+  const { xy, totalW, totalH } = layout(ids, W, H, GX, GY);
+  let e = '', nd = '';
+  ids.forEach(id => N[id].uses.filter(u => ids.includes(u)).forEach(u => { const a = xy[id], b = xy[u]; e += `<path d="M${a.x+W/2},${a.y+H} L${b.x+W/2},${b.y}" stroke="var(--border-acc)" stroke-width=".8" fill="none"/>`; }));
+  ids.forEach(id => { const x = N[id], p = xy[id]; const nv = x.cls==='novel'; nd += `<rect x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="3" fill="${nv?'var(--primary)':'var(--bg)'}" stroke="${nv?'var(--primary)':x.cls==='standard'?'var(--muted)':'var(--border-acc)'}" stroke-width="1" ${x.cls==='standard'?'stroke-dasharray="2 2"':''}/>`; });
+  const s = document.getElementById('ovShape'); s.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`); s.innerHTML = e + nd;
+})();
+
+/* ---------------- init ---------------- */
+renderTree(document.getElementById('tree2'), ['s1']);
+selectNode('thm-main');
+renderGraph();
+function toggleTheme(){ const h = document.documentElement; h.dataset.theme = h.dataset.theme === 'dark' ? 'light' : 'dark'; }
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+[
+  {
+    "slug": "eth",
+    "title": "The Exponential Time Hypothesis is False",
+    "authors": [],
+    "counts": {
+      "nodes": 89,
+      "sections": 68,
+      "novel": 5,
+      "friction": 71
+    },
+    "family": {
+      "number": 378,
+      "code": "378",
+      "title": "Disproof of the Exponential Time Hypothesis",
+      "discipline": "Theoretical computer science",
+      "disciplineSlug": "theoretical-computer-science"
+    },
+    "pages": 67,
+    "hasLean": true,
+    "updatedAt": "2026-10-30T01:25:53.105Z"
+  },
+  {
+    "slug": "logspace",
+    "title": "Exact Derandomization of Logarithmic Space: L = RL = BPL",
+    "authors": [
+      "OpenAI"
+    ],
+    "counts": {
+      "nodes": 164,
+      "sections": 66,
+      "novel": 4,
+      "friction": 97
+    },
+    "family": {
+      "number": 103,
+      "code": "103",
+      "title": "Exact derandomization of logarithmic space: $\\mathsf L=\\mathsf{RL}=\\mathsf{BPL}$",
+      "discipline": "Theoretical computer science",
+      "disciplineSlug": "theoretical-computer-science"
+    },
+    "hasLean": true,
+    "updatedAt": "2026-10-29T21:51:28.706Z"
+  }
+]

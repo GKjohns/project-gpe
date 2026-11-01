@@ -1,18 +1,21 @@
 /**
  * Whether this browser may use the operator controls (ingest, re-run, cancel, review, corpus).
- * One cached GET /api/session per page load; `refreshOperator()` after signing in or out.
+ * One cached GET /api/session per page load; `refreshOperator()` after signing in or out. Await `ready` where the
+ * answer decides SSR output (the default stands in until the fetch lands).
  */
 export function useOperator() {
-  const { data, refresh } = useFetch<{ operator: boolean, auth: 'token' | 'open' | 'closed' }>('/api/session', {
+  const request = useFetch<{ operator: boolean, auth: 'token' | 'open' | 'closed' }>('/api/session', {
     key: 'operator-session',
     headers: useRequestHeaders(['cookie']),
     default: () => ({ operator: false, auth: 'token' as const }),
     dedupe: 'defer'
   })
+  const { data, refresh } = request
   return {
     operator: computed(() => data.value.operator),
     auth: computed(() => data.value.auth),
-    refreshOperator: refresh
+    refreshOperator: refresh,
+    ready: request.then(() => {})
   }
 }
 

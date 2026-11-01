@@ -1,9 +1,7 @@
-import { eq } from 'drizzle-orm'
 import type { Skeleton } from '#shared/pipeline'
 import { CLAIM_PROOF_LINES } from '#shared/pipeline'
-import { useDb } from '../../db'
-import { sources } from '../../db/schema'
 import { appendEvent, patchProgress, setStage } from '../../utils/runs'
+import { loadSourceText } from '../../utils/sourceStore'
 import { stageOutputs } from '../../utils/stageOutputs'
 import { chunkLatex } from '../latex/chunk'
 import type { SourceSummary } from '../sources'
@@ -35,8 +33,7 @@ export const chunkStage: StageFn = async (ctx) => {
     return reused.statements.length
   }
 
-  const db = await useDb()
-  const files = await db.select({ path: sources.path, content: sources.content }).from(sources).where(eq(sources.paperId, ctx.paperId))
+  const files = await loadSourceText(ctx.paperId)
   if (!files.length) {
     throw new Error('no sources stored for this paper; re-run from fetch')
   }
