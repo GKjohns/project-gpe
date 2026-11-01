@@ -268,8 +268,23 @@ browsable proof maps: …</pre>
 <p class="meta" style="color:var(--muted);font-size:0.92rem">No screenshot of the streamed chat turn was kept; the result is recorded in the plan's Sprint 4 deviations.</p>
 
 <!-- ───────────────────────────── Sprint 5 -->
-<h2 id="s5">Sprint 5: data import, firewall, promote and smoke <span class="badge warn">partial</span></h2>
-<p>5.1 and 5.2 are written and verified locally. Nothing touched Supabase: prod isn't migrated, synced or imported, no firewall rule exists, nothing is deployed, and there are no <code>s5_prod_*</code> screenshots. 5.3–5.8 are outbound and wait on Kyle. See <a href="#remaining">Remaining work</a>.</p>
+<h2 id="s5">Sprint 5: data import, firewall, promote and smoke <span class="badge">shipped</span></h2>
+<p>Shipped Nov 1, 2026 to <a href="https://project-gpe.vercel.app">project-gpe.vercel.app</a> (merge <code>9fc206a</code> on <code>main</code>, Vercel deploy <code>project-b47n55kjx</code>). The data layer moved to Supabase first (<a href="../../20261101_supabase_native/implementation_plan.md">supabase_native plan</a>), so the DATABASE_URL/pooler steps below were superseded: schema via <code>db_migrations/</code> + MCP, the catalog sync and the import of the five ran as Nitro tasks straight into Supabase. Vercel env set on Production and Preview (Supabase keys, operator token, session secret, log salt, <code>CHAT_DAILY_USD=5</code>, app URL, and a dedicated <code>gpe-public-chat</code> gateway key with a one-time $50 quota). Firewall: one rate-limit rule, 30 req/min per IP on <code>/api/papers/*/chat</code> and <code>/api/mcp</code>. <code>project-gpe.vercel.app</code> was added as a project domain (the default was <code>digest-dun.vercel.app</code>). Inngest integration not installed: new runs from <code>/admin</code> don't execute in prod yet.</p>
+<h3>Prod smoke (6/6 pass)</h3>
+<ul class="checks">
+  <li class="done"><code>/api/health</code> → supabase, 4 migrations, gateway true; robots 200; sitemap 380 absolute URLs; <code>/llms.txt</code> = <code>/agents.md</code> with prod links; og:image 200.</li>
+  <li class="done"><code>/api/papers</code> and <code>/api/v1/papers</code> = exactly the five, no <code>run</code>, no toy; families 373, digested 5; <code>/49</code> = <code>/049</code>; MCP <code>list_papers</code> = the five.</li>
+  <li class="done">Signed out: <code>/admin</code> → 302 login; <code>/papers/new</code>, <code>/corpus</code> 404; admin and corpus APIs 401; <code>/api/papers/pfr</code> 404.</li>
+  <li class="done">Browser: hero overlay → blur on scroll; "pi" finds 017; families 378/049/185; <code>/eth</code> overview; explorer; PDF 200 then 206 Range from <code>/api/blobs</code>; figure image (unit-distance); 390px no horizontal scroll.</li>
+  <li class="done">One chat turn on <code>/eth</code> streamed with node chips (Sonnet 5.5, thinking low).</li>
+  <li class="done">Signed in: <code>/admin</code> lists the five with families 378/103/109/167/049; sign-out returns admin APIs to 401.</li>
+</ul>
+<figure><img src="screenshots/s5_prod_eth_overview.webp" style="max-width:100%"><figcaption>Prod <code>/eth</code> overview: summary, main theorem, novel steps, served from Supabase.</figcaption></figure>
+<figure><img src="screenshots/s5_prod_eth_pdf.webp" style="max-width:100%"><figcaption>Prod paper view: the PDF loads through <code>/api/blobs</code> with 206 Range responses from Storage.</figcaption></figure>
+<figure><img src="screenshots/s5_prod_eth_chat.webp" style="max-width:100%"><figcaption>One prod chat turn on <code>/eth</code> streaming an answer with node chips.</figcaption></figure>
+<figure><img src="screenshots/s5_prod_family_notyet.webp" style="max-width:100%"><figcaption>Prod family 185: the not-yet-digested rail with the Request a map link.</figcaption></figure>
+<figure><img src="screenshots/s5_prod_landing_mobile.webp" style="max-width:100%"><figcaption>Prod landing at 390px: no horizontal scroll.</figcaption></figure>
+<figure><img src="screenshots/s5_prod_admin.webp" style="max-width:100%"><figcaption>Prod <code>/admin</code> signed in: the five papers with their family codes.</figcaption></figure>
 
 <h3>Sprint 5 (local): export and import</h3>
 <p><code>npm run papers:export -- eth logspace intmult unit-distance noncoordinate</code> from the dev PGlite (server stopped), then <code>SCRIPT_PGLITE_DIR=&lt;scratch dir&gt; npm run papers:import -- .data/export/*.json</code> into a fresh, migrated PGlite directory in the session scratchpad. <code>SCRIPT_PGLITE_DIR</code> is new and read only by <code>scripts/db.ts</code>, so the import can be rehearsed without a second Postgres.</p>
