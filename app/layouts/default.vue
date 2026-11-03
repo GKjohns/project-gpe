@@ -32,6 +32,12 @@ const navUi = computed(() => clear.value
 const iconClass = computed(() => clear.value ? 'text-white hover:bg-white/10 hover:text-white' : '')
 
 const year = new Date().getFullYear()
+
+const footerColumns: { title: string, links: { label: string, to: string, target?: string, external?: boolean }[] }[] = [
+  { title: 'Browse', links: [{ label: 'Papers', to: '/papers' }, { label: 'Disciplines', to: '/#disciplines' }] },
+  { title: 'Source', links: [{ label: 'GitHub', to: 'https://github.com/openai/math', target: '_blank' }] },
+  { title: 'For agents', links: [{ label: '/llms.txt', to: '/llms.txt', external: true }, { label: '/api/v1', to: '/api/v1/papers', external: true }, { label: 'MCP', to: '/llms.txt', external: true }] }
+]
 </script>
 
 <template>
@@ -86,46 +92,69 @@ const year = new Date().getFullYear()
       <slot />
     </UMain>
 
-    <UFooter :ui="{ left: 'text-sm text-muted', right: 'text-sm text-muted' }">
-      <template #left>
-        <p class="max-w-2xl text-pretty">
-          <span class="font-semibold text-highlighted">GPE</span> · Papers from
-          <ULink
-            to="https://github.com/openai/math"
-            target="_blank"
-            class="text-default hover:text-highlighted underline-offset-2 hover:underline"
-          >github.com/openai/math</ULink>
-          (Apache-2.0). Digests are model-generated and may be wrong; the PDF is the source of truth. © {{ year }}
-        </p>
-      </template>
+    <footer class="bg-[#14100b] text-white">
+      <div class="relative h-40 overflow-hidden sm:h-56 lg:h-72">
+        <img
+          src="/landing/footer-night.webp"
+          srcset="/landing/footer-night-960.webp 960w, /landing/footer-night.webp 1536w"
+          sizes="100vw"
+          loading="lazy"
+          alt=""
+          class="size-full object-cover object-[30%_72%]"
+        >
+        <div class="absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-[#14100b] to-transparent" />
+      </div>
 
-      <template #right>
-        <p class="flex flex-wrap items-center gap-x-1.5">
-          <span>For agents:</span>
-          <ULink
-            to="/llms.txt"
-            external
-            class="text-default hover:text-highlighted"
-          >/llms.txt</ULink>
-          <span>·</span>
-          <ULink
-            to="/api/v1/papers"
-            external
-            class="text-default hover:text-highlighted"
-          >/api/v1</ULink>
-          <span>·</span>
-          <ULink
-            to="/llms.txt"
-            external
-            class="text-default hover:text-highlighted"
-          >MCP</ULink>
-          <span>·</span>
-          <ULink
-            to="/admin"
-            class="text-dimmed hover:text-muted"
-          >operator</ULink>
-        </p>
-      </template>
-    </UFooter>
+      <UContainer class="py-10">
+        <div class="grid grid-cols-2 gap-8 sm:grid-cols-4">
+          <p class="col-span-2 font-serif text-3xl font-semibold tracking-tight sm:col-span-1">
+            GPE
+          </p>
+          <div
+            v-for="column in footerColumns"
+            :key="column.title"
+          >
+            <p class="text-sm font-semibold">
+              {{ column.title }}
+            </p>
+            <ul class="mt-3 space-y-2 text-sm">
+              <li
+                v-for="link in column.links"
+                :key="link.label"
+              >
+                <ULink
+                  :to="link.to"
+                  :target="link.target"
+                  :external="link.external"
+                  class="text-white/75 hover:text-white"
+                >
+                  {{ link.label }}
+                </ULink>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mt-10 flex flex-col gap-3 border-t border-white/15 pt-6 text-sm text-white/70 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
+          <p class="max-w-3xl text-pretty">
+            Papers from
+            <ULink
+              to="https://github.com/openai/math"
+              target="_blank"
+              class="text-white/90 underline-offset-2 hover:text-white hover:underline"
+            >github.com/openai/math</ULink>
+            (Apache-2.0). Digests are model-generated and may be wrong; the PDF is the source of truth.
+          </p>
+          <p class="flex shrink-0 items-center gap-x-1.5">
+            <span>© {{ year }}</span>
+            <span>·</span>
+            <ULink
+              to="/admin"
+              class="text-white/70 hover:text-white"
+            >operator</ULink>
+          </p>
+        </div>
+      </UContainer>
+    </footer>
   </div>
 </template>

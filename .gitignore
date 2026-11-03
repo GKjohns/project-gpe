@@ -36,3 +36,4 @@ corpus/sources/
 
 # Hero candidates: keep the .webp copies, not the multi-MB source PNGs
 docs/**/hero/*.png
+docs/20261103_footer/*.png
