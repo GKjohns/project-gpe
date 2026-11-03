@@ -81,20 +81,16 @@ const steps = [
         :ui="{
           container: 'pt-[calc(var(--ui-header-height)+4rem)] pb-20 sm:pb-24 lg:py-32 lg:grid-cols-[minmax(0,40rem)_1fr]',
           wrapper: 'text-left',
-          headline: 'mb-6 font-mono text-xs sm:text-sm font-normal tracking-wide text-white/75',
           title: 'font-serif font-semibold text-white text-5xl sm:text-7xl leading-[1.02] tracking-tight text-left',
           description: 'text-white/80 text-lg sm:text-xl/8',
           links: 'gap-x-3'
         }"
       >
-        <template #headline>
-          openai/math · {{ stats?.families ?? 373 }} results · {{ stats?.disciplines ?? 17 }} disciplines
-        </template>
         <template #title>
-          OpenAI wrote {{ stats?.manuscripts ?? 721 }} math papers. Here they are, <em class="italic">made readable</em>.
+          Follow the proof.
         </template>
         <template #description>
-          Every paper broken into a proof map of named steps, each stated in plain English and in math, with the PDF alongside and a chat that answers by pointing at the map.
+          Step-by-step maps of OpenAI's math papers, in plain English.
         </template>
         <template #links>
           <UButton
