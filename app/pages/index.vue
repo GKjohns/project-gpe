@@ -7,13 +7,13 @@ import { FLAGSHIP } from '#shared/flagship'
 definePageMeta({ headerOverlay: true })
 useSeoMeta({ title: 'GPE' })
 
+// Lazy: a client navigation shows the page at once and skeletons fill in; SSR still renders the data.
 const site = { 'x-gpe-site': '1' }
-const [{ data: papers }, { data: catalog }, { data: digestedFamilies }] = await Promise.all([
-  useFetch<PublicPaperItem[]>('/api/papers', { key: 'landing-papers' }),
-  useFetch<DisciplinesResponse>('/api/v1/disciplines', { key: 'landing-disciplines', headers: site }),
-  useFetch<FamiliesResponse>('/api/v1/families', { key: 'landing-digested', query: { digested: '1', limit: 50 }, headers: site })
-])
+const { data: papers, status: papersStatus } = useFetch<PublicPaperItem[]>('/api/papers', { key: 'landing-papers', lazy: true })
+const { data: catalog, status: catalogStatus } = useFetch<DisciplinesResponse>('/api/v1/disciplines', { key: 'landing-disciplines', headers: site, lazy: true })
+const { data: digestedFamilies } = useFetch<FamiliesResponse>('/api/v1/families', { key: 'landing-digested', query: { digested: '1', limit: 50 }, headers: site, lazy: true })
 
+const isLoading = (status: string) => status === 'idle' || status === 'pending'
 const stats = computed(() => catalog.value?.stats)
 const rank = (n?: number) => {
   const i = FLAGSHIP.findIndex(f => f.number === n)
@@ -125,7 +125,7 @@ const steps = [
           <span>Fully mapped papers. Each one took a careful model pass; the rest of the catalog is read-only until it gets its turn.</span>
           <UButton
             :to="{ path: '/papers', query: { digested: '1' } }"
-            :label="`All digested (${catalogued.length})`"
+            :label="isLoading(papersStatus) ? 'All digested' : `All digested (${catalogued.length})`"
             trailing-icon="i-lucide-arrow-right"
             color="neutral"
             variant="outline"
@@ -135,6 +135,13 @@ const steps = [
       </template>
 
       <UPageGrid>
+        <template v-if="isLoading(papersStatus)">
+          <USkeleton
+            v-for="n in 3"
+            :key="n"
+            class="h-64 rounded-lg"
+          />
+        </template>
         <UPageCard
           v-for="p in featured"
           :key="p.slug"
@@ -197,6 +204,13 @@ const steps = [
       :description="`${stats?.families ?? 373} result families. The count is families; the second number is how many are digested so far.`"
     >
       <UPageGrid class="lg:grid-cols-4 xl:grid-cols-4">
+        <template v-if="isLoading(catalogStatus)">
+          <USkeleton
+            v-for="n in stats?.disciplines ?? 17"
+            :key="n"
+            class="h-20 rounded-lg"
+          />
+        </template>
         <UPageCard
           v-for="d in catalog?.disciplines ?? []"
           :key="d.slug"

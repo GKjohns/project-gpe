@@ -31,10 +31,9 @@ function setQuery(patch: Record<string, string | undefined>) {
   router.replace({ query: Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined && v !== '')) })
 }
 
-const [{ data: catalog }, { data, status }] = await Promise.all([
-  useFetch<DisciplinesResponse>('/api/v1/disciplines', { key: 'catalog-disciplines', headers: site }),
-  useFetch<FamiliesResponse>('/api/v1/families', { key: 'catalog-families', query: computed(() => ({ ...filters.value, limit: PAGE })), headers: site })
-])
+// Lazy: a client navigation shows the page at once and skeletons fill in; SSR still renders the data.
+const { data: catalog } = useFetch<DisciplinesResponse>('/api/v1/disciplines', { key: 'catalog-disciplines', headers: site, lazy: true })
+const { data, status } = useFetch<FamiliesResponse>('/api/v1/families', { key: 'catalog-families', query: computed(() => ({ ...filters.value, limit: PAGE })), headers: site, lazy: true })
 
 // Load more appends pages after the first; any filter change starts over.
 const more = ref<FamilySummary[]>([])
@@ -44,6 +43,7 @@ watch(filters, () => {
 })
 const rows = computed(() => [...data.value?.families ?? [], ...more.value])
 const total = computed(() => data.value?.total ?? 0)
+const loadingRows = computed(() => !rows.value.length && (status.value === 'idle' || status.value === 'pending'))
 
 async function loadMore() {
   loadingMore.value = true
@@ -128,6 +128,10 @@ useSeoMeta({
           {{ stats.families }} results · {{ stats.manuscripts }} papers · {{ stats.disciplines }} disciplines ·
           <span class="text-primary">{{ stats.digested }} digested</span>
         </span>
+        <USkeleton
+          v-else
+          class="h-6 w-96 max-w-full"
+        />
       </template>
     </UPageHeader>
 
@@ -172,7 +176,7 @@ useSeoMeta({
     </div>
 
     <p class="pb-2 text-sm text-dimmed">
-      <template v-if="status === 'pending' && !rows.length">
+      <template v-if="loadingRows">
         Loading…
       </template>
       <template v-else>
@@ -182,8 +186,19 @@ useSeoMeta({
       </template>
     </p>
 
+    <div
+      v-if="loadingRows"
+      class="flex flex-col gap-2 pb-10"
+    >
+      <USkeleton
+        v-for="n in 10"
+        :key="n"
+        class="h-16 rounded-md"
+      />
+    </div>
+
     <UEmpty
-      v-if="!rows.length && status !== 'pending'"
+      v-else-if="!rows.length"
       icon="i-lucide-search-x"
       title="No families match"
       description="Try a broader search or clear the filters."

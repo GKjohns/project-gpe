@@ -3,4 +3,9 @@
 import type { PublicPaperItem } from '#shared/api'
 import { listPublicPaperItems } from '../utils/agentApi'
 
-export default defineEventHandler((): Promise<PublicPaperItem[]> => listPublicPaperItems())
+export default defineEventHandler(async (event): Promise<PublicPaperItem[]> => {
+  const items = await listPublicPaperItems()
+  // Set after the load so a failed request is never cached. 60 s matches the public-flag TTL.
+  setResponseHeader(event, 'cache-control', 'public, max-age=60')
+  return items
+})
