@@ -31,7 +31,18 @@ if (paper.value && !digest.value) {
 
 const node = computed(() => index.value.byId.get(selectedId.value))
 
-useSeoMeta({ title: () => node.value ? `${node.value.name} · ${digest.value?.title}` : (digest.value?.title ?? 'Paper') })
+// A node's link preview leads with its plain-English statement; the bare paper falls back to its headline.
+const seoTitle = computed(() => node.value ? `${node.value.name} · ${digest.value?.title}` : (digest.value?.title ?? 'Paper'))
+const seoDescription = computed(() => metaDescription(node.value?.statement_plain || digest.value?.summary?.headline || '') || undefined)
+useSeoMeta({
+  title: seoTitle,
+  description: seoDescription,
+  ogTitle: () => `${seoTitle.value} · Proofmap`,
+  ogDescription: seoDescription,
+  ogType: 'article',
+  twitterTitle: () => `${seoTitle.value} · Proofmap`,
+  twitterDescription: seoDescription
+})
 
 // --- paper switcher -------------------------------------------------------
 const { data: library } = await useFetch<PublicPaperItem[]>('/api/papers', { key: 'papers', default: () => [] })

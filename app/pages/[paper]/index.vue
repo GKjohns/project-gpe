@@ -67,11 +67,15 @@ const doors = computed(() => [
 ])
 
 const headlineText = computed(() => plainMath(digest.value?.summary?.headline ?? ''))
+const seoDescription = computed(() => metaDescription(headlineText.value || proves.value.text || catalog.value?.family.description || '') || undefined)
 useSeoMeta({
   title: () => digest.value?.title ?? slug,
-  description: () => headlineText.value || catalog.value?.family.description || undefined,
-  ogTitle: () => digest.value?.title ?? slug,
-  ogDescription: () => headlineText.value || undefined
+  description: seoDescription,
+  ogTitle: () => `${digest.value?.title ?? slug} · Proofmap`,
+  ogDescription: seoDescription,
+  ogType: 'article',
+  twitterTitle: () => `${digest.value?.title ?? slug} · Proofmap`,
+  twitterDescription: seoDescription
 })
 </script>
 

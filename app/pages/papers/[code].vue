@@ -60,8 +60,11 @@ const leanPct = computed(() => stats.value ? Math.round(100 * stats.value.lean /
 
 useSeoMeta({
   title: () => `${f.value.code} · ${plainMath(indexProse(f.value.title))}`,
-  description: () => plainMath(indexProse(f.value.description)).slice(0, 300),
-  ogTitle: () => `Family ${f.value.code}: ${plainMath(indexProse(f.value.title))} · Proofmap`
+  description: () => metaDescription(indexProse(f.value.description)),
+  ogTitle: () => `Family ${f.value.code}: ${plainMath(indexProse(f.value.title))} · Proofmap`,
+  ogDescription: () => metaDescription(indexProse(f.value.description)),
+  twitterTitle: () => `Family ${f.value.code}: ${plainMath(indexProse(f.value.title))} · Proofmap`,
+  twitterDescription: () => metaDescription(indexProse(f.value.description))
 })
 </script>
 

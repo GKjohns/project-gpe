@@ -109,10 +109,14 @@ function open(f: FamilySummary) {
   return navigateTo(`/papers/${f.code}`)
 }
 
+const seoDescription = () => `All ${stats.value?.families ?? 373} result families from openai/math: ${stats.value?.manuscripts ?? 721} machine-written papers across ${stats.value?.disciplines ?? 17} disciplines, searchable, with abstracts and PDF links.`
 useSeoMeta({
   title: 'Papers',
-  description: () => `All ${stats.value?.families ?? 373} result families from openai/math: ${stats.value?.manuscripts ?? 721} machine-written papers across ${stats.value?.disciplines ?? 17} disciplines, searchable, with abstracts and PDF links.`,
-  ogTitle: 'Papers · Proofmap'
+  description: seoDescription,
+  ogTitle: 'Papers · Proofmap',
+  ogDescription: seoDescription,
+  twitterTitle: 'Papers · Proofmap',
+  twitterDescription: seoDescription
 })
 </script>
 

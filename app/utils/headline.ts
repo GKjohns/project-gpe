@@ -48,3 +48,24 @@ export function plainMath(text: string): string {
     return s.replace(/\s+/g, ' ').replace(/ ([)/^_,])/g, '$1').replace(/([(/^_√]) /g, '$1').replace(/(\w|[α-ωΑ-Ω]) \(/g, '$1(').trim()
   })
 }
+
+/**
+ * Plain text for a meta description (search engines show about 160 characters). Longer text is cut at the last space
+ * outside parentheses, so a formula is never split mid-expression.
+ */
+export function metaDescription(text: string, max = 160): string {
+  const s = plainMath(text).replace(/\\([#$%&_{}])/g, '$1').replace(/\s+/g, ' ').trim()
+  if (s.length <= max) {
+    return s
+  }
+  let cut = 0
+  let depth = 0
+  for (let i = 0; i < max - 1; i++) {
+    const c = s[i]
+    depth += c === '(' ? 1 : c === ')' ? -1 : 0
+    if (c === ' ' && depth <= 0) {
+      cut = i
+    }
+  }
+  return `${s.slice(0, cut || max - 1).replace(/[\s,;:.]+$/, '')}…`
+}
