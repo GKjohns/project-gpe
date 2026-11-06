@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { breakpointsTailwind, useBreakpoints, useClipboard } from '@vueuse/core'
+import { breakpointsTailwind, useBreakpoints, useClipboard, useElementSize, useWindowSize, watchDebounced } from '@vueuse/core'
 import type { BreadcrumbItem, CommandPaletteGroup, CommandPaletteItem, DropdownMenuItem, SplitterItem, TabsItem } from '@nuxt/ui'
 import type { PaperTab } from '~/components/paper/PaperNavbar.vue'
 import type { PublicPaperItem } from '#shared/api'
@@ -78,12 +78,11 @@ const counts = computed(() => {
 // PaperNavbar's Papers › family › paper, then parent › node (the section is the tree's grouping).
 const breadcrumb = computed<BreadcrumbItem[]>(() => {
   const n = node.value
-  const hideNarrow = { item: 'hidden md:flex', separator: 'hidden md:flex' }
   const items: BreadcrumbItem[] = []
   if (n?.parent_id) {
     const parent = index.value.byId.get(n.parent_id)
     if (parent) {
-      items.push({ label: parent.name, to: `/${paperSlug.value}/${parent.id}`, ui: hideNarrow })
+      items.push({ label: parent.name, to: `/${paperSlug.value}/${parent.id}` })
     }
   }
   if (n) {
@@ -134,16 +133,67 @@ const graphLayout = computed<'map' | 'lens'>({
   set: v => setQuery('layout', v === 'lens' ? 'lens' : undefined)
 })
 
-// The tree collapses to its icon rail while the graph is up; the user can still expand it.
-// Starts false so the sidebar syncs this ref to its cookie; on mount the view decides (a graph deep link
-// renders the tree expanded on the server and collapses on hydration).
-const sidebarCollapsed = ref(false)
-watch(view, (v) => {
-  sidebarCollapsed.value = v === 'graph'
-})
+// --- tree sidebar + panel sizes --------------------------------------------------
+// The tree gives way to its icon rail only when the main panel would otherwise drop below a comfortable width (the
+// graph and the typeset paper need more room than prose), so on common laptop widths and up it never moves on a view
+// switch. Once the user opens or closes it, that choice holds for the visit and the layout stops deciding.
+const mounted = ref(false)
 onMounted(() => {
-  sidebarCollapsed.value = view.value === 'graph'
+  mounted.value = true
 })
+const COMFORT: Record<PaperTab, number> = { overview: 0, tree: 560, graph: 600, paper: 600 }
+// The sidebar persists {size (rem), collapsed} in this cookie; the server writes the fitted state into it before the
+// sidebar renders, so SSR matches what the client picks. The last viewport width lives in a cookie for that guess.
+const sidebarStore = useCookie<{ size: number, collapsed: boolean }>('digest-dashboard-sidebar-tree', { default: () => ({ size: 20, collapsed: false }) })
+const lastWidth = useCookie<number | null>('digest-vw', { default: () => null, maxAge: 60 * 60 * 24 * 365 })
+const { width: windowWidth } = useWindowSize()
+const layoutWidth = computed(() => mounted.value ? windowWidth.value : (lastWidth.value ?? 1440))
+watchDebounced(windowWidth, (w) => {
+  lastWidth.value = w
+}, { debounce: 500, immediate: true })
+
+// Right panel widths in px, kept in a cookie (the splitter's own auto-save stores percentages, so a card dragged
+// wide on a big screen came back as a third of a laptop screen).
+const splitSizes = useCookie<{ node: number, chat: number }>('digest-split', { default: () => ({ node: 352, chat: 384 }), maxAge: 60 * 60 * 24 * 365 })
+const sideSize = reactive({ ...splitSizes.value })
+watchDebounced(sideSize, (v) => {
+  splitSizes.value = { ...v }
+}, { debounce: 300, deep: true })
+
+const chatPref = ref<boolean | null>(null)
+const treePref = useState<boolean | null>('tree-collapsed-pref', () => null)
+function treeWantsRail(width: number) {
+  if (width < 1024) {
+    return false // below lg the tree is a slideover
+  }
+  const chatWanted = view.value !== 'tree' ? chatPref.value === true : chatPref.value !== false
+  const side = chatWanted && width >= 1280 ? sideSize.chat : (view.value !== 'tree' && node.value ? sideSize.node : 0)
+  return width - (sidebarStore.value?.size ?? 20) * 16 - side < COMFORT[view.value]
+}
+const railWanted = computed(() => treePref.value ?? treeWantsRail(layoutWidth.value))
+if (import.meta.server && sidebarStore.value?.collapsed !== railWanted.value) {
+  sidebarStore.value = { ...sidebarStore.value, collapsed: railWanted.value }
+}
+// Starts false so the sidebar syncs this ref to its cookie; after mount it follows railWanted.
+const sidebarCollapsed = ref(false)
+onMounted(() => {
+  sidebarCollapsed.value = railWanted.value
+})
+watch(railWanted, (v) => {
+  if (mounted.value) {
+    sidebarCollapsed.value = v
+  }
+})
+function setTreeCollapsed(v: boolean) {
+  treePref.value = v
+  sidebarCollapsed.value = v
+}
+// The sidebar echoes our own changes back; a different value is the user's drag-to-collapse.
+function onSidebarCollapsed(v: boolean) {
+  if (mounted.value && v !== sidebarCollapsed.value) {
+    setTreeCollapsed(v)
+  }
+}
 
 const { copy } = useClipboard({ legacy: true })
 async function share() {
@@ -152,22 +202,39 @@ async function share() {
   toast.add({ title: 'Link copied', description: url, icon: 'i-lucide-link', color: 'success' })
 }
 
-// Occasional actions live behind one menu so the navbar stays quiet.
-const moreItems = computed<DropdownMenuItem[]>(() => [
-  { label: 'Copy link to this view', icon: 'i-lucide-link', onSelect: share },
-  { label: 'Friction report', icon: 'i-lucide-triangle-alert', to: `/${paperSlug.value}/friction`, suffix: counts.value.friction ? String(counts.value.friction) : undefined }
+// Occasional actions live behind one menu so the navbar stays quiet. On a narrow bar (under 28rem: 26rem inside its
+// padding, the container query that hides the inline graph controls) the graph's layout and options fold in here too.
+// The navbar spans the main panel (its components render fragments, so measure the panel's element).
+const mainPanel = computed(() => mounted.value ? document.getElementById('digest-dashboard-panel-node') : null)
+const { width: navbarWidth } = useElementSize(mainPanel, undefined, { box: 'border-box' })
+const narrowBar = computed(() => navbarWidth.value > 0 && navbarWidth.value < 448)
+const graphMenuItems = computed<DropdownMenuItem[]>(() => [
+  { label: 'Map', icon: 'i-lucide-network', type: 'checkbox', checked: graphLayout.value === 'map', onUpdateChecked: () => { graphLayout.value = 'map' } },
+  { label: 'Lens', icon: 'i-lucide-focus', type: 'checkbox', checked: graphLayout.value === 'lens', onUpdateChecked: () => { graphLayout.value = 'lens' } },
+  ...(graphLayout.value === 'map'
+    ? [
+        { label: 'Focus on the selection', type: 'checkbox' as const, checked: graphMode.value === 'focus', onUpdateChecked: (v: boolean) => { graphMode.value = v ? 'focus' : 'all' } },
+        { label: 'Color by section', type: 'checkbox' as const, checked: colorBy.value === 'sec', onUpdateChecked: (v: boolean) => { colorBy.value = v ? 'sec' : 'cls' } }
+      ]
+    : []),
+  { label: 'Include claims', type: 'checkbox', checked: showClaims.value, onUpdateChecked: (v: boolean) => { showClaims.value = v } }
 ])
+const moreItems = computed<DropdownMenuItem[][]>(() => [
+  ...(view.value === 'graph' && narrowBar.value ? [graphMenuItems.value] : []),
+  [
+    { label: 'Copy link to this view', icon: 'i-lucide-link', onSelect: share },
+    { label: 'Friction report', icon: 'i-lucide-triangle-alert', to: `/${paperSlug.value}/friction`, suffix: counts.value.friction ? String(counts.value.friction) : undefined }
+  ]
+])
+// Tab labels outrank every crumb but the current node: they show once the node crumb keeps ~15rem beside them
+// (the graph's bar carries three more buttons, so it needs more). Container queries measure inside the bar's padding.
+const tabLabelClass = computed(() => view.value === 'graph' ? 'hidden @min-[45rem]/nav:inline' : 'hidden @min-[39rem]/nav:inline')
 
 // --- chat panel (Sprint 7 fills it) -----------------------------------------
 // null = automatic: inline at xl and up (pure CSS, so SSR matches), hidden below. A click makes it explicit;
 // below xl an explicit open shows a slideover instead.
 const breakpoints = useBreakpoints(breakpointsTailwind)
 const isXl = breakpoints.greaterOrEqual('xl')
-const mounted = ref(false)
-onMounted(() => {
-  mounted.value = true
-})
-const chatPref = ref<boolean | null>(null)
 // In graph view the right panel is the node card unless chat was explicitly opened.
 const chatOpen = computed(() => view.value !== 'tree' ? chatPref.value === true : (chatPref.value ?? (mounted.value && isXl.value)))
 function toggleChat() {
@@ -224,15 +291,24 @@ const side = computed<'node' | 'chat' | null>(() => {
   }
   return null
 })
+// Before mount the splitter's inline sizes treat px as flex-grow weights (the side panel took nearly the whole width
+// until hydration), so the side panel gets a fixed basis from --split-side until the splitter measures.
+const preMount = computed(() => mounted.value ? '' : 'grow-0! basis-(--split-side)!')
 const splitItems = computed<SplitterItem[]>(() => {
   const items: SplitterItem[] = [{ id: 'main', slot: 'main', order: 1, minSize: 30, class: 'min-w-0' }]
   if (side.value === 'node') {
-    items.push({ id: 'side-node', slot: 'side-node', order: 2, sizeUnit: 'px', defaultSize: 352, minSize: 280, maxSize: 640, class: 'hidden lg:flex min-w-0' })
+    items.push({ id: 'side-node', slot: 'side-node', order: 2, sizeUnit: 'px', defaultSize: sideSize.node, minSize: 280, maxSize: 640, class: ['hidden lg:flex min-w-0', preMount.value] })
   } else if (side.value === 'chat') {
-    items.push({ id: 'side-chat', slot: 'side-chat', order: 2, sizeUnit: 'px', defaultSize: 384, minSize: 300, maxSize: 760, class: 'hidden xl:flex min-w-0' })
+    items.push({ id: 'side-chat', slot: 'side-chat', order: 2, sizeUnit: 'px', defaultSize: sideSize.chat, minSize: 300, maxSize: 760, class: ['hidden xl:flex min-w-0', preMount.value] })
   }
   return items
 })
+function onSplitLayout(layout: number[]) {
+  const px = layout[1]
+  if (mounted.value && px && side.value) {
+    sideSize[side.value] = Math.round(px)
+  }
+}
 
 // Unknown node id in the URL: fall back to the main theorem.
 watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
@@ -248,14 +324,15 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
     <!-- display:contents keeps the panels direct flex children of UDashboardGroup. -->
     <UDashboardSidebar
       id="tree"
-      v-model:collapsed="sidebarCollapsed"
+      :collapsed="sidebarCollapsed"
       resizable
       collapsible
       :collapsed-size="4"
       :default-size="20"
       :min-size="15"
       :max-size="32"
-      :ui="{ body: 'gap-2 px-2', footer: 'border-t border-default' }"
+      :ui="{ root: 'transition-[width] duration-200 ease-out data-[dragging=true]:transition-none', body: 'gap-2 px-2', footer: 'border-t border-default' }"
+      @update:collapsed="onSidebarCollapsed"
     >
       <template #header="{ collapsed }">
         <USelectMenu
@@ -282,7 +359,7 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
               variant="ghost"
               square
               aria-label="Show the tree"
-              @click="sidebarCollapsed = false"
+              @click="setTreeCollapsed(false)"
             />
           </UTooltip>
         </div>
@@ -300,7 +377,7 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
               variant="ghost"
               square
               aria-label="Expand sidebar"
-              @click="sidebarCollapsed = false"
+              @click="setTreeCollapsed(false)"
             />
           </UTooltip>
         </div>
@@ -332,6 +409,17 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
                 size="sm"
                 aria-label="Collapse all"
                 @click="tree?.expandAll(false)"
+              />
+            </UTooltip>
+            <UTooltip text="Hide the tree">
+              <UButton
+                icon="i-lucide-panel-left-close"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                aria-label="Collapse sidebar"
+                class="hidden lg:inline-flex"
+                @click="setTreeCollapsed(true)"
               />
             </UTooltip>
           </template>
@@ -370,10 +458,11 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
     <!-- Main panel + right panel share a splitter: the divider between them drags (layout saved per pairing). -->
     <USplitter
       id="paper-split"
-      auto-save-id="digest-paper-split"
       :items="splitItems"
       class="min-w-0 flex-1"
+      :style="{ '--split-side': `${side === 'chat' ? sideSize.chat : sideSize.node}px` }"
       :ui="{ handle: [side === 'chat' ? 'hidden xl:block' : 'hidden lg:block', 'w-px bg-(--ui-border) transition-colors hover:bg-primary data-[resize-handle-state=drag]:bg-primary'] }"
+      @layout="onSplitLayout"
     >
       <template #main>
         <UDashboardPanel
@@ -388,84 +477,84 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
               :active="activeTab"
               :node-id="selectedId"
               :crumbs="breadcrumb"
-              label-class="hidden 2xl:inline"
+              :label-class="tabLabelClass"
             >
               <template #right-start>
-                <UFieldGroup
+                <!-- Under 28rem of bar these fold into the "more" menu (narrowBar). -->
+                <div
                   v-if="view === 'graph'"
-                  size="sm"
+                  class="hidden items-center gap-1.5 @min-[26rem]/nav:flex"
                 >
-                  <UTooltip text="Map: the whole graph">
-                    <UButton
-                      icon="i-lucide-network"
-                      color="neutral"
-                      :variant="graphLayout === 'map' ? 'soft' : 'ghost'"
-                      aria-label="Map layout"
-                      :aria-pressed="graphLayout === 'map'"
-                      @click="graphLayout = 'map'"
-                    />
-                  </UTooltip>
-                  <UTooltip text="Lens: the selection and what it rests on">
-                    <UButton
-                      icon="i-lucide-focus"
-                      color="neutral"
-                      :variant="graphLayout === 'lens' ? 'soft' : 'ghost'"
-                      aria-label="Lens layout"
-                      :aria-pressed="graphLayout === 'lens'"
-                      @click="graphLayout = 'lens'"
-                    />
-                  </UTooltip>
-                </UFieldGroup>
-                <!-- Graph options tuck into a popover instead of a second toolbar row. -->
-                <UPopover
-                  v-if="view === 'graph'"
-                  :content="{ align: 'end' }"
-                >
-                  <UTooltip text="Graph options">
-                    <UButton
-                      icon="i-lucide-sliders-horizontal"
-                      color="neutral"
-                      variant="ghost"
-                      size="sm"
-                      aria-label="Graph options"
-                    />
-                  </UTooltip>
-                  <template #content>
-                    <div class="flex w-56 flex-col gap-3 p-3 text-sm">
-                      <div
-                        v-if="graphLayout === 'map'"
-                        class="flex flex-col gap-1.5"
-                      >
-                        <span class="text-xs text-muted">Show</span>
-                        <UTabs
-                          v-model="graphMode"
-                          :items="modeTabs"
-                          :content="false"
-                          size="xs"
-                          color="neutral"
-                        />
-                      </div>
-                      <div
-                        v-if="graphLayout === 'map'"
-                        class="flex flex-col gap-1.5"
-                      >
-                        <span class="text-xs text-muted">Color</span>
-                        <UTabs
-                          v-model="colorBy"
-                          :items="colorTabs"
-                          :content="false"
-                          size="xs"
-                          color="neutral"
-                        />
-                      </div>
-                      <UCheckbox
-                        v-model="showClaims"
-                        label="Include claims"
-                        size="sm"
+                  <UFieldGroup size="sm">
+                    <UTooltip text="Map: the whole graph">
+                      <UButton
+                        icon="i-lucide-network"
+                        color="neutral"
+                        :variant="graphLayout === 'map' ? 'soft' : 'ghost'"
+                        aria-label="Map layout"
+                        :aria-pressed="graphLayout === 'map'"
+                        @click="graphLayout = 'map'"
                       />
-                    </div>
-                  </template>
-                </UPopover>
+                    </UTooltip>
+                    <UTooltip text="Lens: the selection and what it rests on">
+                      <UButton
+                        icon="i-lucide-focus"
+                        color="neutral"
+                        :variant="graphLayout === 'lens' ? 'soft' : 'ghost'"
+                        aria-label="Lens layout"
+                        :aria-pressed="graphLayout === 'lens'"
+                        @click="graphLayout = 'lens'"
+                      />
+                    </UTooltip>
+                  </UFieldGroup>
+                  <!-- Graph options tuck into a popover instead of a second toolbar row. -->
+                  <UPopover :content="{ align: 'end' }">
+                    <UTooltip text="Graph options">
+                      <UButton
+                        icon="i-lucide-sliders-horizontal"
+                        color="neutral"
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Graph options"
+                      />
+                    </UTooltip>
+                    <template #content>
+                      <div class="flex w-56 flex-col gap-3 p-3 text-sm">
+                        <div
+                          v-if="graphLayout === 'map'"
+                          class="flex flex-col gap-1.5"
+                        >
+                          <span class="text-xs text-muted">Show</span>
+                          <UTabs
+                            v-model="graphMode"
+                            :items="modeTabs"
+                            :content="false"
+                            size="xs"
+                            color="neutral"
+                          />
+                        </div>
+                        <div
+                          v-if="graphLayout === 'map'"
+                          class="flex flex-col gap-1.5"
+                        >
+                          <span class="text-xs text-muted">Color</span>
+                          <UTabs
+                            v-model="colorBy"
+                            :items="colorTabs"
+                            :content="false"
+                            size="xs"
+                            color="neutral"
+                          />
+                        </div>
+                        <UCheckbox
+                          v-model="showClaims"
+                          label="Include claims"
+                          size="sm"
+                        />
+                      </div>
+                    </template>
+                  </UPopover>
+                </div>
               </template>
               <template #right>
                 <UTooltip :text="chatOpen ? 'Close chat' : 'Ask the paper'">
