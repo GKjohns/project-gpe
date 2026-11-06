@@ -1,6 +1,6 @@
-# Project GPE
+# Proofmap
 
-Project GPE (Graphical Proof Explorer) is a public reading site for [openai/math](https://github.com/openai/math): all
+Proofmap is a public reading site for [openai/math](https://github.com/openai/math): all
 373 result families (721 machine-written manuscripts) with abstracts and PDF links, and, for the papers that have been
 digested, a browsable map of the proof: semantically named nodes, plain-English explanations, dependency edges, links
 back to the paper, and a chat that answers questions with links into the map. Behind `/admin` sits the operator tool
@@ -88,7 +88,7 @@ IP (never the IP itself) and the `?ref=` param, so links like `/llms.txt?ref=blo
 `ref` argument is not). Over MCP there is one row per `tools/call` and one per `initialize`; `client` is the MCP
 client's own name/version when the message carries it (always on `initialize`, and on every request in the modern
 protocol's `_meta`), otherwise the user-agent family. The site's own fetches of `/api/v1` are not logged: browser requests that say
-`sec-fetch-site: same-origin`, and requests carrying `x-gpe-site` (pages send it, since SSR fetches run in-process with
+`sec-fetch-site: same-origin`, and requests carrying `x-proofmap-site` (pages send it, since SSR fetches run in-process with
 no `sec-fetch-*` headers). The write is fire-and-forget behind `event.waitUntil`, and a failed
 one is only a warning. **Dev skips the write** (dev shares production's table, so local curls would pollute the stats);
 set `AGENT_LOG_DEV=1` to log from dev anyway.
@@ -196,7 +196,7 @@ passes `Range` through, so PDF.js gets 206s.
 
 `npm run dev` runs ingest jobs in-process (LocalRunner, one at a time per process; a server restart leaves whatever was
 running orphaned, see above, and "retry from stage" picks it up cheaply). The boot log says which runner is active:
-`[gpe] runner: LocalRunner (dev, no INNGEST_EVENT_KEY)`.
+`[proofmap] runner: LocalRunner (dev, no INNGEST_EVENT_KEY)`.
 
 To exercise the production path locally:
 
@@ -265,7 +265,7 @@ which syncs on every deploy) at `https://<host>/api/inngest`.
 | `INNGEST_SIGNING_KEY` | yes | Lets Inngest call `/api/inngest` (the Vercel integration sets both keys). |
 | `NUXT_PUBLIC_APP_URL` | agent method | Public URL the structure agent's sandbox posts progress to. |
 | `GITHUB_TOKEN` | no | Raises the GitHub API rate limit for directory fetches. |
-| `ARXIV_CONTACT_EMAIL` | no | Adds a `mailto:` contact to the arXiv fetch User-Agent (default is plain `gpe-ingest`). |
+| `ARXIV_CONTACT_EMAIL` | no | Adds a `mailto:` contact to the arXiv fetch User-Agent (default is plain `proofmap-ingest`). |
 | `AGENT_LOG_SALT` | recommended | Salt for the hashed IPs in `agent_requests` (a fixed dev salt otherwise). Changing it splits unique-caller counts. |
 | `SANDBOX_TEX_SNAPSHOT_ID` | recommended | The TeX snapshot for the render stage (build it once locally and copy the id from `.data/sandbox-tex-snapshot.json`); without it the first render on each instance rebuilds it. |
 

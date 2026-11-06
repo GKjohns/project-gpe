@@ -25,7 +25,7 @@ async function signOut() {
 <template>
   <UDashboardGroup
     unit="rem"
-    storage-key="gpe-admin"
+    storage-key="proofmap-admin"
   >
     <UDashboardSidebar
       collapsible

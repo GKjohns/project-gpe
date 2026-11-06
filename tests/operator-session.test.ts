@@ -66,14 +66,14 @@ describe('operator session (OPERATOR_TOKEN set)', () => {
 
   it('rejects a wrong token and a forged cookie', async () => {
     expect((await req('POST', '/api/session/login', { body: { token: 'nope' } })).status).toBe(401)
-    expect((await req('POST', '/api/papers', { cookie: 'gpe-operator=Fe26.2**forged', body: {} })).status).toBe(401)
+    expect((await req('POST', '/api/papers', { cookie: 'proofmap-operator=Fe26.2**forged', body: {} })).status).toBe(401)
   })
 
   it('signs in, allows guarded writes with the cookie, and signs out', async () => {
     const login = await req('POST', '/api/session/login', { body: { token: TOKEN } })
     expect(login.status).toBe(200)
     const setCookie = login.headers.get('set-cookie') ?? ''
-    expect(setCookie).toMatch(/^gpe-operator=/)
+    expect(setCookie).toMatch(/^proofmap-operator=/)
     expect(setCookie).toMatch(/HttpOnly/i)
     expect(setCookie).toMatch(/SameSite=Lax/i)
     // vitest isn't dev, so this is the production cookie.
@@ -84,7 +84,7 @@ describe('operator session (OPERATOR_TOKEN set)', () => {
     expect(await (await req('GET', '/api/session', { cookie })).json()).toEqual({ operator: true })
 
     const logout = await req('POST', '/api/session/logout', { cookie })
-    expect(logout.headers.get('set-cookie')).toMatch(/^gpe-operator=;/)
+    expect(logout.headers.get('set-cookie')).toMatch(/^proofmap-operator=;/)
   })
 
   it('signs every session out when the token rotates', async () => {

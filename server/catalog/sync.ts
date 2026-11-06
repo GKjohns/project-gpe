@@ -44,7 +44,7 @@ type FetchImpl = (url: string, init?: RequestInit) => Promise<Response>
 async function fetchIndex(fetchImpl: FetchImpl): Promise<{ sha: string, files: Record<typeof FILES[number], string> }> {
   const token = process.env.GITHUB_TOKEN
   const res = await fetchImpl(`https://api.github.com/repos/${REPO}/commits/main`, {
-    headers: { 'accept': 'application/vnd.github.sha', 'user-agent': 'gpe-catalog', ...(token ? { authorization: `Bearer ${token}` } : {}) }
+    headers: { 'accept': 'application/vnd.github.sha', 'user-agent': 'proofmap-catalog', ...(token ? { authorization: `Bearer ${token}` } : {}) }
   })
   const sha = (await res.text()).trim()
   if (!res.ok || !/^[0-9a-f]{40}$/.test(sha)) {

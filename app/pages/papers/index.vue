@@ -5,7 +5,7 @@ import type { DisciplinesResponse, FamiliesQuery, FamiliesResponse, FamilySummar
 
 // Catalog (storyboard frame 02). Every filter lives in the query string, so a reload or a shared link reproduces the view.
 const PAGE = 50
-const site = { 'x-gpe-site': '1' }
+const site = { 'x-proofmap-site': '1' }
 const route = useRoute()
 const router = useRouter()
 
@@ -112,7 +112,7 @@ function open(f: FamilySummary) {
 useSeoMeta({
   title: 'Papers',
   description: () => `All ${stats.value?.families ?? 373} result families from openai/math: ${stats.value?.manuscripts ?? 721} machine-written papers across ${stats.value?.disciplines ?? 17} disciplines, searchable, with abstracts and PDF links.`,
-  ogTitle: 'Papers · GPE'
+  ogTitle: 'Papers · Proofmap'
 })
 </script>
 

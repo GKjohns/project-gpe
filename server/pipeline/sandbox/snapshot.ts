@@ -54,7 +54,7 @@ export function ensureSnapshot(log: (msg: string) => void | Promise<void> = () =
       resources: { vcpus: 2 },
       timeout: 10 * 60 * 1000,
       keepLastSnapshots: { count: 1 },
-      tags: { app: 'gpe', role: 'snapshot-builder' }
+      tags: { app: 'proofmap', role: 'snapshot-builder' }
     })
     try {
       const install = await sandbox.runCommand({

@@ -38,7 +38,7 @@ function exportFile(over: Partial<PaperExport> = {}): string {
 beforeEach(() => {
   fake = createFakeSupabase()
   setSupabase(fake.client)
-  dir = mkdtempSync(join(tmpdir(), 'gpe-import-'))
+  dir = mkdtempSync(join(tmpdir(), 'proofmap-import-'))
   mkdirSync(join(dir, 'blobs'))
   writeFileSync(join(dir, 'blobs', sha), bytes)
 })

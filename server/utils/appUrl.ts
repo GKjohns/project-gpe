@@ -14,7 +14,7 @@ export function resolveAppUrl(configured: string | undefined): string {
   }
   if (!warned) {
     warned = true
-    console.error('[gpe] NUXT_PUBLIC_APP_URL is still localhost in production and VERCEL_PROJECT_PRODUCTION_URL is unset; links will be wrong')
+    console.error('[proofmap] NUXT_PUBLIC_APP_URL is still localhost in production and VERCEL_PROJECT_PRODUCTION_URL is unset; links will be wrong')
   }
   return url
 }

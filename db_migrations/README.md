@@ -1,4 +1,4 @@
-# GPE database migrations
+# Proofmap database migrations
 
 Numbered, forward-only SQL for the Supabase project `gpe` (ref `qnsjllrorhxmtfcoqlks`).
 Files are `NNNN_snake_case_name.sql`, applied in order via the Supabase MCP

@@ -61,7 +61,7 @@ export function ensureTexSnapshot(log: (msg: string) => void | Promise<void> = (
       resources: { vcpus: 4 },
       timeout: 20 * 60 * 1000,
       keepLastSnapshots: { count: 1 },
-      tags: { app: 'gpe', role: 'tex-snapshot-builder' }
+      tags: { app: 'proofmap', role: 'tex-snapshot-builder' }
     })
     try {
       const install = await sandbox.runCommand({

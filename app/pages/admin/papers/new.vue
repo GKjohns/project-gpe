@@ -228,7 +228,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         New paper
       </h1>
       <p class="mt-1 text-muted">
-        Give GPE a LaTeX source. It produces the map in a few minutes; you can watch it go.
+        Give Proofmap a LaTeX source. It produces the map in a few minutes; you can watch it go.
       </p>
     </div>
 

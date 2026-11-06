@@ -8,6 +8,7 @@
 import { Inngest } from 'inngest'
 
 export const inngest = new Inngest({
+  // The app's pre-rename id, kept: Inngest keys functions and run history by it, so changing it orphans the app.
   id: 'gpe',
   isDev: import.meta.dev || undefined
 })

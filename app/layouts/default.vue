@@ -44,7 +44,7 @@ const footerColumns: { title: string, links: { label: string, to: string, target
   <div>
     <UHeader
       v-model:open="menuOpen"
-      title="GPE"
+      title="Proofmap"
       :ui="headerUi"
       :toggle="{ class: iconClass }"
     >
@@ -108,7 +108,7 @@ const footerColumns: { title: string, links: { label: string, to: string, target
       <UContainer class="py-10">
         <div class="grid grid-cols-2 gap-8 sm:grid-cols-4">
           <p class="col-span-2 font-serif text-3xl font-semibold tracking-tight sm:col-span-1">
-            GPE
+            Proofmap
           </p>
           <div
             v-for="column in footerColumns"

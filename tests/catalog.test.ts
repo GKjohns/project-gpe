@@ -168,7 +168,7 @@ describe('sync', () => {
 })
 
 describe('agent log skips the site\'s own fetches', () => {
-  it('same-origin and x-gpe-site requests write no row; a plain one does', async () => {
+  it('same-origin and x-proofmap-site requests write no row; a plain one does', async () => {
     for (const name of ['getRequestHeader', 'getRequestIP', 'getQuery'] as const) {
       vi.stubGlobal(name, h3[name])
     }
@@ -183,7 +183,7 @@ describe('agent log skips the site\'s own fetches', () => {
     const web = h3.toWebHandler(app)
     const get = (headers: Record<string, string>) => web(new Request('http://localhost/api/v1/families', { headers }))
     await get({ 'sec-fetch-site': 'same-origin' })
-    await get({ 'x-gpe-site': '1' })
+    await get({ 'x-proofmap-site': '1' })
     expect(rows).toHaveLength(0)
     await get({ 'user-agent': 'curl/8.7.1' })
     await vi.waitFor(() => expect(rows).toHaveLength(1))

@@ -16,7 +16,7 @@ export function runnerMode(): RunnerMode {
   const mode: RunnerMode = process.env.INNGEST_EVENT_KEY || (!import.meta.dev && !process.env.VITEST) ? 'inngest' : 'local'
   if (!announced) {
     announced = true
-    console.info(`[gpe] runner: ${mode === 'inngest' ? 'Inngest (INNGEST_EVENT_KEY set or not dev)' : 'LocalRunner (dev, no INNGEST_EVENT_KEY)'}`)
+    console.info(`[proofmap] runner: ${mode === 'inngest' ? 'Inngest (INNGEST_EVENT_KEY set or not dev)' : 'LocalRunner (dev, no INNGEST_EVENT_KEY)'}`)
   }
   return mode
 }

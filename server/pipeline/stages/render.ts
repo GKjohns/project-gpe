@@ -172,7 +172,7 @@ async function run(sb: Sandbox, script: string, timeoutMs = 120_000) {
 
 async function fetchArxivPdf(id: string): Promise<Uint8Array | null> {
   try {
-    const res = await fetch(`https://arxiv.org/pdf/${id}`, { headers: { 'User-Agent': 'gpe-ingest' }, redirect: 'follow' })
+    const res = await fetch(`https://arxiv.org/pdf/${id}`, { headers: { 'User-Agent': 'proofmap-ingest' }, redirect: 'follow' })
     const buf = res.ok ? new Uint8Array(await res.arrayBuffer()) : null
     return buf && new TextDecoder().decode(buf.subarray(0, 5)) === '%PDF-' ? buf : null
   } catch {
@@ -248,7 +248,7 @@ export const renderStage: StageFn = async (ctx) => {
       timeout: SANDBOX_TIMEOUT_MS,
       persistent: false,
       networkPolicy: 'deny-all',
-      tags: { app: 'gpe', run: ctx.runId.slice(0, 8), role: 'render' }
+      tags: { app: 'proofmap', run: ctx.runId.slice(0, 8), role: 'render' }
     })
     await patchProgress(ctx.runId, { render_sandbox: sb.name })
     await sb.writeFiles([

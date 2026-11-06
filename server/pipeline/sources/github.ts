@@ -39,7 +39,7 @@ const MAX_ASSET_FILES = 200
 const MAX_DEPTH = 3
 
 function headers(): Record<string, string> {
-  const h: Record<string, string> = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'gpe-ingest' }
+  const h: Record<string, string> = { 'Accept': 'application/vnd.github+json', 'User-Agent': 'proofmap-ingest' }
   if (process.env.GITHUB_TOKEN) {
     h.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
   }

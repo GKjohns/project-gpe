@@ -5,10 +5,10 @@ import { FLAGSHIP } from '#shared/flagship'
 
 // Landing (storyboard frame 01). The header overlays the hero here; see app/layouts/default.vue.
 definePageMeta({ headerOverlay: true })
-useSeoMeta({ title: 'GPE' })
+useSeoMeta({ title: 'Proofmap' })
 
 // Lazy: a client navigation shows the page at once and skeletons fill in; SSR still renders the data.
-const site = { 'x-gpe-site': '1' }
+const site = { 'x-proofmap-site': '1' }
 const { data: papers, status: papersStatus } = useFetch<PublicPaperItem[]>('/api/papers', { key: 'landing-papers', lazy: true })
 const { data: catalog, status: catalogStatus } = useFetch<DisciplinesResponse>('/api/v1/disciplines', { key: 'landing-disciplines', headers: site, lazy: true })
 const { data: digestedFamilies } = useFetch<FamiliesResponse>('/api/v1/families', { key: 'landing-digested', query: { digested: '1', limit: 50 }, headers: site, lazy: true })

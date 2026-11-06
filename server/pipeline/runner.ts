@@ -65,7 +65,7 @@ export async function checkpoint(runId: string) {
 export class LocalRunner implements StepRunner {
   constructor(private runId: string, private opts: { pollMs?: number } = {}) {
     if (!import.meta.dev && !process.env.INNGEST_EVENT_KEY && !process.env.VITEST) {
-      console.warn('[gpe] LocalRunner outside dev with no INNGEST_EVENT_KEY: runs will not survive a cold start')
+      console.warn('[proofmap] LocalRunner outside dev with no INNGEST_EVENT_KEY: runs will not survive a cold start')
     }
   }
 
@@ -160,7 +160,7 @@ async function start(runId: string, opts: { pipeline?: PipelineFn, pollMs?: numb
   }
   const done = execute(runId, opts)
     .then(() => drain(opts))
-    .catch(err => console.error('[gpe] queue drain failed', err))
+    .catch(err => console.error('[proofmap] queue drain failed', err))
   return { result: 'started', done }
 }
 

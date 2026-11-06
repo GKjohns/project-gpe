@@ -9,7 +9,7 @@ import { buildChatSources } from '../server/utils/chatTools'
 import type { McpDeps } from '../server/utils/mcpTools'
 import { agentGuide, createDigestMcpServer, getNode, listNodes, PAPER_TOOLS, paperFriction, paperOverview, runPaperTool, ToolError } from '../server/utils/mcpTools'
 
-const APP = 'https://gpe.example'
+const APP = 'https://proofmap.example'
 const dir = new URL('./fixtures/latex/toy/', import.meta.url)
 const files = ['main.tex', 'sections/prelim.tex'].map(path => ({ path, content: readFileSync(new URL(path, dir), 'utf8') }))
 const { skeleton } = chunkLatex(files, { mainFile: 'main.tex' })
@@ -87,7 +87,7 @@ describe('agent api tools', () => {
   it('the guide leads with the openai/math catalog and documents its endpoints', () => {
     const row = { slug: 'eth', title: 'ETH', authors: [], source: 'x', nodes: 9, family: { number: 378, code: '378', title: 'ETH', discipline: 'Theoretical computer science' }, url: `${APP}/eth` }
     const md = agentGuide([row], APP, { families: 373, manuscripts: 721, digested: 5 })
-    expect(md.split('\n')[0]).toBe('# Project GPE: proof maps of OpenAI\'s openai/math papers (373 families catalogued, 5 digested)')
+    expect(md.split('\n')[0]).toBe('# Proofmap: proof maps of OpenAI\'s openai/math papers (373 families catalogued, 5 digested)')
     expect(md).toContain('`eth`: ETH, 9 nodes, family 378 (Theoretical computer science).')
     for (const path of ['/families?…', '/families/<code>', '/disciplines']) {
       expect(md).toContain(`${APP}/api/v1${path}`)

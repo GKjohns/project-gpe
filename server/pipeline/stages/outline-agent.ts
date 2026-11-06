@@ -216,7 +216,7 @@ export async function outlineAgentStart(ctx: RunContext): Promise<number> {
     timeout: SANDBOX_TIMEOUT_MS,
     persistent: false,
     networkPolicy: { allow } as NetworkPolicy,
-    tags: { app: 'gpe', run: ctx.runId.slice(0, 8), role: 'outline-agent' }
+    tags: { app: 'proofmap', run: ctx.runId.slice(0, 8), role: 'outline-agent' }
   })
   const bootMs = Date.now() - t0
   try {

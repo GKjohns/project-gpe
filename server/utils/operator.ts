@@ -14,7 +14,7 @@ type H3Event = Parameters<typeof getCookie>[0]
 
 export type AuthMode = 'token' | 'open' | 'closed'
 
-export const SESSION_COOKIE = 'gpe-operator'
+export const SESSION_COOKIE = 'proofmap-operator'
 /** Absolute session lifetime: 30 days, then sign in again. */
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30
 
@@ -88,7 +88,7 @@ export function tokenMatches(given: string, expected: string) {
 
 /** Short fingerprint of the token stored in the session, so rotating OPERATOR_TOKEN signs every session out. */
 export function tokenFingerprint(token: string) {
-  return createHash('sha256').update(`gpe-operator:${token}`).digest('hex').slice(0, 16)
+  return createHash('sha256').update(`proofmap-operator:${token}`).digest('hex').slice(0, 16)
 }
 
 /** SESSION_SECRET when it is long enough (h3 needs 32+ chars), else a key derived from OPERATOR_TOKEN. */
@@ -96,7 +96,7 @@ export function sessionPassword(env: OperatorEnv) {
   if (env.secret && env.secret.length >= 32) {
     return env.secret
   }
-  return createHash('sha256').update(`gpe-session:${env.token ?? ''}`).digest('hex')
+  return createHash('sha256').update(`proofmap-session:${env.token ?? ''}`).digest('hex')
 }
 
 interface OperatorSession { operator?: boolean, tok?: string }

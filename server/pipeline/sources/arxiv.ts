@@ -52,7 +52,7 @@ const isTar = (b: Uint8Array) => b.length > 262 && decoder.decode(b.subarray(257
 /** arXiv asks bulk clients to identify themselves; set ARXIV_CONTACT_EMAIL to add a contact address. */
 function arxivUserAgent(): string {
   const email = process.env.ARXIV_CONTACT_EMAIL?.trim()
-  return email ? `gpe-ingest (mailto:${email})` : 'gpe-ingest'
+  return email ? `proofmap-ingest (mailto:${email})` : 'proofmap-ingest'
 }
 
 export async function fetchArxiv(input: string): Promise<SourceFile[]> {

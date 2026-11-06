@@ -76,7 +76,7 @@ function decorate(n: number) {
   if (!div) {
     return
   }
-  div.querySelector(':scope > .gpe-layer')?.remove()
+  div.querySelector(':scope > .pm-layer')?.remove()
   const items = byPage.value.get(n) ?? []
   const figs = figures.value.filter(f => f.rect?.page === n)
   if (!items.length && !figs.length) {
@@ -84,7 +84,7 @@ function decorate(n: number) {
   }
   const { w, h } = pageSize(n)
   const layer = document.createElement('div')
-  layer.className = 'gpe-layer'
+  layer.className = 'pm-layer'
   const place = (el: HTMLElement, r: { x: number, y: number, w: number, h: number }) => {
     el.style.left = pct(r.x, w)
     el.style.top = pct(r.y, h)
@@ -93,7 +93,7 @@ function decorate(n: number) {
   }
   for (const it of items) {
     const box = document.createElement('div')
-    box.className = `gpe-box part-${it.part}${it.id === selectedId.value ? ' is-selected' : ''}`
+    box.className = `pm-box part-${it.part}${it.id === selectedId.value ? ' is-selected' : ''}`
     box.dataset.node = it.id
     place(box, { x: it.x - 2, y: it.y - 1.5, w: it.w + 4, h: it.h + 3 })
     layer.appendChild(box)
@@ -108,7 +108,7 @@ function decorate(n: number) {
   for (const [id, s] of spans) {
     const m = document.createElement('button')
     m.type = 'button'
-    m.className = `gpe-marker${s.claim ? ' is-claim' : ''}${id === selectedId.value ? ' is-selected' : ''}`
+    m.className = `pm-marker${s.claim ? ' is-claim' : ''}${id === selectedId.value ? ' is-selected' : ''}`
     m.dataset.node = id
     m.title = nodeTitle(id)
     m.setAttribute('aria-label', `Select ${nodeTitle(id)}`)
@@ -118,12 +118,12 @@ function decorate(n: number) {
   for (const f of figs) {
     const r = f.rect!
     const box = document.createElement('div')
-    box.className = 'gpe-fig'
+    box.className = 'pm-fig'
     box.dataset.figure = f.id
     place(box, r)
     const badge = document.createElement('button')
     badge.type = 'button'
-    badge.className = 'gpe-fig-badge'
+    badge.className = 'pm-fig-badge'
     badge.dataset.figure = f.id
     badge.textContent = `${f.number ? `Figure ${f.number}` : 'Figure'}${f.description ? ' · described' : ''}`
     badge.title = f.description || f.caption
@@ -135,14 +135,14 @@ function decorate(n: number) {
 
 function redrawAll() {
   for (let i = 1; i <= pages.value; i++) {
-    if (viewer?.getPageView(i - 1)?.div?.querySelector('.gpe-layer') || byPage.value.has(i)) {
+    if (viewer?.getPageView(i - 1)?.div?.querySelector('.pm-layer') || byPage.value.has(i)) {
       decorate(i)
     }
   }
 }
 
 function markSelected(id: string) {
-  viewerEl.value?.querySelectorAll('.gpe-box.is-selected, .gpe-marker.is-selected').forEach(el => el.classList.remove('is-selected'))
+  viewerEl.value?.querySelectorAll('.pm-box.is-selected, .pm-marker.is-selected').forEach(el => el.classList.remove('is-selected'))
   if (id) {
     viewerEl.value?.querySelectorAll(`[data-node="${CSS.escape(id)}"]`).forEach(el => el.classList.add('is-selected'))
   }
@@ -150,8 +150,8 @@ function markSelected(id: string) {
 
 function flash(selector: string) {
   const els = viewerEl.value?.querySelectorAll(selector)
-  els?.forEach(el => el.classList.add('gpe-flash'))
-  setTimeout(() => els?.forEach(el => el.classList.remove('gpe-flash')), 1400)
+  els?.forEach(el => el.classList.add('pm-flash'))
+  setTimeout(() => els?.forEach(el => el.classList.remove('pm-flash')), 1400)
 }
 
 function scrollToRect(r: { page: number, x: number, y: number }) {
@@ -179,7 +179,7 @@ function scrollToNode(id: string) {
     viewer.currentPageNumber = a.page
   } else {
     scrollToRect(a)
-    flash(`.gpe-box.part-statement[data-node="${CSS.escape(id)}"]`)
+    flash(`.pm-box.part-statement[data-node="${CSS.escape(id)}"]`)
   }
   return true
 }
@@ -191,7 +191,7 @@ function scrollToFigure(id: string) {
   }
   if (f.rect) {
     scrollToRect(f.rect)
-    flash(`.gpe-fig[data-figure="${CSS.escape(id)}"]`)
+    flash(`.pm-fig[data-figure="${CSS.escape(id)}"]`)
   } else if (f.page) {
     viewer.currentPageNumber = f.page
   }
@@ -201,11 +201,11 @@ function scrollToFigure(id: string) {
 function onPageClick(e: MouseEvent) {
   const target = e.target as HTMLElement
   const fig = target.closest<HTMLElement>('[data-figure]')
-  if (fig?.classList.contains('gpe-fig-badge')) {
+  if (fig?.classList.contains('pm-fig-badge')) {
     figureOpen.value = figures.value.find(f => f.id === fig.dataset.figure) ?? null
     return
   }
-  const marker = target.closest<HTMLElement>('.gpe-marker')
+  const marker = target.closest<HTMLElement>('.pm-marker')
   if (marker?.dataset.node) {
     fromPdf = true
     void select(marker.dataset.node)
@@ -251,10 +251,10 @@ function onPageMove(e: MouseEvent) {
     if (id === hoverId) {
       return
     }
-    viewerEl.value?.querySelectorAll('.gpe-box.is-hover').forEach(el => el.classList.remove('is-hover'))
+    viewerEl.value?.querySelectorAll('.pm-box.is-hover').forEach(el => el.classList.remove('is-hover'))
     hoverId = id
     if (id) {
-      viewerEl.value?.querySelectorAll(`.gpe-box[data-node="${CSS.escape(id)}"]`).forEach(el => el.classList.add('is-hover'))
+      viewerEl.value?.querySelectorAll(`.pm-box[data-node="${CSS.escape(id)}"]`).forEach(el => el.classList.add('is-hover'))
     }
   })
 }
@@ -553,7 +553,7 @@ const runLink = computed(() => `/admin/papers/${paper.value?.slug}/run`)
         <div
           ref="container"
           class="absolute inset-0 overflow-auto"
-          data-gpe-reader
+          data-pm-reader
           :data-invert="invert || undefined"
           :data-no-markers="!showMarkers || undefined"
           @click="onPageClick"
@@ -604,10 +604,10 @@ const runLink = computed(() => `/admin/papers/${paper.value?.slug}/run`)
 <style>
 /* Overlays live inside PDF.js's page divs (not Vue-rendered), so these styles are global. Positions are in % of
    the page, so zoom never needs a redraw; PDF.js re-renders pages on zoom and `pagerendered` re-adds the layer. */
-[data-gpe-reader] .pdfViewer {
+[data-pm-reader] .pdfViewer {
   padding-block: 0.75rem;
 }
-[data-gpe-reader] .pdfViewer .page {
+[data-pm-reader] .pdfViewer .page {
   --page-border: 0 solid transparent;
   margin-bottom: 0.75rem;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.12), 0 4px 16px rgb(0 0 0 / 0.06);
@@ -615,34 +615,34 @@ const runLink = computed(() => `/admin/papers/${paper.value?.slug}/run`)
 [data-invert] .page .canvasWrapper {
   filter: invert(0.9) hue-rotate(180deg);
 }
-.gpe-layer {
+.pm-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 3;
 }
-.gpe-box {
+.pm-box {
   position: absolute;
   border-radius: 2px;
   transition: background-color 0.15s, box-shadow 0.15s;
 }
-.gpe-box.is-hover {
+.pm-box.is-hover {
   background: color-mix(in oklab, var(--ui-primary) 7%, transparent);
 }
-.gpe-box.part-statement.is-selected {
+.pm-box.part-statement.is-selected {
   background: color-mix(in oklab, var(--ui-primary) 11%, transparent);
 }
-.gpe-box.part-proof.is-selected {
+.pm-box.part-proof.is-selected {
   background: color-mix(in oklab, var(--ui-primary) 4%, transparent);
 }
-.gpe-box.gpe-flash {
-  animation: gpe-flash 1.4s ease-out;
+.pm-box.pm-flash {
+  animation: pm-flash 1.4s ease-out;
 }
-@keyframes gpe-flash {
+@keyframes pm-flash {
   0% { background: color-mix(in oklab, var(--ui-primary) 28%, transparent); }
   100% { background: color-mix(in oklab, var(--ui-primary) 11%, transparent); }
 }
-.gpe-marker {
+.pm-marker {
   position: absolute;
   pointer-events: auto;
   cursor: pointer;
@@ -650,34 +650,34 @@ const runLink = computed(() => `/admin/papers/${paper.value?.slug}/run`)
   background: color-mix(in oklab, var(--ui-primary) 30%, transparent);
   transition: background-color 0.15s, transform 0.15s;
 }
-.gpe-marker.is-claim {
+.pm-marker.is-claim {
   background: color-mix(in oklab, var(--ui-primary) 16%, transparent);
 }
 /* A wider invisible hit area than the 4pt bar. */
-.gpe-marker::before {
+.pm-marker::before {
   content: "";
   position: absolute;
   inset: 0 -6px;
 }
-.gpe-marker:hover,
-.gpe-marker.is-selected {
+.pm-marker:hover,
+.pm-marker.is-selected {
   background: var(--ui-primary);
 }
-[data-no-markers] .gpe-marker,
-[data-no-markers] .gpe-box:not(.is-selected) {
+[data-no-markers] .pm-marker,
+[data-no-markers] .pm-box:not(.is-selected) {
   display: none;
 }
-.gpe-fig {
+.pm-fig {
   position: absolute;
   border-radius: 3px;
   outline: 1px dashed transparent;
   transition: outline-color 0.15s;
 }
-.gpe-fig:hover,
-.gpe-fig.gpe-flash {
+.pm-fig:hover,
+.pm-fig.pm-flash {
   outline-color: color-mix(in oklab, var(--ui-primary) 45%, transparent);
 }
-.gpe-fig-badge {
+.pm-fig-badge {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -690,7 +690,7 @@ const runLink = computed(() => `/admin/papers/${paper.value?.slug}/run`)
   background: color-mix(in oklab, white 85%, var(--ui-primary));
   opacity: 0.85;
 }
-.gpe-fig-badge:hover {
+.pm-fig-badge:hover {
   opacity: 1;
 }
 </style>

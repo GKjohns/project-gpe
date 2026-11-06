@@ -136,7 +136,7 @@ describe('mcp call logging', () => {
     listPapers: async () => [],
     loadDigest: async slug => slug === 'toy' ? toyDigest : null,
     loadSources: async () => null,
-    appUrl: 'https://gpe.example'
+    appUrl: 'https://proofmap.example'
   }
 
   it('reads tool, paper, client and status off real MCP traffic', async () => {
@@ -153,7 +153,7 @@ describe('mcp call logging', () => {
       return res
     }
     const client = new Client({ name: 'test-agent', version: '9.1' })
-    await client.connect(new StreamableHTTPClientTransport(new URL('https://gpe.example/api/mcp'), { fetch }))
+    await client.connect(new StreamableHTTPClientTransport(new URL('https://proofmap.example/api/mcp'), { fetch }))
     await client.callTool({ name: 'get_overview', arguments: { paper: 'toy' } })
     await client.callTool({ name: 'get_overview', arguments: { paper: 'missing' } })
     await client.listTools()

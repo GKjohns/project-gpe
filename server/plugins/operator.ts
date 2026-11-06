@@ -7,15 +7,15 @@ const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_KEY', 'SUPABASE_SECRET_KEY', 'OP
 export default defineNitroPlugin(() => {
   const mode = authMode()
   if (mode === 'open') {
-    console.info('[gpe] operator auth: off (dev, no OPERATOR_TOKEN) · every control is open')
+    console.info('[proofmap] operator auth: off (dev, no OPERATOR_TOKEN) · every control is open')
   } else if (mode === 'closed') {
-    console.error('[gpe] OPERATOR_TOKEN is not set: operator routes (ingest, retry, cancel, review, corpus) are DENIED until it is')
+    console.error('[proofmap] OPERATOR_TOKEN is not set: operator routes (ingest, retry, cancel, review, corpus) are DENIED until it is')
   } else {
-    console.info('[gpe] operator auth: on (OPERATOR_TOKEN)')
+    console.info('[proofmap] operator auth: on (OPERATOR_TOKEN)')
   }
   if (!import.meta.dev) {
     for (const name of REQUIRED_ENV.filter(n => !process.env[n])) {
-      console.error(`[gpe] env: ${name} is not set`)
+      console.error(`[proofmap] env: ${name} is not set`)
     }
   }
 })

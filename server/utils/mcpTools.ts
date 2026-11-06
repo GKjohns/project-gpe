@@ -302,7 +302,7 @@ const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: t
 const INSTRUCTIONS = `Proof maps of math papers: every definition, lemma and theorem, plus the major claims inside long proofs, with plain-English explanations and dependency edges. Start with list_papers, then get_overview for a paper's main results and sections. get_node gives one node's explanation and direct edges; read_node gives its verbatim LaTeX statement and proof. Use trace for "how does X lead to Y" (the edges on a node are only direct uses), ancestors for everything a node rests on or supports, search_paper to find where something is defined or used. Node ids look like lem-greedy-hashes; LaTeX labels (lem:greedy-hashes) also work. Every node has a url you can give the user.`
 
 export function createDigestMcpServer(deps: McpDeps) {
-  const server = new McpServer({ name: 'gpe', title: 'Project GPE: proof maps', version: '1.0.0' }, { instructions: INSTRUCTIONS })
+  const server = new McpServer({ name: 'proofmap', title: 'Proofmap: proof maps', version: '1.0.0' }, { instructions: INSTRUCTIONS })
   // Per server instance (one per request): a digest loaded once serves every tool in the call.
   const digests = new Map<string, Promise<PaperDigest | null>>()
 
@@ -358,10 +358,10 @@ export function agentGuide(papers: (McpPaperRow & { url: string })[], appUrl: st
     ...(argLines(t.input).length ? ['', ...argLines(t.input)] : [])
   ].join('\n'))
   const scale = catalog ? `${catalog.families} families catalogued, ${catalog.digested} digested` : `${papers.length} digested`
-  return `# Project GPE: proof maps of OpenAI's openai/math papers (${scale})
+  return `# Proofmap: proof maps of OpenAI's openai/math papers (${scale})
 
 [openai/math](https://github.com/openai/math) is a collection of ${catalog?.manuscripts ?? 'several hundred'} machine-written math manuscripts in ${catalog?.families ?? 'a few hundred'} result
-families. Project GPE catalogues all of them (title, abstract, discipline, PDF, Lean status) and turns some into
+families. Proofmap catalogues all of them (title, abstract, discipline, PDF, Lean status) and turns some into
 browsable proof maps: every definition, lemma and theorem, plus the major claims inside long proofs, each with a
 plain-English statement, an explanation of why it is in the paper, a standard/routine/novel classification, and the
 dependency edges between them. This page tells an agent how to read the catalog and the maps. Everything is read-only,

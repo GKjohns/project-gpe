@@ -13,7 +13,7 @@ type H3Event = Parameters<typeof getQuery>[0]
 const UA_CHARS = 300
 const CLIENT_CHARS = 80
 const REF_CHARS = 64
-const DEV_SALT = 'gpe-agent-log-dev'
+const DEV_SALT = 'proofmap-agent-log-dev'
 
 /** One agent_requests row to insert (camelCase; `id` and `at` come from the table's defaults). */
 export interface AgentRequestEntry {
@@ -161,11 +161,11 @@ export function requestInfo(event: H3Event, toolArgs: string[] = []): AgentReque
 
 /**
  * Logs calls made by one request. Never throws. The site's own pages read /api/v1 too and aren't agents: browser
- * fetches say `sec-fetch-site: same-origin`, and SSR fetches (in-process, no sec-fetch headers) send `x-gpe-site`.
+ * fetches say `sec-fetch-site: same-origin`, and SSR fetches (in-process, no sec-fetch headers) send `x-proofmap-site`.
  */
 export function logAgentRequest(event: H3Event, calls: AgentCallFields | AgentCallFields[], toolArgs: string[] = []) {
   try {
-    if (getRequestHeader(event, 'sec-fetch-site') === 'same-origin' || getRequestHeader(event, 'x-gpe-site')) {
+    if (getRequestHeader(event, 'sec-fetch-site') === 'same-origin' || getRequestHeader(event, 'x-proofmap-site')) {
       return
     }
     const info = requestInfo(event, toolArgs)
