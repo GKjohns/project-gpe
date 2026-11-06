@@ -66,7 +66,7 @@ const doors = computed(() => [
   { title: 'Ask', description: 'Questions answered with citations to the map you can click.', icon: 'i-lucide-message-square', to: explorer({ ask: '' }) }
 ])
 
-const headlineText = computed(() => (digest.value?.summary?.headline ?? '').replace(/\$/g, ''))
+const headlineText = computed(() => plainMath(digest.value?.summary?.headline ?? ''))
 useSeoMeta({
   title: () => digest.value?.title ?? slug,
   description: () => headlineText.value || catalog.value?.family.description || undefined,

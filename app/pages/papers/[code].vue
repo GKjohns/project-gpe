@@ -5,7 +5,7 @@ import type { DisciplinesResponse, FamilyDetail, FamilyDigest } from '#shared/ca
 import type { PaperResponse } from '#shared/api'
 
 // Family page (storyboard frames 03 digested, 07 not yet). /papers/49 → 301 /papers/049; unknown → 404.
-const site = { 'x-gpe-site': '1' }
+const site = { 'x-proofmap-site': '1' }
 const route = useRoute()
 const raw = String(route.params.code)
 if (!/^\d{1,3}$/.test(raw)) {
@@ -59,9 +59,9 @@ async function ask() {
 const leanPct = computed(() => stats.value ? Math.round(100 * stats.value.lean / stats.value.families) : undefined)
 
 useSeoMeta({
-  title: () => `${f.value.code} · ${indexProse(f.value.title).replace(/\$/g, '')}`,
-  description: () => indexProse(f.value.description).replace(/\$/g, '').slice(0, 300),
-  ogTitle: () => `Family ${f.value.code}: ${indexProse(f.value.title).replace(/\$/g, '')} · GPE`
+  title: () => `${f.value.code} · ${plainMath(indexProse(f.value.title))}`,
+  description: () => plainMath(indexProse(f.value.description)).slice(0, 300),
+  ogTitle: () => `Family ${f.value.code}: ${plainMath(indexProse(f.value.title))} · Proofmap`
 })
 </script>
 

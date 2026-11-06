@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /login
 Disallow: /api
 
-Sitemap: https://project-gpe.vercel.app/sitemap.xml
+Sitemap: https://proofmap.ink/sitemap.xml
