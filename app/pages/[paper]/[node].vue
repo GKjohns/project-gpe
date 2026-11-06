@@ -128,6 +128,11 @@ const colorBy = computed<GraphColorBy>({
   get: () => route.query.color === 'sec' ? 'sec' : 'cls',
   set: v => setQuery('color', v === 'sec' ? 'sec' : undefined)
 })
+// Map = the pan/zoom DAG; Lens = the selection with one hop up and an unfolding outline below (no panning).
+const graphLayout = computed<'map' | 'lens'>({
+  get: () => route.query.layout === 'lens' ? 'lens' : 'map',
+  set: v => setQuery('layout', v === 'lens' ? 'lens' : undefined)
+})
 
 // The tree collapses to its icon rail while the graph is up; the user can still expand it.
 // Starts false so the sidebar syncs this ref to its cookie; on mount the view decides (a graph deep link
@@ -386,6 +391,31 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
               label-class="hidden 2xl:inline"
             >
               <template #right-start>
+                <UFieldGroup
+                  v-if="view === 'graph'"
+                  size="sm"
+                >
+                  <UTooltip text="Map: the whole graph">
+                    <UButton
+                      icon="i-lucide-network"
+                      color="neutral"
+                      :variant="graphLayout === 'map' ? 'soft' : 'ghost'"
+                      aria-label="Map layout"
+                      :aria-pressed="graphLayout === 'map'"
+                      @click="graphLayout = 'map'"
+                    />
+                  </UTooltip>
+                  <UTooltip text="Lens: the selection and what it rests on">
+                    <UButton
+                      icon="i-lucide-focus"
+                      color="neutral"
+                      :variant="graphLayout === 'lens' ? 'soft' : 'ghost'"
+                      aria-label="Lens layout"
+                      :aria-pressed="graphLayout === 'lens'"
+                      @click="graphLayout = 'lens'"
+                    />
+                  </UTooltip>
+                </UFieldGroup>
                 <!-- Graph options tuck into a popover instead of a second toolbar row. -->
                 <UPopover
                   v-if="view === 'graph'"
@@ -402,7 +432,10 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
                   </UTooltip>
                   <template #content>
                     <div class="flex w-56 flex-col gap-3 p-3 text-sm">
-                      <div class="flex flex-col gap-1.5">
+                      <div
+                        v-if="graphLayout === 'map'"
+                        class="flex flex-col gap-1.5"
+                      >
                         <span class="text-xs text-muted">Show</span>
                         <UTabs
                           v-model="graphMode"
@@ -412,7 +445,10 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
                           color="neutral"
                         />
                       </div>
-                      <div class="flex flex-col gap-1.5">
+                      <div
+                        v-if="graphLayout === 'map'"
+                        class="flex flex-col gap-1.5"
+                      >
                         <span class="text-xs text-muted">Color</span>
                         <UTabs
                           v-model="colorBy"
@@ -463,8 +499,16 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
               v-if="view === 'graph' && digest"
               class="flex h-full min-h-0 flex-col"
             >
+              <GraphProofLens
+                v-if="graphLayout === 'lens'"
+                :nodes="digest.nodes"
+                :selected-id="selectedId"
+                :show-claims="showClaims"
+                class="min-h-0 flex-1"
+                @select="select"
+              />
               <UAlert
-                v-if="graphTooBig && graphMode === 'focus'"
+                v-else-if="graphTooBig && graphMode === 'focus'"
                 color="warning"
                 variant="subtle"
                 icon="i-lucide-gauge"
@@ -475,6 +519,7 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
                 class="m-2 w-auto shrink-0"
               />
               <GraphProofGraph
+                v-if="graphLayout === 'map'"
                 :nodes="digest.nodes"
                 :selected-id="selectedId"
                 :mode="graphMode"
