@@ -89,6 +89,17 @@ const manuscriptInsert = (r: ManuscriptRow): DbInsert<'manuscripts'> => ({
   has_lean: r.hasLean
 })
 
+/** The catalogued manuscript dir a source ref (`…/preprints/<dir>/…`) names, or null. Set at paper creation, so a paper
+ * made after the last sync is linked to its family without waiting for the next one. */
+export async function manuscriptDirFor(ref: string): Promise<string | null> {
+  const dir = /\/preprints\/([^/]+)/.exec(ref)?.[1]
+  if (!dir) {
+    return null
+  }
+  const row = must(await useSupabase().from('manuscripts').select('dir').eq('dir', dir).maybeSingle())
+  return row?.dir ?? null
+}
+
 /** Sets papers.manuscript_dir from source_ref (`…/preprints/<dir>/…`) where it is unset and the dir is catalogued. */
 export async function linkPapers(): Promise<string[]> {
   const supa = useSupabase()

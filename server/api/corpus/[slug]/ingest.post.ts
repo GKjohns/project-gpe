@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { corpusPaperSlugs } from '#shared/corpus'
 import { ACTIVE_RUN_STATUSES } from '#shared/runs'
+import { manuscriptDirFor } from '../../../catalog/sync'
 import { sourceRef } from '../../../pipeline/sources'
 import { corpusEntry } from '../../../utils/corpus'
 import { startRun } from '../../../utils/dispatch'
@@ -54,6 +55,7 @@ export default defineEventHandler(async (event) => {
         authors: entry.authors,
         source_kind: source.kind,
         source_ref: ref,
+        manuscript_dir: await manuscriptDirFor(ref),
         tier: entry.tier
       }).select('id').single()).id
     } catch (err) {

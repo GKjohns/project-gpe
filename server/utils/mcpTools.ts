@@ -357,7 +357,23 @@ export function agentGuide(papers: (McpPaperRow & { url: string })[], appUrl: st
     t.description,
     ...(argLines(t.input).length ? ['', ...argLines(t.input)] : [])
   ].join('\n'))
-  const scale = catalog ? `${catalog.families} families catalogued, ${catalog.digested} digested` : `${papers.length} digested`
+  // The papers listed below, not catalog.digested (families with a map): a mapped paper not yet linked to its family
+  // would otherwise make the header disagree with the list.
+  const mapped = `${papers.length} ${papers.length === 1 ? 'paper' : 'papers'} mapped`
+  const scale = catalog ? `${catalog.families} families catalogued, ${mapped}` : mapped
+  const ex = `${api}/papers/${example}`
+  const endpoints = [
+    ['Papers with a map', `${api}/papers`],
+    [`Overview of \`${example}\``, `${ex}/get_overview`],
+    [`Nodes of \`${example}\`, first page of 20`, `${ex}/list_nodes?limit=20`],
+    [`Nodes of \`${example}\`, second page`, `${ex}/list_nodes?limit=20&offset=20`],
+    [`Friction in \`${example}\``, `${ex}/get_friction?severity=high`],
+    ['Catalog search', `${api}/families?q=exponential`],
+    ['One family', `${api}/families/${papers.find(p => p.family)?.family?.code ?? '049'}`],
+    ['Disciplines and totals', `${api}/disciplines`],
+    ['MCP endpoint (POST JSON-RPC; GET explains)', `${appUrl}/api/mcp`]
+  ].map(([label, url]) => `- ${label}: [${url}](${url})`).join('\n')
+  const perPaper = papers.map(p => `- \`${p.slug}\`: [${api}/papers/${p.slug}/get_overview](${api}/papers/${p.slug}/get_overview)`).join('\n')
   return `# Proofmap: proof maps of OpenAI's openai/math papers (${scale})
 
 [openai/math](https://github.com/openai/math) is a collection of ${catalog?.manuscripts ?? 'several hundred'} machine-written math manuscripts in ${catalog?.families ?? 'a few hundred'} result
@@ -372,6 +388,22 @@ Two ways in, same tools and same answers:
 - **HTTP GET** (works with any fetch or curl): \`${api}\`, described below.
 - **MCP** (streamable HTTP): \`${appUrl}/api/mcp\`. Add it as a remote MCP server; the tools are the ones below, each
   with an extra \`paper\` argument (the slug). The catalog endpoints are HTTP only.
+
+## Endpoints
+
+Every link below is a live GET that returns JSON.
+
+${endpoints}
+
+Each paper's overview:
+
+${perPaper || 'None yet.'}
+
+## MCP
+
+\`${appUrl}/api/mcp\` speaks MCP over streamable HTTP (stateless, JSON responses): POST JSON-RPC \`initialize\`, then
+\`tools/list\` and \`tools/call\`. The tools are the ones under Tools below; each paper tool takes an extra \`paper\`
+argument (the slug). A plain GET of the endpoint returns a short explainer.
 
 ## How to use it
 

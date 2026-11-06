@@ -1,7 +1,13 @@
+# The public agent surface (read-only, no key) is open to crawlers and AI fetchers; see /llms.txt.
+# Allow lines come before the Disallows so first-match parsers agree with longest-match ones (RFC 9309).
 User-agent: *
-Allow: /
+Allow: /llms.txt
+Allow: /agents.md
+Allow: /api/v1/
+Allow: /api/mcp
+Allow: /api/blobs/
+Disallow: /api
 Disallow: /admin
 Disallow: /login
-Disallow: /api
 
 Sitemap: https://proofmap.ink/sitemap.xml

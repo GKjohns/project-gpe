@@ -36,7 +36,7 @@ const year = new Date().getFullYear()
 const footerColumns: { title: string, links: { label: string, to: string, target?: string, external?: boolean }[] }[] = [
   { title: 'Browse', links: [{ label: 'Papers', to: '/papers' }, { label: 'Disciplines', to: '/#disciplines' }] },
   { title: 'Source', links: [{ label: 'GitHub', to: 'https://github.com/openai/math', target: '_blank' }] },
-  { title: 'For agents', links: [{ label: '/llms.txt', to: '/llms.txt', external: true }, { label: '/api/v1', to: '/api/v1/papers', external: true }, { label: 'MCP', to: '/llms.txt', external: true }] }
+  { title: 'For agents', links: [{ label: '/llms.txt', to: '/llms.txt', external: true }, { label: '/api/v1', to: '/api/v1/papers', external: true }, { label: 'MCP', to: '/api/mcp', external: true }] }
 ]
 </script>
 
@@ -147,6 +147,13 @@ const footerColumns: { title: string, links: { label: string, to: string, target
           </p>
           <p class="flex shrink-0 items-center gap-x-1.5">
             <span>© {{ year }}</span>
+            <span>·</span>
+            <span>Built by
+              <ULink
+                to="https://www.monumentlabs.io"
+                target="_blank"
+                class="text-white/90 underline-offset-2 hover:text-white hover:underline"
+              >Monument Labs</ULink></span>
             <span>·</span>
             <ULink
               to="/admin"

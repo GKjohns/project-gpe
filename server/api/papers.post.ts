@@ -1,4 +1,5 @@
 import { createPaperSchema } from '#shared/schemas'
+import { manuscriptDirFor } from '../catalog/sync'
 import { SourceError, sourceRef, summarize } from '../pipeline/sources'
 import type { SourceFile } from '../pipeline/sources'
 import { filesFromUpload } from '../pipeline/sources/upload'
@@ -57,7 +58,8 @@ export default defineEventHandler(async (event) => {
       slug: body.slug,
       title: body.title,
       source_kind: body.source.kind,
-      source_ref: ref
+      source_ref: ref,
+      manuscript_dir: body.source.kind === 'upload' ? null : await manuscriptDirFor(ref)
     }).select('id').single()).id
   } catch (err) {
     if ((err as { code?: string }).code === '23505') {
