@@ -3,7 +3,9 @@
 Date: 2026-11-06, round 4 added 2026-11-07. Paper: `eth` (openai/math, a claimed refutation of the Exponential Time
 Hypothesis). Surface under test for rounds 1-3: the public read-only GET API at https://proofmap.ink/api/v1 as
 documented by https://proofmap.ink/llms.txt, with no project code changed. Round 4 reran round 3's brief against a dev
-server on branch feat/read-source, which adds the `read_source` tool ranked first below (section 5). Supporting files
+server on branch feat/read-source, which adds the `read_source` tool ranked first below (section 5). Shipped: merged to
+main as a77dabb and deployed to proofmap.ink on 2026-11-07; prod smoke 8/8 (section and range reads, cap, 400/404,
+overview ranges, llms.txt, MCP tools/list and tools/call, pages); CI green; branch deleted. Supporting files
 are in this directory: `meta_tracker.md` (the loop's running state), `round{1,2,3,4}_eval.md` (audits),
 `eth_understanding*.md` (what each learner wrote), `eth_learner_log*.md` (one line per API call). Raw API responses
 stayed in the scratchpad.
