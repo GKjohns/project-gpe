@@ -23,6 +23,7 @@ function renderProse(s: string) {
     .replace(/\\texttt\{([^{}]*)\}/g, '<code>$1</code>')
     .replace(CITE_RE, (_, opts: string, keys: string) => `<span class="text-dimmed" title="citation">${citeText(opts, keys)}</span>`)
     .replace(/\\label\{[^{}]*\}/g, '')
+    .replace(/\n\\item\{([^{}]*)\}/g, (_, label: string) => `<br>${label ? `<b>${label}</b> ` : '• '}`)
     .replace(/~/g, '&nbsp;')
     .replace(/``|''/g, '"')
     .replace(/\\([%&#_$])/g, '$1')
@@ -44,9 +45,10 @@ const segments = computed(() => {
   const digest = ctx?.digest.value
   const macros = props.macros ?? digest?.macros
   const out: Segment[] = []
+  const text = normalizeTexProse(repairTexEscapes(props.text))
   let last = 0
-  for (const m of props.text.matchAll(MATH)) {
-    proseSegments(props.text.slice(last, m.index), out)
+  for (const m of text.matchAll(MATH)) {
+    proseSegments(text.slice(last, m.index), out)
     const display = m[1] !== undefined || m[2] !== undefined || m[4] !== undefined
     let tex = m[1] ?? m[2] ?? m[5] ?? m[6] ?? ''
     if (m[4] !== undefined) {
@@ -58,7 +60,7 @@ const segments = computed(() => {
     out.push({ html: renderTex(texWithRefs(tex, digest), display, macros) })
     last = m.index + m[0].length
   }
-  proseSegments(props.text.slice(last), out)
+  proseSegments(text.slice(last), out)
   return out.filter(seg => !('html' in seg) || seg.html)
 })
 </script>
