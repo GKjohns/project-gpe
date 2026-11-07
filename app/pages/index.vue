@@ -64,6 +64,7 @@ const steps = [
   <div>
     <!-- eslint-disable vue/no-v-html -- inlineMathHtml escapes the prose; only KaTeX markup is raw. -->
     <section class="relative isolate flex min-h-[92svh] items-center overflow-hidden bg-[#1d150e]">
+      <!-- Day and night are the same room; dark mode cross-fades to the candlelit version (docs/20261106_hero_night). -->
       <img
         src="/landing/hero.webp"
         srcset="/landing/hero-960.webp 960w, /landing/hero.webp 1536w"
@@ -72,7 +73,15 @@ const steps = [
         alt="Oil painting of a scholar at a desk with a compass and globe"
         class="absolute inset-0 -z-10 size-full object-cover object-[65%_50%]"
       >
-      <div class="absolute inset-0 -z-10 bg-linear-to-r from-black/80 via-black/40 to-transparent" />
+      <img
+        src="/landing/hero-night.webp"
+        srcset="/landing/hero-night-960.webp 960w, /landing/hero-night.webp 1536w"
+        sizes="100vw"
+        alt=""
+        aria-hidden="true"
+        class="absolute inset-0 -z-10 size-full object-cover object-[65%_50%] opacity-0 transition-opacity duration-1000 ease-in-out dark:opacity-100"
+      >
+      <div class="absolute inset-0 -z-10 bg-linear-to-r from-black/80 via-black/40 to-transparent dark:from-[#0b0805]/85 dark:via-[#0b0805]/40" />
       <div class="absolute inset-0 -z-10 bg-linear-to-b from-black/40 via-transparent to-black/30 lg:from-black/30" />
 
       <UPageHero
@@ -82,7 +91,7 @@ const steps = [
           container: 'pt-[calc(var(--ui-header-height)+4rem)] pb-20 sm:pb-24 lg:py-32 lg:grid-cols-[minmax(0,40rem)_1fr]',
           wrapper: 'text-left',
           title: 'font-serif font-semibold text-white text-5xl sm:text-7xl leading-[1.02] tracking-tight text-left',
-          description: 'text-white/80 text-lg sm:text-xl/8',
+          description: 'text-white/80 dark:text-amber-100/75 text-lg sm:text-xl/8',
           links: 'gap-x-3'
         }"
       >
@@ -99,7 +108,7 @@ const steps = [
             size="xl"
             color="neutral"
             variant="solid"
-            class="bg-white text-black hover:bg-white/90"
+            class="bg-white text-black hover:bg-white/90 dark:bg-amber-100 dark:text-[#1d150e] dark:hover:bg-amber-50"
           />
           <UButton
             to="/eth"
@@ -108,7 +117,7 @@ const steps = [
             size="xl"
             color="neutral"
             variant="outline"
-            class="bg-transparent text-white ring-white/50 hover:bg-white/10"
+            class="bg-transparent text-white ring-white/50 hover:bg-white/10 dark:text-amber-50 dark:ring-amber-100/40 dark:hover:bg-amber-100/10"
           />
         </template>
       </UPageHero>
