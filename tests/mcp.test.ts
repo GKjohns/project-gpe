@@ -140,6 +140,18 @@ describe('mcp endpoint', () => {
     expect(res.isError).toBeFalsy()
   })
 
+  it('serves read_source: listed with its arguments, and a call reads a numbered range', async () => {
+    const client = await connect({ ...deps, loadSources: async () => buildChatSources([{ path: 'a.tex', content: 'one\n% gone\nthree' }], null, null) })
+    const { tools } = await client.listTools()
+    expect(Object.keys(tools.find(t => t.name === 'read_source')!.inputSchema.properties ?? {}).sort()).toEqual(['file', 'from', 'offset', 'paper', 'section', 'to'])
+    const res = await client.callTool({ name: 'read_source', arguments: { paper: 'toy', file: 'a.tex', from: 1, to: 3 } })
+    expect(res.isError).toBeFalsy()
+    expect(JSON.parse((res.content as { text: string }[])[0]!.text)).toMatchObject({ file: 'a.tex', from: 1, to: 3, text: '1| one\n3| three', nodes_in_range: [], equations: [] })
+    const bad = await client.callTool({ name: 'read_source', arguments: { paper: 'toy', file: 'b.tex' } })
+    expect(bad.isError).toBe(true)
+    expect((bad.content as { text: string }[])[0]!.text).toContain('Source files: a.tex')
+  })
+
   it('returns unknown papers as tool errors, not protocol errors', async () => {
     const client = await connect()
     const res = await client.callTool({ name: 'get_overview', arguments: { paper: 'missing' } })

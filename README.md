@@ -62,10 +62,11 @@ LaTeX and the graph: `read_node` (a proof's text), `search_paper`, `trace` / `an
 at `/llms.txt` (also `/agents.md`): plain markdown that lists the papers and every tool. The same tools are served two
 ways: as GET JSON at `/api/v1/papers` and `/api/v1/papers/<slug>/<tool>?…` (for agents that only have fetch or curl),
 and as a stateless MCP server at `/api/mcp`. Tools: `list_papers`, `get_overview`, `list_nodes`, `get_node`,
-`read_node`, `search_paper`, `trace`, `ancestors`, `view_figure` (over MCP the PNG comes attached), `get_friction`. All of
-them are read-only, need no key and make no model calls. Each one is a database read (cached per instance for a
-minute) plus the chat tools' pure functions, with output capped by paging and `READ_NODE_CHARS`. Rate limiting is
-meant to be a Vercel Firewall rule on `/api/mcp` and `/api/v1`.
+`read_node`, `read_source` (a file line range or a whole section, for prose outside any node), `search_paper`, `trace`,
+`ancestors`, `view_figure` (over MCP the PNG comes attached), `get_friction`. All of them are read-only, need no key and
+make no model calls. Each one is a database read (cached per instance for a minute) plus the chat tools' pure
+functions, with output capped by paging and `READ_NODE_CHARS`. Rate limiting is meant to be a Vercel Firewall rule on
+`/api/mcp` and `/api/v1`.
 
 **Catalog** (`server/catalog/`): every openai/math result family (373) and manuscript (721), built from the repo's own
 index (`CONTENTS.md`, `overview.tex`, `lean/formalization.yaml`, `README.md`) at a pinned commit, with zero model calls.
