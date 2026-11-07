@@ -42,3 +42,8 @@ with target as (
 )
 update papers p set digest = jsonb_set(p.digest, array['nodes', target.idx, 'classification_cite'], to_jsonb(replace(target.cite, chr(8) || 'eta', '\beta'))), updated_at = now()
 from target where p.id = target.paper_id;
+
+-- Lesson from the same day: a re-run (Render paper copies stage_outputs forward and finalize rebuilds the digest from
+-- the classify payload) reverts digest-only edits. The fixed values were therefore also written into the latest run's
+-- `classify` and `annotate` stage_outputs (payload->'nodes'[i]->field), one single-row UPDATE per fix: an
+-- UPDATE … FROM that matches several join rows for one stage_outputs row applies only one of them.
