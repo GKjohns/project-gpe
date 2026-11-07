@@ -3,8 +3,18 @@
 @import "katex/dist/katex.min.css";
 
 /* Display headings on the public pages (landing, catalog, family). @nuxt/fonts fetches Cormorant Garamond. */
+/* The header wordmark is Geist Serif (Vercel, one weight), self-hosted from public/fonts/GeistSerif.woff2: @nuxt/fonts'
+   local provider keys files by filename slug, so the file is named without a `-Regular` suffix. */
 @theme {
   --font-serif: 'Cormorant Garamond', ui-serif, Georgia, serif;
+  --font-wordmark: 'Geist Serif', ui-serif, Georgia, serif;
+
+  /* The wordmark settles in a beat after the chrome so the eye lands on the name. `both` keeps the from-state through the delay. */
+  --animate-wordmark: wordmark-reveal 700ms cubic-bezier(0.2, 0.7, 0.2, 1) 180ms both;
+  @keyframes wordmark-reveal {
+    from { opacity: 0; transform: translateY(2px); filter: blur(2px); }
+    to { opacity: 1; transform: none; filter: none; }
+  }
 }
 
 /* Long display math scrolls inside its block instead of widening the page. */
