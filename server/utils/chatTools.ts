@@ -2,7 +2,7 @@
 // (digest + optional sources in, JSON out) so tests/chat-tools.test.ts runs it without Nitro or a model.
 import { tool } from 'ai'
 import { z } from 'zod'
-import type { AncestorsOutput, ChatToolNode, ReadNodeOutput, SearchPaperHit, SearchPaperOutput, TraceOutput, ViewFigureOutput } from '#shared/api'
+import type { AncestorsOutput, ChatToolNode, ReadEquation, ReadNodeOutput, ReadSourceOutput, SearchPaperHit, SearchPaperOutput, TraceOutput, ViewFigureOutput } from '#shared/api'
 import type { Outline, Skeleton } from '#shared/pipeline'
 import type { PaperDigest, PaperFigure, ProofNode } from '#shared/types'
 import { prerequisites } from '../pipeline/dag'
@@ -12,6 +12,8 @@ import type { SourceFile } from '../pipeline/sources/main'
 
 /** Characters of statement + proof text read_node returns at most. */
 export const READ_NODE_CHARS = 12_000
+/** Source lines read_source returns at most per call. */
+export const READ_SOURCE_LINES = 150
 const SEARCH_DEFAULT = 10
 const SEARCH_MAX = 15
 const CLOSURE_CAP = 60
@@ -164,7 +166,7 @@ const where = (s: Span) => `${s.file}:${s.start}-${s.end}`
 
 const REF_RE = /\\(?:eqref|ref|cref|Cref|autoref|label)\*?\s*\{([^}]*)\}/g
 
-function equationsIn(digest: PaperDigest, text: string, cap = 12): ReadNodeOutput['equations'] {
+function equationsIn(digest: PaperDigest, text: string, cap = 12): ReadEquation[] {
   const eqs = digest.equations ?? {}
   const seen = new Set<string>()
   for (const m of text.matchAll(REF_RE)) {
@@ -174,7 +176,10 @@ function equationsIn(digest: PaperDigest, text: string, cap = 12): ReadNodeOutpu
       }
     }
   }
-  return [...seen].slice(0, cap).map(label => ({ label, ...(eqs[label]!.number ? { number: eqs[label]!.number } : {}), latex: eqs[label]!.latex }))
+  return [...seen].slice(0, cap).map((label) => {
+    const e = eqs[label]!
+    return { label, ...(e.number ? { number: e.number } : {}), latex: e.latex, file: e.file, line: e.line }
+  })
 }
 
 // --- read_node ---
@@ -224,7 +229,7 @@ export function readNode(digest: PaperDigest, rawId: string, src: ChatSources | 
         const cut = text.lastIndexOf('\n', room)
         text = text.slice(0, cut > 0 ? cut : room)
         const lastLine = Number(/(\d+)\| [^\n]*$/.exec(text)?.[1] ?? body.start)
-        truncated = `Proof text cut at line ${lastLine} of ${where(body)} (${READ_NODE_CHARS} char cap).${claims.length ? ' read_node a claim inside it for a later part.' : ' search_paper can locate a later step.'}`
+        truncated = `Proof text cut at line ${lastLine} of ${where(body)} (${READ_NODE_CHARS} char cap). read_source with file=${body.file}&from=${lastLine + 1} continues it.`
       }
       proof = { location: where(body), text, source }
     } else {
@@ -253,6 +258,86 @@ export function readNode(digest: PaperDigest, rawId: string, src: ChatSources | 
     ...(proofNote ? { proof_note: proofNote } : {}),
     equations: equationsIn(digest, `${n.statement_paper}\n${proof?.text ?? ''}`),
     ...(truncated ? { truncated } : {})
+  }
+}
+
+// --- read_source ---
+
+export interface ReadSourceArgs { file?: string, from?: number, to?: number, section?: string, offset?: number }
+
+/** Last line of a file as read_source counts them: a file ending in a newline splits into one trailing empty line, skipped. */
+const lastLine = (lines: string[]) => lines.length && !lines[lines.length - 1]!.trim() ? lines.length - 1 : lines.length
+
+/** The lines of a section: its heading line up to the line before the next section heading in the same file. */
+function sectionSpan(digest: PaperDigest, src: ChatSources, raw: string): { section: PaperDigest['sections'][number], span: Span } {
+  const q = raw.trim().replace(/^§\s*/, '')
+  const ordered = [...digest.sections].sort((a, b) => a.order - b.order)
+  const section = ordered.find(s => s.id === q) ?? ordered.find(s => s.id.toLowerCase() === q.toLowerCase())
+  if (!section) {
+    const near = ordered.filter(s => s.id.startsWith(q.split('.')[0] ?? q) || s.title.toLowerCase().includes(q.toLowerCase())).slice(0, 8).map(s => s.id)
+    throw new Error(`No section "${q}" in this digest.${near.length ? ` Close ids: ${near.join(', ')}.` : ` Section ids: ${ordered.slice(0, 12).map(s => s.id).join(', ')}${ordered.length > 12 ? ', …' : ''}.`}`)
+  }
+  const lines = src.files.get(section.file)
+  if (!lines) {
+    throw new Error(`Section ${section.id} is in ${section.file}, which is not among the stored source files (${src.order.join(', ')}).`)
+  }
+  const next = ordered.filter(s => s.file === section.file && s.line > section.line).sort((a, b) => a.line - b.line)[0]
+  return { section, span: { file: section.file, start: section.line, end: next ? next.line - 1 : lastLine(lines) } }
+}
+
+/**
+ * A line range of one source file, numbered and comment-stripped, by `file`+`from`/`to` or by `section`; `offset` pages
+ * within the span. Capped at READ_SOURCE_LINES lines or READ_NODE_CHARS, whichever comes first; `next_from` says where
+ * to continue. Throws for a bad range or unknown file (listing the files) and for an unknown section (listing close ids).
+ */
+export function readSource(digest: PaperDigest, src: ChatSources | null, args: ReadSourceArgs): ReadSourceOutput {
+  if (!src) {
+    throw new Error('The LaTeX source is not stored for this paper; read_node returns the digest\'s statements.')
+  }
+  let span: Span
+  if (args.section) {
+    span = sectionSpan(digest, src, args.section).span
+  } else if (args.file) {
+    const lines = src.files.get(args.file)
+    if (!lines) {
+      throw new Error(`Unknown file "${args.file}". Source files: ${src.order.join(', ')}.`)
+    }
+    const from = args.from ?? 1
+    const to = Math.min(args.to ?? lastLine(lines), lastLine(lines))
+    if (from > to) {
+      throw new Error(`Bad range ${from}-${args.to ?? to}: from must not exceed to (${args.file} has ${lastLine(lines)} lines).`)
+    }
+    span = { file: args.file, start: from, end: to }
+  } else {
+    throw new Error('Give file (with from and to) or section. Source files: ' + src.order.join(', ') + '.')
+  }
+  const start = Math.max(1, span.start) + Math.max(0, args.offset ?? 0)
+  if (start > span.end) {
+    throw new Error(`offset ${args.offset} runs past the end of ${where(span)}.`)
+  }
+  let end = Math.min(span.end, start + READ_SOURCE_LINES - 1)
+  let text = spanText(src, { file: span.file, start, end })
+  if (text.length > READ_NODE_CHARS) {
+    const cut = text.lastIndexOf('\n', READ_NODE_CHARS)
+    text = text.slice(0, cut > 0 ? cut : READ_NODE_CHARS)
+    end = Number(/(\d+)\| [^\n]*$/.exec(text)?.[1] ?? start)
+  }
+  const nodes = [...nodeSpans(digest, src)]
+    .map(([id, sp]) => ({ id, first: Math.min(...[sp.statement, sp.proof, sp.claim].filter(x => !!x).filter(x => x.file === span.file && x.start <= end && start <= x.end).map(x => x.start)) }))
+    .filter(x => Number.isFinite(x.first))
+    .sort((a, b) => a.first - b.first)
+  const byId = new Map(digest.nodes.map(n => [n.id, n]))
+  const section = sectionFor(digest, span.file, start)
+  return {
+    file: span.file,
+    from: start,
+    to: end,
+    ...(section ? { section } : {}),
+    text,
+    nodes_in_range: nodes.map(x => brief(byId.get(x.id)!)),
+    equations: equationsIn(digest, text),
+    ...(end < span.end ? { next_from: end + 1 } : {}),
+    file_lines: lastLine(src.files.get(span.file)!)
   }
 }
 

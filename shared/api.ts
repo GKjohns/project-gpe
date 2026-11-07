@@ -98,8 +98,24 @@ export interface ReadNodeOutput {
   statement: string
   proof: { location: string, text: string, source: 'chunk' | 'outline' | 'scan' } | null
   proof_note?: string
-  equations: { label: string, number?: string, latex: string }[]
+  equations: ReadEquation[]
   truncated?: string
+}
+
+/** An equation a span references or defines: its label, display number, KaTeX-ready body, and where it is in the source. */
+export interface ReadEquation { label: string, number?: string, latex: string, file: string, line: number }
+
+/** `read_source`: a numbered, comment-stripped line range of one source file (by range or by section), with what lies in it. */
+export interface ReadSourceOutput {
+  file: string
+  from: number // first line returned
+  to: number // last line returned (the span's end when it was not cut)
+  section?: string // '§6.2 Title' of the section the range starts in
+  text: string // 'N| line' per non-blank line, as read_node's proof text
+  nodes_in_range: ChatToolNode[] // nodes whose statement, proof or claim span meets the range
+  equations: ReadEquation[]
+  next_from?: number // set when the range was cut by the line or character cap: continue from here
+  file_lines: number // the file's last line number, so `to === file_lines` means end of file
 }
 
 export interface SearchPaperHit {

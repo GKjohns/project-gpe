@@ -10,7 +10,23 @@ import type { ChatToolNode } from '#shared/api'
 import type { FamilySummary, ManuscriptItem } from '#shared/catalog'
 import type { FrictionKind, NodeKind, PaperDigest, ProofNode } from '#shared/types'
 import type { ChatSources, FigureImageLoader } from './chatTools'
-import { depClosure, readNode, resolveFigure, resolveNodeId, searchPaper, traceDeps, viewFigure } from './chatTools'
+import { depClosure, READ_SOURCE_LINES, readNode, readSource, resolveFigure, resolveNodeId, searchPaper, traceDeps, viewFigure } from './chatTools'
+
+/**
+ * Overview section rows. `from` is the heading's line; `to` is the line before the next section heading in the same file
+ * (omitted for a file's last section, whose end read_source reports as `file_lines`). Sections with `nodes: 0` are the
+ * ones the map does not reach.
+ */
+function sectionRows(digest: PaperDigest, bySection: Map<string, number>) {
+  const ordered = [...digest.sections].sort((a, b) => a.order - b.order)
+  return ordered.map((s) => {
+    if (!s.file) {
+      return { id: s.id, title: s.title, level: s.level, nodes: bySection.get(s.id) ?? 0 }
+    }
+    const next = ordered.filter(o => o.file === s.file && o.line > s.line).sort((a, b) => a.line - b.line)[0]
+    return { id: s.id, title: s.title, level: s.level, file: s.file, from: s.line, line: s.line, ...(next ? { to: next.line - 1 } : {}), nodes: bySection.get(s.id) ?? 0 }
+  })
+}
 
 const LIST_NODES_DEFAULT = 50
 const LIST_NODES_MAX = 200
@@ -90,8 +106,7 @@ export function paperOverview(digest: PaperDigest, appUrl: string, catalog?: Cat
       : {}),
     main_results: digest.root_ids.map(id => byId.get(id)).filter(n => !!n)
       .map(n => ({ ...brief(n), statement_plain: n.statement_plain })),
-    sections: [...digest.sections].sort((a, b) => a.order - b.order)
-      .map(s => ({ id: s.id, title: s.title, level: s.level, nodes: bySection.get(s.id) ?? 0 })),
+    sections: sectionRows(digest, bySection),
     counts: {
       nodes: digest.nodes.length,
       by_kind: byKind,
@@ -201,6 +216,21 @@ export const PAPER_TOOLS: Record<string, PaperTool> = {
     input: z.object({ id: nodeId }),
     run: async ({ digest, sources }, { id }) => readNode(digest, id, await sources())
   }),
+  read_source: paperTool({
+    title: 'Read source lines',
+    description: `A line range of one LaTeX source file, numbered and comment-stripped like read_node's proof text, by file+from/to or by section id, with the nodes and equations that fall in it. Prefer it over search_paper when the text you need is contiguous prose outside any node (a search hit with no \`node\`), a proof's second environment, or a section get_overview shows with 0 nodes. At most ${READ_SOURCE_LINES} lines per call; follow next_from for the rest.`,
+    input: z.object({
+      file: z.string().optional().describe('Source file, as in a search hit or get_overview section (e.g. main.tex); required unless section is given'),
+      from: z.number().int().min(1).optional().describe('First line, 1-based inclusive (default 1)'),
+      to: z.number().int().min(1).optional().describe('Last line, inclusive; past the end of the file clamps'),
+      section: z.string().optional().describe('Section id from get_overview (e.g. D.4.5): its heading up to the next heading in the same file'),
+      offset: z.number().int().min(0).optional().describe('Lines to skip from the start of the span, for paging')
+    }),
+    run: async ({ digest, appUrl, slug, sources }, args) => {
+      const out = readSource(digest, await sources(), args)
+      return { ...out, nodes_in_range: out.nodes_in_range.map(n => ({ ...n, url: `${appUrl}/${slug}/${n.id}` })) }
+    }
+  }),
   search_paper: paperTool({
     title: 'Search paper source',
     description: 'Case-insensitive search over the paper\'s LaTeX source, ignoring LaTeX punctuation (\\sqrt{\\log n} matches "sqrt log n"). Returns file:line, section, the node containing the line, and ±2 lines of context.',
@@ -299,7 +329,7 @@ const json = (value: unknown): CallToolResult => ({ content: [{ type: 'text', te
 const fail = (err: unknown): CallToolResult => ({ isError: true, content: [{ type: 'text', text: (err as Error).message }] })
 const readOnly = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 
-const INSTRUCTIONS = `Proof maps of math papers: every definition, lemma and theorem, plus the major claims inside long proofs, with plain-English explanations and dependency edges. Start with list_papers, then get_overview for a paper's main results and sections. get_node gives one node's explanation and direct edges; read_node gives its verbatim LaTeX statement and proof. Use trace for "how does X lead to Y" (the edges on a node are only direct uses), ancestors for everything a node rests on or supports, search_paper to find where something is defined or used. Node ids look like lem-greedy-hashes; LaTeX labels (lem:greedy-hashes) also work. Every node has a url you can give the user.`
+const INSTRUCTIONS = `Proof maps of math papers: every definition, lemma and theorem, plus the major claims inside long proofs, with plain-English explanations and dependency edges. Start with list_papers, then get_overview for a paper's main results and sections. get_node gives one node's explanation and direct edges; read_node gives its verbatim LaTeX statement and proof. Use trace for "how does X lead to Y" (the edges on a node are only direct uses), ancestors for everything a node rests on or supports, search_paper to find where something is defined or used. When the text you need is outside any node (a search hit without a node, a section with 0 nodes, a proof's second environment), read_source reads a file line range or a whole section in one call. Node ids look like lem-greedy-hashes; LaTeX labels (lem:greedy-hashes) also work. Every node has a url you can give the user.`
 
 export function createDigestMcpServer(deps: McpDeps) {
   const server = new McpServer({ name: 'proofmap', title: 'Proofmap: proof maps', version: '1.0.0' }, { instructions: INSTRUCTIONS })
@@ -367,7 +397,8 @@ export function agentGuide(papers: (McpPaperRow & { url: string })[], appUrl: st
     [`Overview of \`${example}\``, `${ex}/get_overview`],
     [`Nodes of \`${example}\`, first page of 20`, `${ex}/list_nodes?limit=20`],
     [`Nodes of \`${example}\`, second page`, `${ex}/list_nodes?limit=20&offset=20`],
-    [`Friction in \`${example}\``, `${ex}/get_friction?severity=high`],
+    [`Section 1 of \`${example}\` as numbered source`, `${ex}/read_source?section=1`],
+    [`Friction in \`${example}\``, `${ex}/get_friction`],
     ['Catalog search', `${api}/families?q=exponential`],
     ['One family', `${api}/families/${papers.find(p => p.family)?.family?.code ?? '049'}`],
     ['Disciplines and totals', `${api}/disciplines`],
@@ -411,13 +442,27 @@ argument (the slug). A plain GET of the endpoint returns a short explainer.
    catalog: \`GET ${api}/families?q=…\`.)
 2. \`GET ${api}/papers/<slug>/get_overview\` gives the summary, main results and the section layout.
 3. Drill in with \`get_node\` (the explanation and direct edges) and \`read_node\` (the verbatim LaTeX statement and proof).
-4. For "how does X lead to Y", call \`trace\`; a node's own edges are only its direct uses, so don't assemble chains by
+4. When the text you need is outside any node, or a \`search_paper\` hit has no \`node\`, call \`read_source\` on its
+   \`file\`/\`line\` range (or on a \`section\` id from the overview; sections with \`nodes: 0\` are the ones the map
+   does not cover). One call reads up to ${READ_SOURCE_LINES} lines; \`next_from\` says where to continue and \`file_lines\` is the file's
+   last line. Overview sections carry \`from\`/\`to\` (the heading to the line before the next heading in that file).
+5. For "how does X lead to Y", call \`trace\`; a node's own edges are only its direct uses, so don't assemble chains by
    hand. \`ancestors\` gives everything a node rests on or supports.
-5. Answer from what the tools return, and cite nodes with their \`url\` so the user can open them in the map.
+6. Answer from what the tools return, and cite nodes with their \`url\` so the user can open them in the map.
 
 Node ids look like \`lem-greedy-hashes\`; the paper's LaTeX labels (\`lem:greedy-hashes\`) work too. An unknown id comes back
 as an error that lists close matches. Errors are \`{ "error": "…" }\` with status 400 (bad arguments) or 404 (unknown
-paper, node, figure or family).
+paper, node, figure, section or family).
+
+Things that cost agents a call before they knew them:
+
+- \`headline\` on a node is optional; older maps have none.
+- \`search_paper\` covers the LaTeX source only (not the catalog abstract), every hit carries \`file\` and \`line\`, the
+  context is ±2 lines, and at most 15 hits come back in file order. LaTeX labels are plain searchable strings
+  (\`eq:main-bound\`). In a query string \`+\` must be written \`%2B\`.
+- \`read_node\`'s \`statement\` is a string and its \`proof\` an object (\`location\`, \`text\`, \`source\`) covering the first
+  proof environment after the statement; a proof given elsewhere shows up as a \`proof_note\`, and \`read_source\` reads it.
+- Most friction notes are \`info\`; \`warn\` is the useful tier, and many papers have no \`high\` note at all.
 
 Example: \`GET ${api}/papers/${example}/trace?from=<node>&to=<node>\`
 

@@ -1,0 +1,54 @@
+# Understanding of the `eth` paper (round 2), from the Proofmap API only
+
+## 1. The main theorem
+Node `thm-main` (label thm:main, stated in Section 1, main_full_version.tex:73-85; checked against read_node LaTeX, call 5). For each fixed k>=2 there is a deterministic algorithm that, given a k-CNF F on n>=20 declared variables with m clauses, computes #F (the number of satisfying assignments of the declared variables) in (n+m)^{O_k(1)} * 2^{O_k(n loglog n / sqrt(log n))} bit operations and (n+m)^{O_k(1)} bits of space. If m <= D n for fixed D, the time is (n+m)^{O_{k,D}(1)} 2^{O_{k,D}(n/sqrt(log n))}. Since a 3-SAT instance has m <= poly(n), this is 2^{o(n)} for 3-SAT, contradicting ETH.
+
+Where proved: the Section 1 proof environment (quantitative-reduction.tex:67-98) only does the fixed-density case, by encoding the CNF as a bipartite tensor network and invoking `thm-tensor-contraction` (Appendix D.1 statement, proof D.4). The general-density bound is proved in Appendix D.2/D.3 via `lem-sparsify` (App. A), `lem-sparse-checks` and `lem-greedy-hashes` (Sec. 6), and `lem-tensor-sparse-query` (D.3); I could read it only through claim spans (claim-thm-main-3..5; the exact proof lines 317-369 were not returned as a block).
+
+Abstract mismatch: the catalog abstract says 2^{n/(log n)^{1/2+o(1)}}. The theorem is stronger in form (n loglog n/sqrt(log n)) but the abstract's expression is not what is proved: the paper's own Section-1 remark (lines 88-92, via search, call 37) writes the weaker rho(n)=n(loglog n)^2/sqrt(log n) as "n/(log n)^{1/2+o(1)}", which has the sign of the o(1) wrong (it equals n/(log n)^{1/2-o(1)}). The theorem's actual n loglog n/sqrt(log n) is also n/(log n)^{1/2-o(1)}. So the abstract overstates by a sub-polylog factor. Harmless for refuting ETH, which needs only 2^{o(n)}.
+
+## 2. Proof architecture (load-bearing chain)
+Classifications are the map's; "agree" says whether I do. All LaTeX below was read with read_node except where noted.
+
+1. `lem-rational-idempotent` (Sec 6, routine): polynomials e_j of degree <=1 with p_l(Y)=sum e_j(Y) h(Y)^j, h=Y^2-Y, and p_l(y)=1[y even] mod 2^l (Beigel-Tarui modulus amplification). Agree; proof read, depends on external BT94.
+2. `lem-total-order` (routine): in Z/2^l[V]/V^l the coefficient-sum of prod B_i(V) equals the product of parity indicators, and has total degree d(m+2(l-1)), i.e. linear. Agree; read.
+3. `lem-tensor-integrality` (routine): the Cauchy-type matrix W(T)=C(T)/(C'(0)(T-(y-x))) has 2-adically integral entries at the grid points t, with W(0)=I. Agree on correctness of the displayed argument; but this is the idea that makes the whole thing work, so I would call it novel, not routine.
+4. `lem-tapered-hermite` (routine): Hermite interpolation with multiplicities tapered by 2-adic valuation recovers F(0) mod 2^p from F(t+alpha z) mod 2^{p_t}; checks sum q_t >= 3ML > deg. Read in full; arithmetic looks right. Partly disagree with "routine": the taper is new.
+5. D.4.5/D.4.6 unlabeled recursion identity, mode count exp(O(M/sqrt u)), precision bound (eq:tensor-recursion-identity, tensor-partition-count, tensor-precision-bound). Not a node, so not classified. NOT read as a block; only lines 457, 484-492, 514-518 via search_paper.
+6. `thm-tensor-contraction` (novel): any bipartite tensor network with <=Cs edges, degree <=s^{9/10}, entries in Z/2^{P0}[V]/V^l contracts in 2^{O(s/sqrt(log s))}. Agree it is novel and agree it is the load-bearing step. Its LaTeX proof (560-619) is bookkeeping around item 5.
+7. `lem-tensor-sparse-query` (novel): common zeros of a<=cn sparse F2 polynomials (<=log^c n monomials, degree<=k) in n^{O(1)}2^{O(n loglog n/sqrt(log n))}; builds a J=n^{1/4} by n^{1/4} network with s=n*loglog n wires and calls item 6. Read fully; the wire count bound K log(e(N+K)/K)=O(n nu) and degree bound n^{3/4} polylog <= s^{9/10} check out. Agree. Source of the loglog n factor.
+8. `lem-sparsify` with `lem-spar-branch`, `lem-spar-insertion-bound`, claims 3/4 (routine): deterministic disjoint-leaf sparsification, 2^{sigma n} leaves, occurrence bound B=O((sigma^-1 log)^{k-1}). I read the branching, insertion recurrence (verified induction) and tree-size encoding; plausible. Agree routine-ish (a counting version of IPZ).
+9. `lem-sparse-checks` (routine): deterministic <=3n-row, row-weight D_0 parity-check matrix whose kernel has min weight >= m/P, P=20000B^2 mu^2. Statement read; proof (Tanner code over small-bias expander) read only superficially. Classification "routine" is generous.
+10. `lem-greedy-hashes` (routine): conditional-expectation selection of 3n random-hash rows, each cutting non-solutions by 3/4, giving N(A)=#F; (27/32)^n<1. Read and verified.
+11. `thm-main`: sum leaf counts over the 2^{sigma n} leaves with sigma~1/sqrt(log n).
+
+Not load-bearing for `thm-main` (by ancestors, calls 8 and 40, and by the paper's own remarks): Sections 3-5 and 6.4 (`def-layout`, `def-overview-measurement-structure`, `lem-measurement-separation`, `lem-boolean-differences`, `prop-general-count`, `lem-swaps-*`, `prop-count`, `thm-overview-sparse-polynomials`, `prop-interpolation-bound`, the Section 2 overview). They give the older, weaker rho(n)=n(loglog n)^2/sqrt(log n) bound, which is what the abstract's expression comes from. Also not load-bearing: all corollaries (max-sat, graph counting, circuit lower bounds, local inversion) and Appendix C.
+
+## 3. Most likely wrong or hand-wavy
+1. The unlabeled recursion of Appendix D.4.5-D.4.6 (quantitative-contraction.tex:~380-558; labels at 457 and 516). Quote I could get: "Distributing the product in \eqref{eq:tensor-deformed-contraction}, and then summing the independent bits within groups, proves the exact identity F(t+\alpha\zeta)=\sum_{\beta:\sum w_Z\beta_Z<p_t}\prod_{g=1}^r Z_{g,\beta} \pmod{2^{p_t}}". Why: this is where subexponential cost is claimed to arise (call count exp(O(s/sqrt(lambda))) from tuple count exp(O_C(M/sqrt u)) over depths), yet it has no theorem statement, is not a node, and the map itself flags it (warn). A general tensor network with Cs edges contracting in 2^{O(s/sqrt(log s))} is an extraordinary claim; everything rests on whether the deformed network W(t) really decouples groups through few measurements and whether the precision growth p_t=O_C(MD_t/u) closes. I could not check it.
+2. `thm-tensor-contraction` proof, quantitative-contraction.tex:580-588: "Indeed $M\le Cs\,8^{-d}$ and $u_d=\Theta_C(\lambda/2^d)$. Multiplying these bounds over the $O_C(\log\lambda)$ depths ... gives at most $\exp(O_C(s/\sqrt\lambda)+O_C(\lambda\log\lambda))$ calls". Why: the claim that the edge budget shrinks by 8 per level while the per-level tuple count stays exp(M/sqrt(u_d)) is asserted in two sentences, with the "or bounding the number of nodes on each level in this way" hedge; the geometric series in (sqrt2/8)^d is the whole saving, and the step "M <= C s 8^{-d}" depends on child networks (D.4.6) really having 1/8 the edges, which I only saw in an unreadable fragment.
+3. `lem-sparse-checks` (main_full_version.tex statement, node in Sec 6.1): "z in {0,1}^m\setminus{0}, A^{(0)}z=0 (mod 2) => |supp z| >= m/P" with <=3n rows, row weight D_0=320000 B^2 mu^3, deterministic in exp(poly(B,log m)). Why: a nontrivial explicit LDPC distance claim at small relative distance; the map calls it routine and I read the proof only briefly. If it failed the greedy-hash derandomization (item 10) would not give N(A)=#F. Lower risk than 1 and 2 because it is a classical-flavoured construction.
+Honorable mention: the cited-not-proved base `lem-rational-idempotent` (Beigel-Tarui, Chan-Williams) and the ETH-adjacent corollary `cor-quantitative-circuits` (rests on Williams witness-circuit argument), neither load-bearing for thm-main.
+
+## 4. Verdict
+Not obviously slop: the surrounding scaffolding I read in full (parity lift, total-order degree bound, tapered Hermite arithmetic, sparsification counting, greedy hashing arithmetic, wire/degree accounting in the reduction) is internally consistent and carefully written, and the claim has a coherent mechanism. But the one step everything rests on, the subexponential contraction of general low-degree bipartite tensor networks, I could read only at the statement level plus the Hermite and integrality lemmas; its core recursion was not readable. Posterior in words: plausible but unverified; I would put roughly even odds (somewhat below even, given the extraordinary claim that it refutes ETH) that the argument survives expert scrutiny. Not slop in the sense of an incoherent text. The abstract's "(log n)^{1/2+o(1)}" is a small genuine error.
+
+## 5. What I could not determine from the API alone
+- Whether the recursion identity (eq:tensor-recursion-identity) and mode count (eq:tensor-partition-count) are correct: would need the verbatim LaTeX of quantitative-contraction.tex lines ~380-558; a `read_node` over a line range or a node for D.4.5/D.4.6 (or search_paper returning more than +-2 lines) would settle it.
+- The exact general-density proof (quantitative-reduction.tex:317-369): would need read_node with a file:line range.
+- The full proof of `lem-sparse-checks` (Tanner code claims): I skimmed the first part; a full read of claims 1-6 would settle it.
+- Whether the Lean formalization (catalog says has_lean) covers the tensor contraction theorem: would need a Lean-status endpoint with per-theorem granularity; the API gave only a boolean.
+- External citations (Beigel-Tarui, Chan-Williams, Williams, JMV13): not checkable by this API.
+- Whether the abstract text is the same as the catalog abstract in the PDF: abstract is not in the searchable source.
+
+## 6. Painful moments
+1. Core argument has no node: recursion identity, mode count and precision bound sit in unlabeled text (log 7, 13, 14, 15, 17).
+2. `claim-thm-tensor-contraction-1` read_node simply repeats the wrapper proof, adding nothing (log 14).
+3. search_paper shows only +-2 lines, so I could not read D.4.5-D.4.6 contiguously, and cost me five searches to piece together the setup (log 13, 15-19).
+4. read_node for `thm-main` returns only the fixed-density proof; the general case is only visible through claims (log 5, 31).
+5. get_friction severity=high returns nothing even though the real weak point is flagged only at warn (log 30, 32).
+6. list_nodes has empty headlines for all 89 nodes, so the listing was not scannable (log 3).
+7. read_node shape inconsistency: statement is a string, proof is an object; my first jq failed (log 6).
+8. Searching a symbolic string returned zero hits, and an abstract query also zero (log 35, 36).
+9. Classification labels disagree with substance: tapered-hermite and tensor-integrality marked routine though they are the new 2-adic trick (log 11).
+10. DAG edges missing, e.g. greedy-hashes to sparse-checks, so ancestors undercounts dependencies (log 23).

@@ -1,13 +1,18 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { createMcpHandler } from '@modelcontextprotocol/server'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
+import type { ReadSourceOutput } from '#shared/api'
+import type { PaperDigest, ProofNode } from '#shared/types'
+import { chunkLatex } from '../server/pipeline/latex/chunk'
 import { toyDigest } from '../server/fixtures/toy-digest'
 import { invalidateCatalog, listPublicPapers, loadPublicDigest } from '../server/utils/agentApi'
 import { agentEntry, attributionRef, classifyUserAgent, hashIp, hasLoggedCalls, mcpCalls, parseRpc, recordAgentRequests, setAgentLogSink } from '../server/utils/agentLog'
 import { agentRequestStats, formatAgentStats } from '../server/utils/agentStats'
+import { buildChatSources, READ_NODE_CHARS, READ_SOURCE_LINES } from '../server/utils/chatTools'
 import type { McpDeps } from '../server/utils/mcpTools'
-import { createDigestMcpServer } from '../server/utils/mcpTools'
+import { createDigestMcpServer, paperOverview, runPaperTool } from '../server/utils/mcpTools'
 import { setSupabase } from '../server/utils/supabase'
 import { createFakeSupabase } from './helpers/fakeSupabase'
 
@@ -181,5 +186,86 @@ describe('mcp call logging', () => {
     ])
     expect(mcpCalls(null, null, 200)).toEqual([])
     expect(parseRpc('event: message\ndata: {"id":3,"result":{"isError":true,"content":[{"type":"text","text":"No node"}]}}\n\n')).toEqual([{ id: 3, result: { isError: true, content: [{ type: 'text', text: 'No node' }] } }])
+  })
+})
+
+describe('read_source', () => {
+  const APP = 'https://proofmap.example'
+  // The toy LaTeX fixture with a digest whose refs point into it (the toy digest's own refs name a file it does not have).
+  const dir = new URL('./fixtures/latex/toy/', import.meta.url)
+  const files = ['main.tex', 'sections/prelim.tex'].map(path => ({ path, content: readFileSync(new URL(path, dir), 'utf8') }))
+  const node = (id: string, kind: ProofNode['kind'], label: string, file: string, line: number): ProofNode => ({
+    id, kind, name: id, statement_paper: `stmt ${id}`, statement_plain: '', explanation: '', classification: 'unknown',
+    paper_ref: { label, section: file === 'main.tex' ? '2' : '1', file, line }, deps_paper: [], deps_inferred: [], friction: []
+  })
+  const sourced: PaperDigest = {
+    ...toyDigest,
+    sections: [
+      { id: '1', title: 'Preliminaries', level: 1, order: 0, file: 'main.tex', line: 9 },
+      { id: '2', title: 'Main result', level: 1, order: 1, file: 'main.tex', line: 11 }
+    ],
+    nodes: [node('def-poly', 'definition', 'def:poly', 'sections/prelim.tex', 1), node('lem-roots', 'lemma', 'lem:roots', 'sections/prelim.tex', 4), node('thm-main', 'theorem', 'thm:main', 'main.tex', 13)],
+    root_ids: ['thm-main'],
+    equations: { 'eq:deg': { latex: '\\#\\{x : p(x) = 0\\} \\le d .', number: '1', section: '1', file: 'sections/prelim.tex', line: 6 } }
+  }
+  const deps: McpDeps = {
+    listPapers: async () => [],
+    loadDigest: async slug => slug === 'toy' ? sourced : null,
+    loadSources: async () => buildChatSources(files, chunkLatex(files, { mainFile: 'main.tex' }).skeleton, null),
+    appUrl: APP
+  }
+  const run = (args: Record<string, unknown>, d = deps) => runPaperTool(d, 'read_source', 'toy', args).then(r => r.output as ReadSourceOutput & { nodes_in_range: { url?: string }[] })
+
+  it('reads a numbered, comment-stripped range with the nodes and equations in it', async () => {
+    const out = await run({ file: 'sections/prelim.tex', from: 4, to: 13 })
+    expect(out).toMatchObject({ file: 'sections/prelim.tex', from: 4, to: 13 })
+    expect(out.section).toBeUndefined() // an \input file with no heading of its own, as search_paper reports it
+    expect(out.text.split('\n')[0]).toBe('4| \\begin{lemma}\\label{lem:roots}')
+    expect(out.text).not.toContain('lem:bogus')
+    expect(out.nodes_in_range.map(n => n.id)).toEqual(['lem-roots'])
+    expect(out.nodes_in_range[0]!.url).toBe(`${APP}/toy/lem-roots`)
+    expect(out.equations).toEqual([{ label: 'eq:deg', number: '1', latex: sourced.equations!['eq:deg']!.latex, file: 'sections/prelim.tex', line: 6 }])
+    expect(out.next_from).toBeUndefined()
+  })
+
+  it('resolves a section to its heading up to the next heading in the same file, and clamps `to`', async () => {
+    expect(await run({ section: '1' })).toMatchObject({ file: 'main.tex', from: 9, to: 10, nodes_in_range: [] })
+    const main = await run({ section: '2' })
+    expect(main).toMatchObject({ file: 'main.tex', from: 11, to: 23, section: '§2 Main result' })
+    expect(main.nodes_in_range.map(n => n.id)).toEqual(['thm-main'])
+    expect(main.equations.map(e => e.label)).toEqual(['eq:deg'])
+    expect(await run({ file: 'main.tex', from: 20, to: 999 })).toMatchObject({ from: 20, to: 23 })
+  })
+
+  it('caps at the line and character limits and says where to continue', async () => {
+    const long = Array.from({ length: 400 }, (_, i) => `line ${i + 1}`).join('\n')
+    const wide = Array.from({ length: 200 }, (_, i) => `${i + 1} ${'x'.repeat(200)}`).join('\n')
+    const d: McpDeps = { ...deps, loadSources: async () => buildChatSources([{ path: 'big.tex', content: long }, { path: 'wide.tex', content: wide }], null, null) }
+    const page = await run({ file: 'big.tex', from: 1, to: 400 }, d)
+    expect(page).toMatchObject({ from: 1, to: READ_SOURCE_LINES, next_from: READ_SOURCE_LINES + 1 })
+    expect(page.text.split('\n')).toHaveLength(READ_SOURCE_LINES)
+    expect(await run({ file: 'big.tex', from: 1, to: 400, offset: READ_SOURCE_LINES }, d)).toMatchObject({ from: READ_SOURCE_LINES + 1, to: 2 * READ_SOURCE_LINES, next_from: 2 * READ_SOURCE_LINES + 1 })
+    const chars = await run({ file: 'wide.tex' }, d)
+    expect(chars.text.length).toBeLessThanOrEqual(READ_NODE_CHARS)
+    expect(chars.to).toBeLessThan(READ_SOURCE_LINES)
+    expect(chars.next_from).toBe(chars.to + 1)
+  })
+
+  it('400 for a bad range or unknown file (listing the files), 404 for an unknown section (listing close ids)', async () => {
+    const file = await run({ file: 'nope.tex', from: 1, to: 2 }).catch(e => e)
+    expect(file).toMatchObject({ status: 400 })
+    expect(file.message).toContain('main.tex, sections/prelim.tex')
+    const range = await run({ file: 'main.tex', from: 9, to: 3 }).catch(e => e)
+    expect(range).toMatchObject({ status: 400 })
+    expect(range.message).toContain('from must not exceed to')
+    await expect(run({})).rejects.toMatchObject({ status: 400 })
+    await expect(run({ file: 'main.tex', from: 0, to: 3 })).rejects.toMatchObject({ status: 400 })
+    const section = await run({ section: '2.9' }).catch(e => e)
+    expect(section).toMatchObject({ status: 404 })
+    expect(section.message).toContain('Close ids: 2')
+  })
+
+  it('overview sections carry file and a from/to range so section → read_source needs no search', () => {
+    expect(paperOverview(sourced, APP).sections[0]).toEqual({ id: '1', title: 'Preliminaries', level: 1, file: 'main.tex', from: 9, line: 9, to: 10, nodes: 2 })
   })
 })
