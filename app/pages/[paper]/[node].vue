@@ -10,7 +10,7 @@ definePageMeta({ layout: 'dashboard', key: route => String(route.params.paper) }
 
 const route = useRoute()
 const toast = useToast()
-const { paperSlug, selectedId, select, setQuery } = useSelection()
+const { paperSlug, selectedId, cardClosed, select, setQuery } = useSelection()
 
 const { paper, digest, catalog, index, error, ready } = useDigest(paperSlug)
 const { operator, ready: operatorReady } = useOperator()
@@ -297,7 +297,7 @@ const side = computed<'node' | 'chat' | null>(() => {
   if (chatWanted && !(mounted.value && !isXl.value)) {
     return 'chat'
   }
-  if (view.value !== 'tree' && node.value && !(mounted.value && !isLg.value)) {
+  if (view.value !== 'tree' && node.value && !cardClosed.value && !(mounted.value && !isLg.value)) {
     return 'node'
   }
   return null
@@ -705,6 +705,16 @@ watch(() => [digest.value, selectedId.value] as const, ([d, id]) => {
                   size="sm"
                   @click="view = 'tree'"
                 />
+                <UTooltip text="Close (select a node to reopen)">
+                  <UButton
+                    icon="i-lucide-x"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Close node card"
+                    @click="cardClosed = true"
+                  />
+                </UTooltip>
               </template>
             </UDashboardNavbar>
           </template>

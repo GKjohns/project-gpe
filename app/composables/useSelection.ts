@@ -6,6 +6,8 @@ export function useSelection() {
   const router = useRouter()
   const paperSlug = computed(() => String(route.params.paper ?? ''))
   const selectedId = computed(() => String(route.params.node ?? ''))
+  // The graph/paper views' node card can be closed; any selection (even of the current node) brings it back.
+  const cardClosed = useState('node-card-closed', () => false)
 
   function linkTo(id: string, query: LocationQuery = route.query): RouteLocationRaw {
     return { path: `/${paperSlug.value}/${id}`, query }
@@ -13,6 +15,7 @@ export function useSelection() {
 
   /** Pushes by default so browser back walks the selection history; pass `replace` for programmatic moves. */
   function select(id: string, opts: { replace?: boolean } = {}) {
+    cardClosed.value = false
     if (id === selectedId.value) {
       return
     }
@@ -28,5 +31,5 @@ export function useSelection() {
     return router.replace({ path: route.path, query })
   }
 
-  return { paperSlug, selectedId, select, linkTo, setQuery }
+  return { paperSlug, selectedId, cardClosed, select, linkTo, setQuery }
 }
